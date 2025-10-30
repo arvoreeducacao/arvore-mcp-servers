@@ -45,8 +45,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-          registry-url: "https://npm.pkg.github.com"
-          scope: "@arvore"
           cache: "pnpm"
 
       - name: Install dependencies
@@ -61,6 +59,10 @@ jobs:
           echo "@arvore:registry=https://npm.pkg.github.com" >> ~/.npmrc
 
       - name: Publish packages
-        run: pnpm -r publish --no-git-checks --access public
+        run: |
+          cd packages/aws-secrets-manager && npm publish
+          cd ../datadog && npm publish
+          cd ../mysql && npm publish
+          cd ../npm-registry && npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
