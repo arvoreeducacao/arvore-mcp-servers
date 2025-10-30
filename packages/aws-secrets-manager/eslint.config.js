@@ -6,6 +6,7 @@ export default [
   eslint.configs.recommended,
   {
     files: ["src/**/*.ts"],
+    ignores: ["**/*.test.ts"],
     languageOptions: {
       parser: tsparser,
       parserOptions: {
@@ -28,6 +29,26 @@ export default [
       "@typescript-eslint/no-explicit-any": "warn",
     },
   },
+  {
+    files: ["src/**/*.test.ts"],
+    languageOptions: {
+      parser: tsparser,
+      parserOptions: {
+        ecmaVersion: "latest",
+        sourceType: "module",
+      },
+      globals: {
+        console: "readonly",
+        process: "readonly",
+      },
+    },
+    plugins: {
+      "@typescript-eslint": tseslint,
+    },
+    rules: {
+      ...tseslint.configs.recommended.rules,
+      "@typescript-eslint/no-unused-vars": "error",
+      "@typescript-eslint/no-explicit-any": "off",
+    },
+  },
 ];
-
-
