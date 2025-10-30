@@ -6,8 +6,8 @@ export const MySQLConfigSchema = z.object({
   user: z.string(),
   password: z.string(),
   database: z.string(),
-  ssl: z.boolean().default(false),
-  connectionTimeout: z.number().default(30000),
+  ssl: z.boolean().optional().default(false),
+  connectionTimeout: z.number().optional().default(30000),
 });
 
 export type MySQLConfig = z.infer<typeof MySQLConfigSchema>;

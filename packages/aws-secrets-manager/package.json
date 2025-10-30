@@ -5,7 +5,8 @@
   "main": "dist/index.js",
   "type": "module",
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "registry": "https://npm.pkg.github.com"
   },
   "bin": {
     "aws-secrets-manager-mcp": "./dist/index.js"
