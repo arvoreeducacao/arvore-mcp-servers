@@ -118,14 +118,24 @@ Add to your Claude Desktop configuration file:
 }
 ```
 
-**Note:** Since these packages are published to GitHub Package Registry, you need to authenticate `npx` to access them. Create a `.npmrc` file in your home directory with:
+**Note:** Since these packages are published to GitHub Package Registry, you need to authenticate `npx` to access them.
+
+1. Set the `GITHUB_TOKEN` environment variable:
 
 ```bash
-@arvoreeducacao:registry=https://npm.pkg.github.com
-//npm.pkg.github.com/:_authToken=YOUR_GITHUB_PERSONAL_ACCESS_TOKEN
+export GITHUB_TOKEN=$(gh auth token)
 ```
 
-Replace `YOUR_GITHUB_PERSONAL_ACCESS_TOKEN` with a GitHub personal access token that has `read:packages` permission.
+2. Create a `.npmrc` file in your home directory:
+
+```bash
+cat > ~/.npmrc << 'EOF'
+@arvoreeducacao:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
+EOF
+```
+
+Or use the provided `.npmrc.example` as a template.
 
 ## 🛠️ Development
 
