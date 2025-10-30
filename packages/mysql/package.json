@@ -1,6 +1,6 @@
 {
   "name": "@arvoretech/mysql-mcp",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "MySQL MCP Server for read-only database operations",
   "main": "dist/index.js",
   "type": "module",
