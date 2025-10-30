@@ -12,6 +12,9 @@
     "lint": "pnpm -r lint",
     "lint:fix": "pnpm -r lint:fix",
     "clean": "pnpm -r exec rm -rf dist coverage node_modules",
+    "version:patch": "pnpm -r exec npm version patch --no-git-tag-version",
+    "version:minor": "pnpm -r exec npm version minor --no-git-tag-version",
+    "version:major": "pnpm -r exec npm version major --no-git-tag-version",
     "publish:all": "pnpm -r publish --access public"
   },
   "keywords": [
