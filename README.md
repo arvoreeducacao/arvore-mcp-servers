@@ -9,7 +9,7 @@ A collection of Model Context Protocol (MCP) servers developed by Arvore for sea
 
 This monorepo contains the following MCP servers:
 
-### [@arvoreeducacao/aws-secrets-manager-mcp](./packages/aws-secrets-manager)
+### [@arvoretech/aws-secrets-manager-mcp](./packages/aws-secrets-manager)
 
 Manage AWS Secrets Manager secrets directly from your AI assistant.
 
@@ -19,7 +19,7 @@ Manage AWS Secrets Manager secrets directly from your AI assistant.
 - List all secrets in your account
 - Describe secret metadata
 
-### [@arvoreeducacao/datadog-mcp](./packages/datadog)
+### [@arvoretech/datadog-mcp](./packages/datadog)
 
 Query and analyze Datadog monitoring data.
 
@@ -31,7 +31,7 @@ Query and analyze Datadog monitoring data.
 - List hosts and active metrics
 - Search traces
 
-### [@arvoreeducacao/mysql-mcp](./packages/mysql)
+### [@arvoretech/mysql-mcp](./packages/mysql)
 
 Execute read-only MySQL queries safely.
 
@@ -41,7 +41,7 @@ Execute read-only MySQL queries safely.
 - List tables in database
 - Read-only operations for safety
 
-### [@arvoreeducacao/npm-registry-mcp](./packages/npm-registry)
+### [@arvoretech/npm-registry-mcp](./packages/npm-registry)
 
 Search and get information about npm packages.
 
@@ -58,16 +58,16 @@ Search and get information about npm packages.
 Install individual packages:
 
 ```bash
-npm install -g @arvoreeducacao/aws-secrets-manager-mcp
-npm install -g @arvoreeducacao/datadog-mcp
-npm install -g @arvoreeducacao/mysql-mcp
-npm install -g @arvoreeducacao/npm-registry-mcp
+npm install -g @arvoretech/aws-secrets-manager-mcp
+npm install -g @arvoretech/datadog-mcp
+npm install -g @arvoretech/mysql-mcp
+npm install -g @arvoretech/npm-registry-mcp
 ```
 
 Or using pnpm:
 
 ```bash
-pnpm add -g @arvoreeducacao/aws-secrets-manager-mcp
+pnpm add -g @arvoretech/aws-secrets-manager-mcp
 ```
 
 ### Configuration
@@ -82,11 +82,11 @@ Add to your Claude Desktop configuration file:
   "mcpServers": {
     "aws-secrets-manager": {
       "command": "npx",
-      "args": ["-y", "@arvoreeducacao/aws-secrets-manager-mcp"]
+      "args": ["-y", "@arvoretech/aws-secrets-manager-mcp"]
     },
     "datadog": {
       "command": "npx",
-      "args": ["-y", "@arvoreeducacao/datadog-mcp"],
+      "args": ["-y", "@arvoretech/datadog-mcp"],
       "env": {
         "DATADOG_API_KEY": "your-api-key",
         "DATADOG_APP_KEY": "your-app-key",
@@ -95,7 +95,7 @@ Add to your Claude Desktop configuration file:
     },
     "mysql": {
       "command": "npx",
-      "args": ["-y", "@arvoreeducacao/mysql-mcp"],
+      "args": ["-y", "@arvoretech/mysql-mcp"],
       "env": {
         "MYSQL_HOST": "localhost",
         "MYSQL_USER": "readonly_user",
@@ -106,7 +106,7 @@ Add to your Claude Desktop configuration file:
     },
     "npm-registry": {
       "command": "npx",
-      "args": ["-y", "@arvoreeducacao/npm-registry-mcp"]
+      "args": ["-y", "@arvoretech/npm-registry-mcp"]
     }
   }
 }
@@ -186,7 +186,7 @@ You can manually trigger publishing for a specific package:
 - Go to GitHub Actions
 - Select "Publish Packages" workflow
 - Click "Run workflow"
-- Specify package name (e.g., `@arvoreeducacao/aws-secrets-manager-mcp`)
+- Specify package name (e.g., `@arvoretech/aws-secrets-manager-mcp`)
 - Choose version bump type (`major`, `minor`, or `patch`)
 
 ### Setup Requirements

@@ -1,6 +1,6 @@
 # NPM Registry MCP Server
 
-[![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en/install-mcp?name=npm-registry-mcp&registry=https://npm.pkg.github.com&packageName=@arvoreeducacao/npm-registry-mcp)
+[![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en/install-mcp?name=npm-registry-mcp&registry=https://npm.pkg.github.com&packageName=@arvoretech/npm-registry-mcp)
 
 A Model Context Protocol (MCP) server implementation that provides comprehensive access to NPM package information through the official NPM registry API. Perfect for integrating NPM package data with LLMs and AI tools.
 
@@ -17,14 +17,14 @@ A Model Context Protocol (MCP) server implementation that provides comprehensive
 ## Installation
 
 ```bash
-npm install -g @arvoreeducacao/npm-registry-mcp --registry=https://npm.pkg.github.com
+npm install -g @arvoretech/npm-registry-mcp --registry=https://npm.pkg.github.com
 ```
 
 Or configure your `.npmrc`:
 
 ```bash
-echo "@arvoreeducacao:registry=https://npm.pkg.github.com" >> ~/.npmrc
-npm install -g @arvoreeducacao/npm-registry-mcp
+echo "@arvoretech:registry=https://npm.pkg.github.com" >> ~/.npmrc
+npm install -g @arvoretech/npm-registry-mcp
 ```
 
 ## Usage
@@ -134,7 +134,7 @@ Add to your Claude Desktop configuration file (`~/Library/Application Support/Cl
   "mcpServers": {
     "npm-registry": {
       "command": "npx",
-      "args": ["-y", "@arvoreeducacao/npm-registry-mcp"]
+      "args": ["-y", "@arvoretech/npm-registry-mcp"]
     }
   }
 }

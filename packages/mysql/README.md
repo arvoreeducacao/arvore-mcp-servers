@@ -1,6 +1,6 @@
 # MySQL MCP Server
 
-[![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en/install-mcp?name=mysql-mcp&registry=https://npm.pkg.github.com&packageName=@arvoreeducacao/mysql-mcp)
+[![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en/install-mcp?name=mysql-mcp&registry=https://npm.pkg.github.com&packageName=@arvoretech/mysql-mcp)
 
 A Model Context Protocol (MCP) server implementation for MySQL that enables read-only database operations through a standardized protocol for integration with LLMs and AI tools.
 
@@ -16,14 +16,14 @@ A Model Context Protocol (MCP) server implementation for MySQL that enables read
 ## Installation
 
 ```bash
-npm install -g @arvoreeducacao/mysql-mcp --registry=https://npm.pkg.github.com
+npm install -g @arvoretech/mysql-mcp --registry=https://npm.pkg.github.com
 ```
 
 Or configure your `.npmrc`:
 
 ```bash
-echo "@arvoreeducacao:registry=https://npm.pkg.github.com" >> ~/.npmrc
-npm install -g @arvoreeducacao/mysql-mcp
+echo "@arvoretech:registry=https://npm.pkg.github.com" >> ~/.npmrc
+npm install -g @arvoretech/mysql-mcp
 ```
 
 ## Configuration
@@ -119,7 +119,7 @@ Add to your Claude Desktop configuration file (`~/Library/Application Support/Cl
   "mcpServers": {
     "mysql": {
       "command": "npx",
-      "args": ["-y", "@arvoreeducacao/mysql-mcp"],
+      "args": ["-y", "@arvoretech/mysql-mcp"],
       "env": {
         "MYSQL_HOST": "localhost",
         "MYSQL_PORT": "3306",

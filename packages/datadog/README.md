@@ -1,6 +1,6 @@
 # Datadog MCP Server
 
-[![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en/install-mcp?name=datadog-mcp&registry=https://npm.pkg.github.com&packageName=@arvoreeducacao/datadog-mcp)
+[![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en/install-mcp?name=datadog-mcp&registry=https://npm.pkg.github.com&packageName=@arvoretech/datadog-mcp)
 
 A Model Context Protocol (MCP) server that provides AI assistants with access to Datadog monitoring and observability data.
 
@@ -19,14 +19,14 @@ A Model Context Protocol (MCP) server that provides AI assistants with access to
 ## Installation
 
 ```bash
-npm install -g @arvoreeducacao/datadog-mcp --registry=https://npm.pkg.github.com
+npm install -g @arvoretech/datadog-mcp --registry=https://npm.pkg.github.com
 ```
 
 Or configure your `.npmrc`:
 
 ```bash
-echo "@arvoreeducacao:registry=https://npm.pkg.github.com" >> ~/.npmrc
-npm install -g @arvoreeducacao/datadog-mcp
+echo "@arvoretech:registry=https://npm.pkg.github.com" >> ~/.npmrc
+npm install -g @arvoretech/datadog-mcp
 ```
 
 ## Configuration
@@ -82,7 +82,7 @@ Add to your Claude Desktop configuration file (`~/Library/Application Support/Cl
   "mcpServers": {
     "datadog": {
       "command": "npx",
-      "args": ["-y", "@arvoreeducacao/datadog-mcp"],
+      "args": ["-y", "@arvoretech/datadog-mcp"],
       "env": {
         "DATADOG_API_KEY": "your-api-key",
         "DATADOG_APP_KEY": "your-app-key",

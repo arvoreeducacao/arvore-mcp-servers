@@ -1,6 +1,6 @@
 # AWS Secrets Manager MCP Server
 
-[![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en/install-mcp?name=aws-secrets-manager-mcp&registry=https://npm.pkg.github.com&packageName=@arvoreeducacao/aws-secrets-manager-mcp)
+[![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en/install-mcp?name=aws-secrets-manager-mcp&registry=https://npm.pkg.github.com&packageName=@arvoretech/aws-secrets-manager-mcp)
 
 MCP server for managing AWS Secrets Manager secrets.
 
@@ -16,14 +16,14 @@ MCP server for managing AWS Secrets Manager secrets.
 ## Installation
 
 ```bash
-npm install -g @arvoreeducacao/aws-secrets-manager-mcp --registry=https://npm.pkg.github.com
+npm install -g @arvoretech/aws-secrets-manager-mcp --registry=https://npm.pkg.github.com
 ```
 
 Or configure your `.npmrc`:
 
 ```bash
-echo "@arvoreeducacao:registry=https://npm.pkg.github.com" >> ~/.npmrc
-npm install -g @arvoreeducacao/aws-secrets-manager-mcp
+echo "@arvoretech:registry=https://npm.pkg.github.com" >> ~/.npmrc
+npm install -g @arvoretech/aws-secrets-manager-mcp
 ```
 
 ## Setup
@@ -71,7 +71,7 @@ Add to your Claude Desktop configuration file (`~/Library/Application Support/Cl
   "mcpServers": {
     "aws-secrets-manager": {
       "command": "npx",
-      "args": ["-y", "@arvoreeducacao/aws-secrets-manager-mcp"],
+      "args": ["-y", "@arvoretech/aws-secrets-manager-mcp"],
       "env": {
         "AWS_REGION": "us-east-1",
         "AWS_PROFILE": "your-profile"
@@ -88,7 +88,7 @@ Or using direct credentials:
   "mcpServers": {
     "aws-secrets-manager": {
       "command": "npx",
-      "args": ["-y", "@arvoreeducacao/aws-secrets-manager-mcp"],
+      "args": ["-y", "@arvoretech/aws-secrets-manager-mcp"],
       "env": {
         "AWS_ACCESS_KEY_ID": "your-access-key",
         "AWS_SECRET_ACCESS_KEY": "your-secret-key",
