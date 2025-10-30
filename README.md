@@ -2,7 +2,7 @@
 
 A collection of Model Context Protocol (MCP) servers developed by Arvore for seamless integration with AI assistants like Claude.
 
-[![CI](https://github.com/arvore-education/mcp-servers/actions/workflows/ci.yml/badge.svg)](https://github.com/arvore-education/mcp-servers/actions/workflows/ci.yml)
+[![CI](https://github.com/arvoreeducacao/arvore-mcp-servers/actions/workflows/ci.yml/badge.svg)](https://github.com/arvoreeducacao/arvore-mcp-servers/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## 📦 Packages
@@ -114,7 +114,7 @@ Add to your Claude Desktop configuration file (`~/Library/Application Support/Cl
 ### Setup
 
 ```bash
-git clone https://github.com/arvore-education/mcp-servers.git
+git clone https://github.com/arvoreeducacao/arvore-mcp-servers.git
 cd mcp-servers
 pnpm install
 ```

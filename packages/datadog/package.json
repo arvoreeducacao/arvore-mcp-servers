@@ -32,7 +32,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/arvore-education/mcp-servers.git",
+    "url": "https://github.com/arvoreeducacao/arvore-mcp-servers.git",
     "directory": "packages/datadog"
   },
   "dependencies": {

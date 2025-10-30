@@ -7,8 +7,8 @@ Thank you for your interest in contributing! This document provides guidelines f
 1. Fork the repository
 2. Clone your fork:
    ```bash
-   git clone https://github.com/YOUR_USERNAME/mcp-servers.git
-   cd mcp-servers
+   git clone https://github.com/YOUR_USERNAME/arvore-mcp-servers.git
+   cd arvore-mcp-servers
    ```
 3. Install dependencies:
    ```bash
@@ -93,7 +93,7 @@ pnpm build
      "license": "MIT",
      "repository": {
        "type": "git",
-       "url": "https://github.com/arvore-education/mcp-servers.git",
+       "url": "https://github.com/arvoreeducacao/arvore-mcp-servers.git",
        "directory": "packages/your-mcp-name"
      },
      "dependencies": {
