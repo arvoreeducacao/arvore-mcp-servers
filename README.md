@@ -161,15 +161,60 @@ pnpm dev
 
 ## 🚢 Publishing
 
-Packages are automatically published to npm when:
+### Automatic Publishing
 
-- A commit is pushed to the `main` branch (all packages)
-- A version tag is created (specific package)
+This monorepo uses GitHub Actions for automatic publishing to npm. Publishing happens in these scenarios:
 
-Manual publishing:
+#### 1. Push to main branch
+
+All packages are automatically published when code is merged to main (after CI passes).
+
+#### 2. Manual workflow dispatch
+
+You can manually trigger publishing for a specific package:
+
+- Go to GitHub Actions
+- Select "Publish Packages" workflow
+- Click "Run workflow"
+- Specify package name (e.g., `@arvore/aws-secrets-manager-mcp`)
+- Choose version bump type (`major`, `minor`, or `patch`)
+
+### Setup Requirements
+
+To enable automatic publishing, add these secrets to your GitHub repository:
+
+1. **NPM_TOKEN**: Your npm authentication token
+
+   - Get from https://www.npmjs.com/settings/tokens
+   - Settings → Secrets → New repository secret
+   - Name: `NPM_TOKEN`
+   - Value: Your npm token
+
+2. **CODECOV_TOKEN** (optional): For coverage reports
+   - Get from https://codecov.io
+   - Add as repository secret
+
+### Manual Publishing
+
+If needed, you can publish manually:
 
 ```bash
+# Publish all packages
 pnpm -r publish --access public
+
+# Publish specific package
+cd packages/aws-secrets-manager
+pnpm publish --access public
+```
+
+### Version Management
+
+To bump versions:
+
+```bash
+# In a specific package directory
+cd packages/aws-secrets-manager
+pnpm version patch  # or minor, major
 ```
 
 ## 🤝 Contributing
