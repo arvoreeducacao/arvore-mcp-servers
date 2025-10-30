@@ -10,7 +10,8 @@ export const MySQLConfigSchema = z.object({
   connectionTimeout: z.number().optional().default(30000),
 });
 
-export type MySQLConfig = z.infer<typeof MySQLConfigSchema>;
+export type MySQLConfig = z.output<typeof MySQLConfigSchema>;
+export type MySQLConfigInput = z.input<typeof MySQLConfigSchema>;
 
 export const ReadQueryParamsSchema = z.object({
   query: z.string().min(1),

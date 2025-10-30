@@ -1,6 +1,8 @@
 import mysql from "mysql2/promise";
 import {
   MySQLConfig,
+  MySQLConfigInput,
+  MySQLConfigSchema,
   QueryResult,
   TableInfo,
   ColumnInfo,
@@ -9,7 +11,11 @@ import {
 } from "./types.js";
 
 export class MySQLConnection {
-  constructor(private readonly config: MySQLConfig) {}
+  private readonly config: MySQLConfig;
+
+  constructor(config: MySQLConfigInput) {
+    this.config = MySQLConfigSchema.parse(config);
+  }
 
   private async createConnection(): Promise<mysql.Connection> {
     try {
