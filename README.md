@@ -194,6 +194,7 @@ You can manually trigger publishing for a specific package:
 To enable automatic publishing, add these secrets to your GitHub repository:
 
 1. **NPM_TOKEN**: Required for publishing to npm
+
    - Create a token at https://www.npmjs.com/settings/tokens
    - Select "Automation" token type
    - Add as repository secret in GitHub Settings > Secrets and variables > Actions
