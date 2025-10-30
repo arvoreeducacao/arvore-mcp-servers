@@ -99,14 +99,9 @@ export class MySQLMCPServer {
 
   async start(): Promise<void> {
     try {
-      console.error("[DEBUG] Starting MySQL MCP Server...");
-      console.error("[DEBUG] Connecting to database...");
       await this.db.connect();
-      console.error("[DEBUG] Database connected");
 
-      console.error("[DEBUG] Testing connection...");
       const isConnected = await this.db.testConnection();
-      console.error(`[DEBUG] Connection test result: ${isConnected}`);
       if (!isConnected) {
         throw new MySQLMCPError(
           "Database connection test failed",
@@ -114,11 +109,8 @@ export class MySQLMCPServer {
         );
       }
 
-      console.error("[DEBUG] Creating stdio transport...");
       const transport = new StdioServerTransport();
-      console.error("[DEBUG] Connecting server to transport...");
       await this.server.connect(transport);
-      console.error("[DEBUG] Server connected to transport");
 
       console.error("MySQL MCP Server started successfully");
     } catch (error) {
