@@ -55,13 +55,7 @@ Search and get information about npm packages.
 
 ### Installation
 
-First, configure your npm to use GitHub Package Registry for the `@arvoreeducacao` scope:
-
-```bash
-echo "@arvoreeducacao:registry=https://npm.pkg.github.com" >> ~/.npmrc
-```
-
-Then install individual packages:
+Install individual packages:
 
 ```bash
 npm install -g @arvoreeducacao/aws-secrets-manager-mcp
@@ -118,24 +112,7 @@ Add to your Claude Desktop configuration file:
 }
 ```
 
-**Note:** Since these packages are published to GitHub Package Registry, you need to authenticate `npx` to access them.
-
-1. Set the `GITHUB_TOKEN` environment variable:
-
-```bash
-export GITHUB_TOKEN=$(gh auth token)
-```
-
-2. Create a `.npmrc` file in your home directory:
-
-```bash
-cat > ~/.npmrc << 'EOF'
-@arvoreeducacao:registry=https://npm.pkg.github.com
-//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
-EOF
-```
-
-Or use the provided `.npmrc.example` as a template.
+**Note:** These packages are published to the public npm registry and can be used directly with `npx` without any additional configuration.
 
 ## 🛠️ Development
 
@@ -216,7 +193,10 @@ You can manually trigger publishing for a specific package:
 
 To enable automatic publishing, add these secrets to your GitHub repository:
 
-1. **GITHUB_TOKEN**: Automatically available in GitHub Actions (no setup needed)
+1. **NPM_TOKEN**: Required for publishing to npm
+   - Create a token at https://www.npmjs.com/settings/tokens
+   - Select "Automation" token type
+   - Add as repository secret in GitHub Settings > Secrets and variables > Actions
 
 2. **CODECOV_TOKEN** (optional): For coverage reports
    - Get from https://codecov.io
