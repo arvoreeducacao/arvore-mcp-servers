@@ -1,6 +1,6 @@
 {
   "name": "@arvoretech/npm-registry-mcp",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "NPM Registry MCP Server for package information",
   "main": "dist/index.js",
   "type": "module",

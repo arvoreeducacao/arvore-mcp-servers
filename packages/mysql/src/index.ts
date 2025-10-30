@@ -1,8 +1,12 @@
 #!/usr/bin/env node
 
 import { MySQLMCPServer } from "./server.js";
+import { fileURLToPath } from "node:url";
 
-async function main(): Promise<void> {
+const isMainModule =
+  process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+
+if (isMainModule) {
   try {
     const server = MySQLMCPServer.fromEnvironment();
     server.setupGracefulShutdown();
@@ -11,13 +15,6 @@ async function main(): Promise<void> {
     console.error("Failed to start MySQL MCP Server:", error);
     process.exit(1);
   }
-}
-
-if (import.meta.url === `file://${process.argv[1]}`) {
-  main().catch((error) => {
-    console.error("Fatal error:", error);
-    process.exit(1);
-  });
 }
 
 export { MySQLMCPServer } from "./server.js";
