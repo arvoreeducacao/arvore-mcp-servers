@@ -9,7 +9,7 @@ A collection of Model Context Protocol (MCP) servers developed by Arvore for sea
 
 This monorepo contains the following MCP servers:
 
-### [@arvore/aws-secrets-manager-mcp](./packages/aws-secrets-manager)
+### [@arvoreeducacao/aws-secrets-manager-mcp](./packages/aws-secrets-manager)
 
 Manage AWS Secrets Manager secrets directly from your AI assistant.
 
@@ -19,7 +19,7 @@ Manage AWS Secrets Manager secrets directly from your AI assistant.
 - List all secrets in your account
 - Describe secret metadata
 
-### [@arvore/datadog-mcp](./packages/datadog)
+### [@arvoreeducacao/datadog-mcp](./packages/datadog)
 
 Query and analyze Datadog monitoring data.
 
@@ -31,7 +31,7 @@ Query and analyze Datadog monitoring data.
 - List hosts and active metrics
 - Search traces
 
-### [@arvore/mysql-mcp](./packages/mysql)
+### [@arvoreeducacao/mysql-mcp](./packages/mysql)
 
 Execute read-only MySQL queries safely.
 
@@ -41,7 +41,7 @@ Execute read-only MySQL queries safely.
 - List tables in database
 - Read-only operations for safety
 
-### [@arvore/npm-registry-mcp](./packages/npm-registry)
+### [@arvoreeducacao/npm-registry-mcp](./packages/npm-registry)
 
 Search and get information about npm packages.
 
@@ -55,33 +55,44 @@ Search and get information about npm packages.
 
 ### Installation
 
-Install individual packages:
+First, configure your npm to use GitHub Package Registry for the `@arvoreeducacao` scope:
 
 ```bash
-npm install -g @arvore/aws-secrets-manager-mcp
-npm install -g @arvore/datadog-mcp
-npm install -g @arvore/mysql-mcp
-npm install -g @arvore/npm-registry-mcp
+echo "@arvoreeducacao:registry=https://npm.pkg.github.com" >> ~/.npmrc
+```
+
+Then install individual packages:
+
+```bash
+npm install -g @arvoreeducacao/aws-secrets-manager-mcp
+npm install -g @arvoreeducacao/datadog-mcp
+npm install -g @arvoreeducacao/mysql-mcp
+npm install -g @arvoreeducacao/npm-registry-mcp
 ```
 
 Or using pnpm:
 
 ```bash
-pnpm add -g @arvore/aws-secrets-manager-mcp
+pnpm add -g @arvoreeducacao/aws-secrets-manager-mcp
 ```
 
 ### Configuration
 
-Add to your Claude Desktop configuration file (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+Add to your Claude Desktop configuration file:
+
+- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- Windows: `%APPDATA%\Claude\claude_desktop_config.json`
 
 ```json
 {
   "mcpServers": {
     "aws-secrets-manager": {
-      "command": "aws-secrets-manager-mcp"
+      "command": "npx",
+      "args": ["-y", "@arvoreeducacao/aws-secrets-manager-mcp"]
     },
     "datadog": {
-      "command": "datadog-mcp",
+      "command": "npx",
+      "args": ["-y", "@arvoreeducacao/datadog-mcp"],
       "env": {
         "DATADOG_API_KEY": "your-api-key",
         "DATADOG_APP_KEY": "your-app-key",
@@ -89,20 +100,32 @@ Add to your Claude Desktop configuration file (`~/Library/Application Support/Cl
       }
     },
     "mysql": {
-      "command": "mysql-mcp",
+      "command": "npx",
+      "args": ["-y", "@arvoreeducacao/mysql-mcp"],
       "env": {
         "MYSQL_HOST": "localhost",
         "MYSQL_USER": "readonly_user",
         "MYSQL_PASSWORD": "password",
-        "MYSQL_DATABASE": "your_database"
+        "MYSQL_DATABASE": "your_database",
+        "MYSQL_PORT": "3306"
       }
     },
     "npm-registry": {
-      "command": "npm-registry-mcp"
+      "command": "npx",
+      "args": ["-y", "@arvoreeducacao/npm-registry-mcp"]
     }
   }
 }
 ```
+
+**Note:** Since these packages are published to GitHub Package Registry, you need to authenticate `npx` to access them. Create a `.npmrc` file in your home directory with:
+
+```bash
+@arvoreeducacao:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=YOUR_GITHUB_PERSONAL_ACCESS_TOKEN
+```
+
+Replace `YOUR_GITHUB_PERSONAL_ACCESS_TOKEN` with a GitHub personal access token that has `read:packages` permission.
 
 ## 🛠️ Development
 
@@ -176,19 +199,14 @@ You can manually trigger publishing for a specific package:
 - Go to GitHub Actions
 - Select "Publish Packages" workflow
 - Click "Run workflow"
-- Specify package name (e.g., `@arvore/aws-secrets-manager-mcp`)
+- Specify package name (e.g., `@arvoreeducacao/aws-secrets-manager-mcp`)
 - Choose version bump type (`major`, `minor`, or `patch`)
 
 ### Setup Requirements
 
 To enable automatic publishing, add these secrets to your GitHub repository:
 
-1. **NPM_TOKEN**: Your npm authentication token
-
-   - Get from https://www.npmjs.com/settings/tokens
-   - Settings → Secrets → New repository secret
-   - Name: `NPM_TOKEN`
-   - Value: Your npm token
+1. **GITHUB_TOKEN**: Automatically available in GitHub Actions (no setup needed)
 
 2. **CODECOV_TOKEN** (optional): For coverage reports
    - Get from https://codecov.io
@@ -196,15 +214,15 @@ To enable automatic publishing, add these secrets to your GitHub repository:
 
 ### Manual Publishing
 
-If needed, you can publish manually:
+If needed, you can publish manually (requires authentication):
 
 ```bash
 # Publish all packages
-pnpm -r publish --access public
+pnpm -r publish
 
 # Publish specific package
 cd packages/aws-secrets-manager
-pnpm publish --access public
+npm publish
 ```
 
 ### Version Management

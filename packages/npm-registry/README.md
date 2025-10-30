@@ -1,4 +1,6 @@
-# NPM MCP Server
+# NPM Registry MCP Server
+
+[![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en/install-mcp?name=npm-registry-mcp&registry=https://npm.pkg.github.com&packageName=@arvoreeducacao/npm-registry-mcp)
 
 A Model Context Protocol (MCP) server implementation that provides comprehensive access to NPM package information through the official NPM registry API. Perfect for integrating NPM package data with LLMs and AI tools.
 
@@ -13,14 +15,16 @@ A Model Context Protocol (MCP) server implementation that provides comprehensive
 - 🌐 **No Configuration**: Uses public NPM APIs - no setup required
 
 ## Installation
-[![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en/install-mcp?name=npm-mcp&config=eyJjb21tYW5kIjoibm9kZSIsImFyZ3MiOlsiLi9kaXN0L2luZGV4LmpzIl19)
 
 ```bash
-# Install dependencies
-pnpm install
+npm install -g @arvoreeducacao/npm-registry-mcp --registry=https://npm.pkg.github.com
+```
 
-# Build the project
-pnpm build
+Or configure your `.npmrc`:
+
+```bash
+echo "@arvoreeducacao:registry=https://npm.pkg.github.com" >> ~/.npmrc
+npm install -g @arvoreeducacao/npm-registry-mcp
 ```
 
 ## Usage
@@ -123,14 +127,14 @@ await server.start();
 
 ## Claude Desktop Integration
 
-Add to your `claude_desktop_config.json`:
+Add to your Claude Desktop configuration file (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
 
 ```json
 {
   "mcpServers": {
-    "npm": {
-      "command": "node",
-      "args": ["/path/to/npm-mcp/dist/index.js"]
+    "npm-registry": {
+      "command": "npx",
+      "args": ["-y", "@arvoreeducacao/npm-registry-mcp"]
     }
   }
 }

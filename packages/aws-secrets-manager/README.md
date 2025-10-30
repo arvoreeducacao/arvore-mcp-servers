@@ -1,5 +1,7 @@
 # AWS Secrets Manager MCP Server
 
+[![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en/install-mcp?name=aws-secrets-manager-mcp&registry=https://npm.pkg.github.com&packageName=@arvoreeducacao/aws-secrets-manager-mcp)
+
 MCP server for managing AWS Secrets Manager secrets.
 
 ## Features
@@ -11,18 +13,25 @@ MCP server for managing AWS Secrets Manager secrets.
 - Delete secrets
 - Describe secret metadata
 
+## Installation
+
+```bash
+npm install -g @arvoreeducacao/aws-secrets-manager-mcp --registry=https://npm.pkg.github.com
+```
+
+Or configure your `.npmrc`:
+
+```bash
+echo "@arvoreeducacao:registry=https://npm.pkg.github.com" >> ~/.npmrc
+npm install -g @arvoreeducacao/aws-secrets-manager-mcp
+```
+
 ## Setup
 
 ### Prerequisites
 
 - Node.js 18+
 - AWS credentials configured
-
-### Installation
-
-```bash
-pnpm install
-```
 
 ### Configuration
 
@@ -53,28 +62,59 @@ AWS_REGION=us-east-1
 
 Leave environment variables unset to use the AWS SDK default credential chain (recommended for EC2/ECS/Lambda environments).
 
-### Development
+## Usage with Claude Desktop
+
+Add to your Claude Desktop configuration file (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+
+```json
+{
+  "mcpServers": {
+    "aws-secrets-manager": {
+      "command": "npx",
+      "args": ["-y", "@arvoreeducacao/aws-secrets-manager-mcp"],
+      "env": {
+        "AWS_REGION": "us-east-1",
+        "AWS_PROFILE": "your-profile"
+      }
+    }
+  }
+}
+```
+
+Or using direct credentials:
+
+```json
+{
+  "mcpServers": {
+    "aws-secrets-manager": {
+      "command": "npx",
+      "args": ["-y", "@arvoreeducacao/aws-secrets-manager-mcp"],
+      "env": {
+        "AWS_ACCESS_KEY_ID": "your-access-key",
+        "AWS_SECRET_ACCESS_KEY": "your-secret-key",
+        "AWS_REGION": "us-east-1"
+      }
+    }
+  }
+}
+```
+
+## Development
 
 ```bash
+# Install dependencies
+pnpm install
+
+# Run in development mode
 pnpm dev
-```
 
-### Build
-
-```bash
+# Build
 pnpm build
-```
 
-### Test
-
-```bash
+# Test
 pnpm test
 pnpm test:cov
 ```
-
-## Usage
-
-Configure your MCP client to connect to this server using stdio transport.
 
 ### Tools
 
@@ -136,5 +176,3 @@ Get secret metadata.
 ## License
 
 MIT
-
-# aws-secret-manager-mcp

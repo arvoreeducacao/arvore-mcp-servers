@@ -1,5 +1,7 @@
 # MySQL MCP Server
 
+[![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en/install-mcp?name=mysql-mcp&registry=https://npm.pkg.github.com&packageName=@arvoreeducacao/mysql-mcp)
+
 A Model Context Protocol (MCP) server implementation for MySQL that enables read-only database operations through a standardized protocol for integration with LLMs and AI tools.
 
 ## Features
@@ -13,13 +15,15 @@ A Model Context Protocol (MCP) server implementation for MySQL that enables read
 
 ## Installation
 
-[![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en/install-mcp?name=mysql-mcp&config=eyJjb21tYW5kIjoibm9kZSIsImFyZ3MiOlsiLi9kaXN0L2luZGV4LmpzIl0sImVudiI6eyJNWVNRTF9IT1NUIjoibG9jYWxob3N0IiwiTVlTUUxfUE9SVCI6IjMzMDYiLCJNWVNRTF9VU0VSIjoicm9vdCIsIk1ZU1FMX1BBU1NXT1JEIjoic2VjcmV0IiwiTVlTUUxfREFUQUJBU0UiOiJteWRiIiwiTVlTUUxfU1NMIjoiZmFsc2UiLCJNWVNRTF9DT05ORUNUSU9OX1RJTUVPVVQiOiIzMDAwMCJ9fQ%3D%3D)
 ```bash
-# Install dependencies
-pnpm install
+npm install -g @arvoreeducacao/mysql-mcp --registry=https://npm.pkg.github.com
+```
 
-# Build the project
-pnpm build
+Or configure your `.npmrc`:
+
+```bash
+echo "@arvoreeducacao:registry=https://npm.pkg.github.com" >> ~/.npmrc
+npm install -g @arvoreeducacao/mysql-mcp
 ```
 
 ## Configuration
@@ -108,21 +112,22 @@ await server.start();
 
 ## Claude Desktop Integration
 
-Add to your `claude_desktop_config.json`:
+Add to your Claude Desktop configuration file (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
 
 ```json
 {
   "mcpServers": {
     "mysql": {
-      "command": "node",
-      "args": ["/path/to/mysql-mcp/dist/index.js"],
+      "command": "npx",
+      "args": ["-y", "@arvoreeducacao/mysql-mcp"],
       "env": {
         "MYSQL_HOST": "localhost",
         "MYSQL_PORT": "3306",
         "MYSQL_USER": "root",
         "MYSQL_PASSWORD": "secret",
         "MYSQL_DATABASE": "mydb",
-        "MYSQL_SSL": "false"
+        "MYSQL_SSL": "false",
+        "MYSQL_CONNECTION_TIMEOUT": "30000"
       }
     }
   }

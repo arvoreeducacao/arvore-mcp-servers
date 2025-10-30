@@ -1,5 +1,7 @@
 # Datadog MCP Server
 
+[![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en/install-mcp?name=datadog-mcp&registry=https://npm.pkg.github.com&packageName=@arvoreeducacao/datadog-mcp)
+
 A Model Context Protocol (MCP) server that provides AI assistants with access to Datadog monitoring and observability data.
 
 ## Features
@@ -17,8 +19,14 @@ A Model Context Protocol (MCP) server that provides AI assistants with access to
 ## Installation
 
 ```bash
-pnpm install
-pnpm build
+npm install -g @arvoreeducacao/datadog-mcp --registry=https://npm.pkg.github.com
+```
+
+Or configure your `.npmrc`:
+
+```bash
+echo "@arvoreeducacao:registry=https://npm.pkg.github.com" >> ~/.npmrc
+npm install -g @arvoreeducacao/datadog-mcp
 ```
 
 ## Configuration
@@ -45,7 +53,7 @@ DATADOG_SITE=datadoghq.com
 
 # Other available sites:
 # EU: datadoghq.eu
-# US3: us3.datadoghq.com  
+# US3: us3.datadoghq.com
 # US5: us5.datadoghq.com
 # Government: ddog-gov.com
 ```
@@ -65,16 +73,16 @@ DATADOG_SITE=datadoghq.com
 node dist/index.js
 ```
 
-### MCP Client Configuration
+### Claude Desktop Configuration
 
-Add to your MCP client configuration:
+Add to your Claude Desktop configuration file (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
 
 ```json
 {
   "mcpServers": {
     "datadog": {
-      "command": "node",
-      "args": ["/path/to/datadog-mcp-server/dist/index.js"],
+      "command": "npx",
+      "args": ["-y", "@arvoreeducacao/datadog-mcp"],
       "env": {
         "DATADOG_API_KEY": "your-api-key",
         "DATADOG_APP_KEY": "your-app-key",
@@ -88,32 +96,40 @@ Add to your MCP client configuration:
 ## Available Tools
 
 ### query_metrics
+
 Query Datadog metrics with time series data.
 
 **Parameters:**
-- `query` (string): Datadog metrics query (e.g., 'avg:system.cpu.user{*}')
+
+- `query` (string): Datadog metrics query (e.g., 'avg:system.cpu.user{\*}')
 - `from` (number): Start timestamp (Unix epoch in seconds)
 - `to` (number): End timestamp (Unix epoch in seconds)
 
 ### search_logs
+
 Search and retrieve logs from Datadog.
 
 **Parameters:**
+
 - `query` (string): Log search query using Datadog search syntax
 - `time` (object): Time range with `from` and `to` ISO strings
 - `limit` (number): Maximum number of logs (1-1000, default 50)
 
 ### list_dashboards
+
 Retrieve a list of dashboards from your account.
 
 **Parameters:**
+
 - `count` (number): Number of dashboards (max 100, default 25)
 - `start` (number): Starting index for pagination (default 0)
 
 ### list_monitors
+
 Retrieve monitors from your account.
 
 **Parameters:**
+
 - `groupStates` (array): Filter by monitor group states
 - `name` (string): Filter by monitor name
 - `tags` (array): Filter by tags
@@ -121,17 +137,21 @@ Retrieve monitors from your account.
 - `withDowntimes` (boolean): Include downtime info (default true)
 
 ### get_service_map
+
 Retrieve APM service map data.
 
 **Parameters:**
+
 - `env` (string): Environment name (e.g., 'production')
 - `start` (number): Start timestamp (Unix epoch in seconds)
 - `end` (number): End timestamp (Unix epoch in seconds)
 
 ### list_hosts
+
 List infrastructure hosts.
 
 **Parameters:**
+
 - `filter` (string): Filter hosts by name or tag
 - `sortField` (string): Sort field ('status', 'name', 'checkTime', 'triggerTime')
 - `sortDir` (string): Sort direction ('asc', 'desc')
@@ -139,31 +159,38 @@ List infrastructure hosts.
 - `count` (number): Number of hosts (max 1000, default 100)
 
 ### get_active_metrics
+
 Get currently reporting metrics from the last hour.
 
 **Parameters:** None
 
 ### search_traces
+
 Search for traces in Datadog APM with filtering capabilities.
 
 **Parameters:**
-- `query` (string): Trace search query (default "*")
+
+- `query` (string): Trace search query (default "\*")
 - `start` (number): Start timestamp (Unix epoch in seconds)
 - `end` (number): End timestamp (Unix epoch in seconds)
 - `limit` (number): Maximum number of traces (1-1000, default 50)
 
 ### list_services
+
 List services monitored by Datadog APM.
 
 **Parameters:**
+
 - `start` (number): Start timestamp (Unix epoch in seconds)
 - `end` (number): End timestamp (Unix epoch in seconds)
 - `env` (string): Environment filter (optional)
 
 ### get_spans_metrics
+
 Get metrics for spans with optional filtering.
 
 **Parameters:**
+
 - `start` (number): Start timestamp (Unix epoch in seconds)
 - `end` (number): End timestamp (Unix epoch in seconds)
 - `service` (string): Service name filter (optional)
@@ -174,6 +201,7 @@ Get metrics for spans with optional filtering.
 ## Example Queries
 
 ### Query CPU Usage
+
 ```json
 {
   "query": "avg:system.cpu.user{*}",
@@ -183,6 +211,7 @@ Get metrics for spans with optional filtering.
 ```
 
 ### Search Error Logs
+
 ```json
 {
   "query": "status:error service:web-app",
@@ -195,6 +224,7 @@ Get metrics for spans with optional filtering.
 ```
 
 ### Search Traces with Errors
+
 ```json
 {
   "query": "service:web-app error:true",
@@ -205,6 +235,7 @@ Get metrics for spans with optional filtering.
 ```
 
 ### List Services in Production
+
 ```json
 {
   "start": 1640995200,
@@ -214,6 +245,7 @@ Get metrics for spans with optional filtering.
 ```
 
 ### Get Spans Metrics for Specific Service
+
 ```json
 {
   "start": 1640995200,
