@@ -1,0 +1,42 @@
+{
+  "name": "@arvore/npm-registry-mcp",
+  "version": "1.0.0",
+  "description": "NPM Registry MCP Server for package information",
+  "main": "dist/index.js",
+  "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
+  "bin": {
+    "npm-registry-mcp": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "test": "echo 'No tests configured'",
+    "test:cov": "echo 'No tests configured'",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix"
+  },
+  "keywords": [
+    "mcp",
+    "npm",
+    "package",
+    "registry",
+    "llm",
+    "ai",
+    "arvore"
+  ],
+  "author": "Arvore",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/arvore-education/mcp-servers.git",
+    "directory": "packages/npm-registry"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.22.4"
+  }
+}

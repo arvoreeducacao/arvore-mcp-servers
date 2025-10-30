@@ -1,0 +1,43 @@
+{
+  "name": "@arvore/datadog-mcp",
+  "version": "1.0.0",
+  "description": "Datadog MCP Server for monitoring and observability data",
+  "main": "dist/index.js",
+  "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
+  "bin": {
+    "datadog-mcp": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "test": "vitest",
+    "test:cov": "vitest --coverage",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix"
+  },
+  "keywords": [
+    "mcp",
+    "datadog",
+    "monitoring",
+    "observability",
+    "llm",
+    "ai",
+    "arvore"
+  ],
+  "author": "Arvore",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/arvore-education/mcp-servers.git",
+    "directory": "packages/datadog"
+  },
+  "dependencies": {
+    "@datadog/datadog-api-client": "^1.29.0",
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.22.4"
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "name": "@arvore/mcp-servers",
+  "version": "1.0.0",
+  "description": "Collection of Model Context Protocol servers for Arvore",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "pnpm -r build",
+    "dev": "pnpm -r --parallel dev",
+    "test": "pnpm -r test",
+    "test:cov": "pnpm -r test:cov",
+    "lint": "pnpm -r lint",
+    "lint:fix": "pnpm -r lint:fix",
+    "clean": "pnpm -r exec rm -rf dist coverage node_modules",
+    "publish:all": "pnpm -r publish --access public"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "arvore",
+    "aws",
+    "mysql",
+    "datadog",
+    "npm"
+  ],
+  "author": "Arvore",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0",
+    "@vitest/coverage-v8": "^1.0.0",
+    "eslint": "^8.54.0",
+    "tsx": "^4.6.0",
+    "typescript": "^5.3.0",
+    "vitest": "^1.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.14.4+sha512.c8180b3fbe4e4bca02c94234717896b5529740a6cbadf19fa78254270403ea2f27d4e1d46a08a0f56c89b63dc8ebfd3ee53326da720273794e6200fcf0d184ab"
+}
