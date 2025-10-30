@@ -1,5 +1,5 @@
 {
-  "name": "@arvore/datadog-mcp",
+  "name": "@arvoreeducacao/datadog-mcp",
   "version": "1.0.0",
   "description": "Datadog MCP Server for monitoring and observability data",
   "main": "dist/index.js",

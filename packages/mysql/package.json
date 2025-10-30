@@ -1,5 +1,5 @@
 {
-  "name": "@arvore/mysql-mcp",
+  "name": "@arvoreeducacao/mysql-mcp",
   "version": "1.0.0",
   "description": "MySQL MCP Server for read-only database operations",
   "main": "dist/index.js",

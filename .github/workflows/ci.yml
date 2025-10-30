@@ -63,18 +63,12 @@ jobs:
           node-version: "20"
           cache: "pnpm"
           registry-url: "https://npm.pkg.github.com"
-          scope: "@arvore"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
       - name: Build packages
         run: pnpm build
-
-      - name: Configure npm for GitHub Packages
-        run: |
-          echo "//npm.pkg.github.com/:_authToken=${{ secrets.GITHUB_TOKEN }}" > ~/.npmrc
-          echo "@arvore:registry=https://npm.pkg.github.com" >> ~/.npmrc
 
       - name: Publish packages
         run: |

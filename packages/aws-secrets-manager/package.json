@@ -1,5 +1,5 @@
 {
-  "name": "@arvore/aws-secrets-manager-mcp",
+  "name": "@arvoreeducacao/aws-secrets-manager-mcp",
   "version": "1.0.0",
   "description": "AWS Secrets Manager MCP Server for managing secrets",
   "main": "dist/index.js",
