@@ -72,9 +72,11 @@ jobs:
 
       - name: Publish packages
         run: |
-          cd packages/aws-secrets-manager && npm publish
-          cd ../datadog && npm publish
-          cd ../mysql && npm publish
-          cd ../npm-registry && npm publish
+          for pkg in packages/*/; do
+            echo "Publishing $pkg..."
+            cd "$pkg"
+            npm publish --access public || echo "Skipped $pkg (already published or error)"
+            cd ../..
+          done
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
