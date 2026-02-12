@@ -41,6 +41,18 @@ Execute read-only MySQL queries safely.
 - List tables in database
 - Read-only operations for safety
 
+### [@arvoretech/postgresql-mcp](./packages/postgresql)
+
+Execute read-only PostgreSQL queries safely.
+
+**Features:**
+
+- Execute SELECT queries
+- List tables, schemas, and databases
+- Describe table structure
+- Full schema support
+- Read-only operations for safety
+
 ### [@arvoretech/npm-registry-mcp](./packages/npm-registry)
 
 Search and get information about npm packages.
@@ -61,6 +73,7 @@ Install individual packages:
 npm install -g @arvoretech/aws-secrets-manager-mcp
 npm install -g @arvoretech/datadog-mcp
 npm install -g @arvoretech/mysql-mcp
+npm install -g @arvoretech/postgresql-mcp
 npm install -g @arvoretech/npm-registry-mcp
 ```
 
@@ -102,6 +115,18 @@ Add to your Claude Desktop configuration file:
         "MYSQL_PASSWORD": "password",
         "MYSQL_DATABASE": "your_database",
         "MYSQL_PORT": "3306"
+      }
+    },
+    "postgresql": {
+      "command": "npx",
+      "args": ["-y", "@arvoretech/postgresql-mcp"],
+      "env": {
+        "POSTGRESQL_HOST": "localhost",
+        "POSTGRESQL_PORT": "5432",
+        "POSTGRESQL_USER": "postgres",
+        "POSTGRESQL_PASSWORD": "password",
+        "POSTGRESQL_DATABASE": "your_database",
+        "POSTGRESQL_SSL": "false"
       }
     },
     "npm-registry": {
