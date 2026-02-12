@@ -150,9 +150,10 @@ Add to your Claude Desktop configuration file:
       "command": "npx",
       "args": ["-y", "@arvoretech/tempmail-mcp"],
       "env": {
-        "TEMPMAIL_DOMAIN": "tempmail.arvore.com.br",
-        "TEMPMAIL_SMTP_PORT": "25",
-        "TEMPMAIL_DB_PATH": "/var/data/tempmail.db"
+        "CLOUDFLARE_ACCOUNT_ID": "your-account-id",
+        "CLOUDFLARE_D1_DATABASE_ID": "your-database-id",
+        "CLOUDFLARE_API_TOKEN": "your-api-token",
+        "TEMPMAIL_DOMAIN": "yourdomain.com"
       }
     }
   }
@@ -241,7 +242,6 @@ You can manually trigger publishing for a specific package:
 To enable automatic publishing, add these secrets to your GitHub repository:
 
 1. **NPM_TOKEN**: Required for publishing to npm
-
    - Create a token at https://www.npmjs.com/settings/tokens
    - Select "Automation" token type
    - Add as repository secret in GitHub Settings > Secrets and variables > Actions
