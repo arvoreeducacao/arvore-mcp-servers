@@ -63,6 +63,18 @@ Search and get information about npm packages.
 - Get download statistics
 - Search packages by query
 
+### [@arvoretech/tempmail-mcp](./packages/tempmail)
+
+Self-hosted temporary email server with SMTP + SQLite.
+
+**Features:**
+
+- Built-in SMTP server to receive real emails
+- Create and manage temporary email accounts
+- Read, list, and delete emails
+- SQLite storage — no third-party dependencies
+- Configurable domain via AWS Route 53
+
 ## 🚀 Quick Start
 
 ### Installation
@@ -75,6 +87,7 @@ npm install -g @arvoretech/datadog-mcp
 npm install -g @arvoretech/mysql-mcp
 npm install -g @arvoretech/postgresql-mcp
 npm install -g @arvoretech/npm-registry-mcp
+npm install -g @arvoretech/tempmail-mcp
 ```
 
 Or using pnpm:
@@ -132,6 +145,15 @@ Add to your Claude Desktop configuration file:
     "npm-registry": {
       "command": "npx",
       "args": ["-y", "@arvoretech/npm-registry-mcp"]
+    },
+    "tempmail": {
+      "command": "npx",
+      "args": ["-y", "@arvoretech/tempmail-mcp"],
+      "env": {
+        "TEMPMAIL_DOMAIN": "tempmail.arvore.com.br",
+        "TEMPMAIL_SMTP_PORT": "25",
+        "TEMPMAIL_DB_PATH": "/var/data/tempmail.db"
+      }
     }
   }
 }
