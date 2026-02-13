@@ -1,6 +1,6 @@
 {
   "name": "@arvoretech/tempmail-mcp",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Temporary Email MCP Server powered by Cloudflare D1 + Email Workers",
   "main": "dist/index.js",
   "type": "module",
@@ -13,7 +13,9 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/index.ts",
+    "dev:ui": "tsx src/index.ts ui",
     "start": "node dist/index.js",
+    "ui": "node dist/index.js ui",
     "test": "vitest run",
     "test:cov": "vitest run --coverage",
     "lint": "eslint src/**/*.ts",
