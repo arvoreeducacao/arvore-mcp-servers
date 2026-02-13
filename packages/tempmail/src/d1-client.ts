@@ -191,23 +191,27 @@ export class D1DatabaseClient implements EmailStore {
 
     const row = result.results[0];
 
-    if (row.raw && !row.text && !row.html) {
-      const parsed = await simpleParser(row.raw);
-      return {
-        ...row,
-        from_address: parsed.from?.value?.[0]?.address || row.from_address,
-        from_name: parsed.from?.value?.[0]?.name || row.from_name,
-        subject: parsed.subject || row.subject,
-        text: parsed.text || "",
-        html:
-          typeof parsed.html === "string"
-            ? parsed.html
-            : parsed.textAsHtml || "",
-        has_attachments: Boolean(
-          row.has_attachments || (parsed.attachments?.length || 0) > 0,
-        ),
-        seen: true,
-      };
+    if (row.raw) {
+      try {
+        const parsed = await simpleParser(row.raw);
+        return {
+          ...row,
+          from_address: parsed.from?.value?.[0]?.address || row.from_address,
+          from_name: parsed.from?.value?.[0]?.name || row.from_name,
+          subject: parsed.subject || row.subject,
+          text: parsed.text || row.text || "",
+          html:
+            typeof parsed.html === "string"
+              ? parsed.html
+              : parsed.textAsHtml || row.html || "",
+          has_attachments: Boolean(
+            row.has_attachments || (parsed.attachments?.length || 0) > 0,
+          ),
+          seen: true,
+        };
+      } catch {
+        // fallback to stored fields
+      }
     }
 
     return {

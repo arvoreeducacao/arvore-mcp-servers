@@ -278,6 +278,42 @@ Delete a specific email message.
 **Parameters:**
 - `messageId` (string): The message ID to delete
 
+## Web UI
+
+The package includes a built-in web interface (Gmail-like) for browsing emails in the browser.
+
+### Using the published package
+
+```bash
+npx @arvoretech/tempmail-mcp ui
+```
+
+Make sure the required environment variables are set, or create a `.env` file in the current directory:
+
+```env
+CLOUDFLARE_ACCOUNT_ID=your-account-id
+CLOUDFLARE_D1_DATABASE_ID=your-database-id
+CLOUDFLARE_API_TOKEN=your-api-token
+TEMPMAIL_DOMAIN=yourdomain.com
+```
+
+### Options
+
+```bash
+npx @arvoretech/tempmail-mcp ui                  # default port 3847, auto-opens browser
+npx @arvoretech/tempmail-mcp ui --port 8080       # custom port
+npx @arvoretech/tempmail-mcp ui --no-open         # don't auto-open browser
+```
+
+### Programmatic usage
+
+```typescript
+import { WebUIServer } from "@arvoretech/tempmail-mcp";
+
+const ui = new WebUIServer({ port: 3847, open: true });
+await ui.start();
+```
+
 ## Development
 
 ```bash
@@ -285,6 +321,7 @@ pnpm install
 pnpm test
 pnpm lint
 pnpm build
+pnpm dev:ui    # run web UI in dev mode (tsx)
 ```
 
 ## License
