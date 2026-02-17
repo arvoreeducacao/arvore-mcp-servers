@@ -87,6 +87,19 @@ Self-hosted temporary email server with SMTP + SQLite.
 - SQLite storage — no third-party dependencies
 - Configurable domain via AWS Route 53
 
+### [@arvoretech/memory-mcp](./packages/memory)
+
+Team memory — persistent knowledge base with semantic search for AI-assisted development.
+
+**Features:**
+
+- Semantic search across team memories using local embeddings
+- Multilingual support (Portuguese + English) via `paraphrase-multilingual-MiniLM-L12-v2`
+- Categories: decisions, conventions, incidents, domain, gotchas
+- Create, archive, and remove memories via MCP tools
+- Embedding cache for fast startup
+- Keyword fallback when embeddings are unavailable
+
 ## 🚀 Quick Start
 
 ### Installation
@@ -101,6 +114,7 @@ npm install -g @arvoretech/postgresql-mcp
 npm install -g @arvoretech/npm-registry-mcp
 npm install -g @arvoretech/launchdarkly-mcp
 npm install -g @arvoretech/tempmail-mcp
+npm install -g @arvoretech/memory-mcp
 ```
 
 Or using pnpm:
@@ -177,6 +191,13 @@ Add to your Claude Desktop configuration file:
         "CLOUDFLARE_D1_DATABASE_ID": "your-database-id",
         "CLOUDFLARE_API_TOKEN": "your-api-token",
         "TEMPMAIL_DOMAIN": "yourdomain.com"
+      }
+    },
+    "team-memory": {
+      "command": "npx",
+      "args": ["-y", "@arvoretech/memory-mcp"],
+      "env": {
+        "MEMORY_PATH": "./memories"
       }
     }
   }
