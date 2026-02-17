@@ -63,6 +63,18 @@ Search and get information about npm packages.
 - Get download statistics
 - Search packages by query
 
+### [@arvoretech/launchdarkly-mcp](./packages/launchdarkly)
+
+Manage LaunchDarkly feature flags directly from your AI assistant.
+
+**Features:**
+
+- List, search, create, and delete feature flags
+- Toggle flags ON/OFF per environment
+- Add targeting rules (in, contains, segmentMatch, etc.)
+- List and inspect segments
+- Multi-environment support (production, test, etc.)
+
 ### [@arvoretech/tempmail-mcp](./packages/tempmail)
 
 Self-hosted temporary email server with SMTP + SQLite.
@@ -87,6 +99,7 @@ npm install -g @arvoretech/datadog-mcp
 npm install -g @arvoretech/mysql-mcp
 npm install -g @arvoretech/postgresql-mcp
 npm install -g @arvoretech/npm-registry-mcp
+npm install -g @arvoretech/launchdarkly-mcp
 npm install -g @arvoretech/tempmail-mcp
 ```
 
@@ -145,6 +158,16 @@ Add to your Claude Desktop configuration file:
     "npm-registry": {
       "command": "npx",
       "args": ["-y", "@arvoretech/npm-registry-mcp"]
+    },
+    "launchdarkly": {
+      "command": "npx",
+      "args": ["-y", "@arvoretech/launchdarkly-mcp"],
+      "env": {
+        "LAUNCHDARKLY_EMAIL": "your-email@example.com",
+        "LAUNCHDARKLY_PASSWORD": "your-password",
+        "LAUNCHDARKLY_PROJECT": "default",
+        "LAUNCHDARKLY_ENVIRONMENT": "production"
+      }
     },
     "tempmail": {
       "command": "npx",

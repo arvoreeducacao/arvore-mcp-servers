@@ -1,0 +1,42 @@
+{
+  "name": "@arvoretech/launchdarkly-mcp",
+  "version": "1.0.0",
+  "description": "LaunchDarkly MCP Server for feature flag management via session-based authentication",
+  "main": "dist/index.js",
+  "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
+  "bin": {
+    "launchdarkly-mcp": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:cov": "vitest run --coverage",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix"
+  },
+  "keywords": [
+    "mcp",
+    "launchdarkly",
+    "feature-flags",
+    "feature-toggles",
+    "llm",
+    "ai",
+    "arvore"
+  ],
+  "author": "Arvore",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/arvoreeducacao/arvore-mcp-servers.git",
+    "directory": "packages/launchdarkly"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.22.4"
+  }
+}
