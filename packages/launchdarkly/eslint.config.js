@@ -20,6 +20,7 @@ export default [
         URLSearchParams: "readonly",
         crypto: "readonly",
         RequestInit: "readonly",
+        Response: "readonly",
         Buffer: "readonly",
         __dirname: "readonly",
         __filename: "readonly",
