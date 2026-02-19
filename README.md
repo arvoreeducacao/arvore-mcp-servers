@@ -87,6 +87,20 @@ Self-hosted temporary email server with SMTP + SQLite.
 - SQLite storage — no third-party dependencies
 - Configurable domain via AWS Route 53
 
+### [@arvoretech/google-chat-mcp](./packages/google-chat)
+
+Google Chat integration for managing spaces, members, and messages.
+
+**Features:**
+
+- List and inspect Google Chat spaces
+- List space members
+- Read message history with filtering and pagination
+- Send messages (with thread support)
+- Delete messages
+- Service account JWT auth (no external dependencies)
+- Domain-wide delegation for full user-level access
+
 ### [@arvoretech/memory-mcp](./packages/memory)
 
 Team memory — persistent knowledge base with semantic search for AI-assisted development.
@@ -114,6 +128,7 @@ npm install -g @arvoretech/postgresql-mcp
 npm install -g @arvoretech/npm-registry-mcp
 npm install -g @arvoretech/launchdarkly-mcp
 npm install -g @arvoretech/tempmail-mcp
+npm install -g @arvoretech/google-chat-mcp
 npm install -g @arvoretech/memory-mcp
 ```
 
@@ -191,6 +206,14 @@ Add to your Claude Desktop configuration file:
         "CLOUDFLARE_D1_DATABASE_ID": "your-database-id",
         "CLOUDFLARE_API_TOKEN": "your-api-token",
         "TEMPMAIL_DOMAIN": "yourdomain.com"
+      }
+    },
+    "google-chat": {
+      "command": "npx",
+      "args": ["-y", "@arvoretech/google-chat-mcp"],
+      "env": {
+        "GOOGLE_CHAT_CREDENTIALS_PATH": "/path/to/service-account.json",
+        "GOOGLE_CHAT_USER_EMAIL": "user@yourdomain.com"
       }
     },
     "team-memory": {
