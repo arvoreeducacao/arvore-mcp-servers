@@ -16,6 +16,7 @@ export default [
         console: 'readonly',
         process: 'readonly',
         Buffer: 'readonly',
+        BufferEncoding: 'readonly',
         __dirname: 'readonly',
         __filename: 'readonly',
         global: 'readonly',
@@ -23,6 +24,7 @@ export default [
         clearTimeout: 'readonly',
         setInterval: 'readonly',
         clearInterval: 'readonly',
+        require: 'readonly',
       },
     },
     plugins: {
@@ -30,6 +32,7 @@ export default [
     },
     rules: {
       ...tseslint.configs.recommended.rules,
+      'no-redeclare': 'off',
       '@typescript-eslint/no-unused-vars': 'error',
       '@typescript-eslint/explicit-function-return-type': 'warn',
       '@typescript-eslint/no-explicit-any': 'warn',
