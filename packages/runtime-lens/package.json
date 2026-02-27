@@ -1,134 +1,134 @@
 {
-  "name": "runtime-lens",
-  "displayName": "Runtime Lens",
-  "version": "1.1.0",
-  "description": "Runtime Lens - Runtime inspection with inline values for React, NestJS and Next.js",
-  "publisher": "arvore",
-  "main": "dist/extension/extension.js",
-  "publishConfig": {
-    "access": "public"
-  },
-  "bin": {
-    "runtime-lens-mcp": "./dist/index.js"
-  },
-  "engines": {
-    "vscode": "^1.85.0"
-  },
-  "categories": [
-    "Debuggers",
-    "Other"
-  ],
-  "activationEvents": [
-    "onStartupFinished"
-  ],
-  "scripts": {
-    "build": "tsc",
-    "build:ext": "esbuild extension/extension.ts --bundle --outfile=dist/extension/extension.js --external:vscode --format=cjs --platform=node --sourcemap",
-    "build:agent": "esbuild agent/index.ts --bundle --outfile=dist/agent/index.js --format=cjs --platform=node --sourcemap",
-    "build:all": "pnpm build && pnpm build:ext && pnpm build:agent",
-    "dev": "tsx src/index.ts",
-    "start": "node dist/index.js",
-    "package": "pnpm build:all && vsce package --no-dependencies",
-    "prepublishOnly": "pnpm build:all && node -e \"const p=require('./package.json');p.name='@arvoretech/runtime-lens-mcp';require('fs').writeFileSync('package.json',JSON.stringify(p,null,2)+'\\n')\"",
-    "postpublish": "node -e \"const p=require('./package.json');p.name='runtime-lens';require('fs').writeFileSync('package.json',JSON.stringify(p,null,2)+'\\n')\"",
-    "test": "vitest",
-    "test:cov": "vitest --coverage",
-    "lint": "eslint src/**/*.ts",
-    "lint:fix": "eslint src/**/*.ts --fix"
-  },
-  "contributes": {
-    "commands": [
-      {
-        "command": "runtimeLens.start",
-        "title": "Runtime Lens: Start",
-        "icon": "$(zap)"
-      },
-      {
-        "command": "runtimeLens.stop",
-        "title": "Runtime Lens: Stop"
-      },
-      {
-        "command": "runtimeLens.toggle",
-        "title": "Runtime Lens: Toggle"
-      },
-      {
-        "command": "runtimeLens.clear",
-        "title": "Runtime Lens: Clear Inline Values"
-      },
-      {
-        "command": "runtimeLens.connect",
-        "title": "Runtime Lens: Connect to Running App"
-      },
-      {
-        "command": "runtimeLens.showOutput",
-        "title": "Runtime Lens: Show Output"
-      },
-      {
-        "command": "runtimeLens.injectEnv",
-        "title": "Runtime Lens: Inject Environment into Terminal"
-      }
-    ],
-    "configuration": {
-      "title": "Runtime Lens",
-      "properties": {
-        "runtimeLens.port": {
-          "type": "number",
-          "default": 9500,
-          "description": "WebSocket port for the runtime agent"
-        },
-        "runtimeLens.autoStart": {
-          "type": "boolean",
-          "default": false,
-          "description": "Automatically start Runtime Lens when the workspace opens"
-        },
-        "runtimeLens.maxInlineLength": {
-          "type": "number",
-          "default": 80,
-          "description": "Maximum length of inline value text before truncation"
-        },
-        "runtimeLens.showTimestamp": {
-          "type": "boolean",
-          "default": false,
-          "description": "Show timestamp in inline values"
-        }
-      }
-    },
-    "menus": {
-      "editor/title": [
-        {
-          "command": "runtimeLens.toggle",
-          "group": "navigation",
-          "when": "resourceLangId == typescript || resourceLangId == javascript || resourceLangId == typescriptreact || resourceLangId == javascriptreact"
-        }
-      ]
-    }
-  },
-  "keywords": [
-    "mcp",
-    "console-ninja",
-    "runtime-lens",
-    "debugging",
-    "logging",
-    "inline-values",
-    "react",
-    "nestjs",
-    "nextjs",
-    "runtime-inspection",
-    "arvore"
-  ],
-  "author": "Arvore",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/arvoreeducacao/arvore-mcp-servers.git",
-    "directory": "packages/runtime-lens"
-  },
-  "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0",
-    "zod": "^3.22.4"
-  },
-  "devDependencies": {
-    "@types/vscode": "^1.85.0",
-    "esbuild": "^0.21.0"
-  }
+	"name": "runtime-lens",
+	"displayName": "Runtime Lens",
+	"version": "1.2.0",
+	"description": "Runtime Lens - Runtime inspection with inline values for React, NestJS and Next.js",
+	"publisher": "arvore",
+	"main": "dist/extension/extension.js",
+	"publishConfig": {
+		"access": "public"
+	},
+	"bin": {
+		"runtime-lens-mcp": "./dist/index.js"
+	},
+	"engines": {
+		"vscode": "^1.85.0"
+	},
+	"categories": [
+		"Debuggers",
+		"Other"
+	],
+	"activationEvents": [
+		"onStartupFinished"
+	],
+	"scripts": {
+		"build": "tsc",
+		"build:ext": "esbuild extension/extension.ts --bundle --outfile=dist/extension/extension.js --external:vscode --format=cjs --platform=node --sourcemap",
+		"build:agent": "esbuild agent/index.ts --bundle --outfile=dist/agent/index.js --format=cjs --platform=node --sourcemap",
+		"build:all": "pnpm build && pnpm build:ext && pnpm build:agent",
+		"dev": "tsx src/index.ts",
+		"start": "node dist/index.js",
+		"package": "pnpm build:all && vsce package --no-dependencies",
+		"prepublishOnly": "pnpm build:all && node -e \"const p=require('./package.json');p.name='@arvoretech/runtime-lens-mcp';require('fs').writeFileSync('package.json',JSON.stringify(p,null,2)+'\\n')\"",
+		"postpublish": "node -e \"const p=require('./package.json');p.name='runtime-lens';require('fs').writeFileSync('package.json',JSON.stringify(p,null,2)+'\\n')\"",
+		"test": "vitest",
+		"test:cov": "vitest --coverage",
+		"lint": "eslint src/**/*.ts",
+		"lint:fix": "eslint src/**/*.ts --fix"
+	},
+	"contributes": {
+		"commands": [
+			{
+				"command": "runtimeLens.start",
+				"title": "Runtime Lens: Start",
+				"icon": "$(zap)"
+			},
+			{
+				"command": "runtimeLens.stop",
+				"title": "Runtime Lens: Stop"
+			},
+			{
+				"command": "runtimeLens.toggle",
+				"title": "Runtime Lens: Toggle"
+			},
+			{
+				"command": "runtimeLens.clear",
+				"title": "Runtime Lens: Clear Inline Values"
+			},
+			{
+				"command": "runtimeLens.connect",
+				"title": "Runtime Lens: Connect to Running App"
+			},
+			{
+				"command": "runtimeLens.showOutput",
+				"title": "Runtime Lens: Show Output"
+			},
+			{
+				"command": "runtimeLens.injectEnv",
+				"title": "Runtime Lens: Inject Environment into Terminal"
+			}
+		],
+		"configuration": {
+			"title": "Runtime Lens",
+			"properties": {
+				"runtimeLens.port": {
+					"type": "number",
+					"default": 9500,
+					"description": "WebSocket port for the runtime agent"
+				},
+				"runtimeLens.autoStart": {
+					"type": "boolean",
+					"default": false,
+					"description": "Automatically start Runtime Lens when the workspace opens"
+				},
+				"runtimeLens.maxInlineLength": {
+					"type": "number",
+					"default": 80,
+					"description": "Maximum length of inline value text before truncation"
+				},
+				"runtimeLens.showTimestamp": {
+					"type": "boolean",
+					"default": false,
+					"description": "Show timestamp in inline values"
+				}
+			}
+		},
+		"menus": {
+			"editor/title": [
+				{
+					"command": "runtimeLens.toggle",
+					"group": "navigation",
+					"when": "resourceLangId == typescript || resourceLangId == javascript || resourceLangId == typescriptreact || resourceLangId == javascriptreact"
+				}
+			]
+		}
+	},
+	"keywords": [
+		"mcp",
+		"console-ninja",
+		"runtime-lens",
+		"debugging",
+		"logging",
+		"inline-values",
+		"react",
+		"nestjs",
+		"nextjs",
+		"runtime-inspection",
+		"arvore"
+	],
+	"author": "Arvore",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/arvoreeducacao/arvore-mcp-servers.git",
+		"directory": "packages/runtime-lens"
+	},
+	"dependencies": {
+		"@modelcontextprotocol/sdk": "^1.0.0",
+		"zod": "^3.22.4"
+	},
+	"devDependencies": {
+		"@types/vscode": "^1.85.0",
+		"esbuild": "^0.21.0"
+	}
 }
