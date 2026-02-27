@@ -1,5 +1,5 @@
 {
-  "name": "@arvoretech/runtime-lens-mcp",
+  "name": "runtime-lens",
   "displayName": "Runtime Lens",
   "version": "1.0.0",
   "description": "Runtime Lens - Runtime inspection with inline values for React, NestJS and Next.js",
@@ -29,6 +29,8 @@
     "dev": "tsx src/index.ts",
     "start": "node dist/index.js",
     "package": "pnpm build:all && vsce package --no-dependencies",
+    "prepublishOnly": "node -e \"const p=require('./package.json');p.name='@arvoretech/runtime-lens-mcp';require('fs').writeFileSync('package.json',JSON.stringify(p,null,2)+'\\n')\"",
+    "postpublish": "node -e \"const p=require('./package.json');p.name='runtime-lens';require('fs').writeFileSync('package.json',JSON.stringify(p,null,2)+'\\n')\"",
     "test": "vitest",
     "test:cov": "vitest --coverage",
     "lint": "eslint src/**/*.ts",
