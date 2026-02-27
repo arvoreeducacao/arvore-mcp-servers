@@ -114,6 +114,20 @@ Team memory — persistent knowledge base with semantic search for AI-assisted d
 - Embedding cache for fast startup
 - Keyword fallback when embeddings are unavailable
 
+### [@arvoretech/runtime-lens-mcp](./packages/runtime-lens)
+
+Runtime Lens — Runtime inspection with inline values for React, NestJS and Next.js. Two components in one package: a VS Code/Cursor/Kiro extension with inline value display and an MCP server for AI-assisted debugging.
+
+**Features:**
+
+- Inline runtime values displayed in the editor
+- Runtime agent injected via `--require` that patches `console.log/warn/error/debug`
+- WebSocket-based communication between agent and extension
+- 14 MCP tools for AI-assisted debugging: log tailing, regex search, error inspection, HTTP request inspection, performance metrics, and more
+- Framework detection for React, NestJS, and Next.js
+- Real-time console capture with start/stop control
+- Permanent setup via `~/.zshrc` — no need to inject every session
+
 ## 🚀 Quick Start
 
 ### Installation
@@ -130,6 +144,7 @@ npm install -g @arvoretech/launchdarkly-mcp
 npm install -g @arvoretech/tempmail-mcp
 npm install -g @arvoretech/google-chat-mcp
 npm install -g @arvoretech/memory-mcp
+npm install -g @arvoretech/runtime-lens-mcp
 ```
 
 Or using pnpm:
@@ -221,6 +236,13 @@ Add to your Claude Desktop configuration file:
       "args": ["-y", "@arvoretech/memory-mcp"],
       "env": {
         "MEMORY_PATH": "./memories"
+      }
+    },
+    "runtime-lens": {
+      "command": "npx",
+      "args": ["-y", "@arvoretech/runtime-lens-mcp"],
+      "env": {
+        "RUNTIME_LENS_PROJECT_ROOT": "."
       }
     }
   }
