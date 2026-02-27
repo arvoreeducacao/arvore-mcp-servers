@@ -23,22 +23,8 @@ TRANSCRIPTIONS_PATH=/custom/path
 {
   "mcpServers": {
     "meet-transcriptions": {
-      "command": "node",
-      "args": ["./packages/meet-transcriptions/dist/index.js"],
-      "disabled": false
-    }
-  }
-}
-```
-
-Or with tsx for development:
-```json
-{
-  "mcpServers": {
-    "meet-transcriptions": {
       "command": "npx",
-      "args": ["tsx", "./packages/meet-transcriptions/src/index.ts"],
-      "disabled": false
+      "args": ["-y", "@arvoretech/meet-transcriptions-mcp"]
     }
   }
 }
