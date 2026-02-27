@@ -165,6 +165,11 @@ const originalConsole: Record<ConsoleMethod, (...args: unknown[]) => void> = {
 	debug: console.debug.bind(console),
 };
 
+const DEBUG = !!process.env.RUNTIME_LENS_DEBUG;
+function agentLog(...args: unknown[]): void {
+	if (DEBUG) originalConsole.error("[runtime-lens]", ...args);
+}
+
 function patchConsole(): void {
 	const methods: ConsoleMethod[] = ["log", "info", "warn", "error", "debug"];
 	for (const method of methods) {
@@ -216,9 +221,7 @@ server.on("upgrade", (req: IncomingMessage, socket: Socket) => {
 	);
 
 	clients.add(socket);
-	originalConsole.log(
-		`[runtime-lens] client connected (${clients.size} total)`,
-	);
+	agentLog(`client connected (${clients.size} total)`);
 
 	flushBuffer(socket);
 
@@ -263,9 +266,7 @@ server.on("upgrade", (req: IncomingMessage, socket: Socket) => {
 
 	socket.on("close", () => {
 		clients.delete(socket);
-		originalConsole.log(
-			`[runtime-lens] client disconnected (${clients.size} total)`,
-		);
+		agentLog(`client disconnected (${clients.size} total)`);
 	});
 
 	socket.on("error", () => {
@@ -275,16 +276,12 @@ server.on("upgrade", (req: IncomingMessage, socket: Socket) => {
 
 server.on("error", (err: NodeJS.ErrnoException) => {
 	if (err.code === "EADDRINUSE") {
-		originalConsole.log(
-			`[runtime-lens] port ${PORT} in use, skipping agent server`,
-		);
+		agentLog(`port ${PORT} in use, skipping agent server`);
 	}
 });
 
 server.listen(PORT, () => {
-	originalConsole.log(
-		`[runtime-lens] agent listening on ws://localhost:${PORT}`,
-	);
+	agentLog(`agent listening on ws://localhost:${PORT}`);
 });
 
 let keepAliveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -297,9 +294,7 @@ function scheduleShutdown(): void {
 	if (keepAliveTimer) return;
 	keepAliveTimer = setTimeout(() => {
 		if (clients.size === 0) {
-			originalConsole.log(
-				`[runtime-lens] no clients connected, shutting down agent`,
-			);
+			agentLog(`no clients connected, shutting down agent`);
 			server.close();
 			process.exit(0);
 		} else {
