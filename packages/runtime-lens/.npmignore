@@ -1,0 +1,11 @@
+node_modules/
+coverage/
+*.tsbuildinfo
+*.vsix
+extension/
+.gitignore
+.vscodeignore
+eslint.config.js
+vitest.config.ts
+tsconfig.json
+agent/tsconfig.json

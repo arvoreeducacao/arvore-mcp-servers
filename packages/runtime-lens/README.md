@@ -61,9 +61,15 @@ Add this to your `~/.zshrc` (or `~/.bashrc`):
 
 ```bash
 # Runtime Lens — inject agent into all Node.js processes
-export RUNTIME_LENS_AGENT_PATH="/Users/$USER/path-to/arvore-mcp-servers/packages/runtime-lens/dist/agent/index.js"
+export RUNTIME_LENS_AGENT_PATH="$(npm root -g)/@arvoretech/runtime-lens-mcp/dist/agent/index.js"
 export NODE_OPTIONS="--require $RUNTIME_LENS_AGENT_PATH"
 export RUNTIME_LENS_PORT="9500"
+```
+
+Before using, install the package globally:
+
+```bash
+npm install -g @arvoretech/runtime-lens-mcp
 ```
 
 Then reload your shell:
@@ -74,11 +80,12 @@ source ~/.zshrc
 
 Now every Node.js process you start will automatically connect to Runtime Lens. Just open the editor and run `Runtime Lens: Start` — no need to inject every time.
 
-> **Note:** If `NODE_OPTIONS` conflicts with other tools, you can wrap it in a function:
+> **Warning:** Setting `NODE_OPTIONS` globally affects all Node.js processes, including tools like `npx`, `npm`, and MCP servers. If you experience issues, use a wrapper function instead:
 >
 > ```bash
 > lens() {
->   NODE_OPTIONS="--require $RUNTIME_LENS_AGENT_PATH" RUNTIME_LENS_PORT=9500 "$@"
+>   local agent="$(npm root -g)/@arvoretech/runtime-lens-mcp/dist/agent/index.js"
+>   NODE_OPTIONS="--require $agent" RUNTIME_LENS_PORT=9500 "$@"
 > }
 > # Usage: lens pnpm dev
 > ```
