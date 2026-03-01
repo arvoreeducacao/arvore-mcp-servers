@@ -30,10 +30,6 @@ export class ToolRegistry {
     return this.tools.size;
   }
 
-  /**
-   * Ingest a tool definition from an upstream MCP server.
-   * Converts raw tool info into a compact RegistryEntry and generates embedding.
-   */
   async ingestUpstreamTool(
     provider: string,
     toolName: string,

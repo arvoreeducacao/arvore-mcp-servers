@@ -298,10 +298,8 @@ export class McpProxyServer {
 
   async start(): Promise<void> {
     try {
-      // Initialize embedding engine first
       await this.embeddings.init();
 
-      // Connect to all upstream servers (tools are embedded during ingest)
       await this.connector.connectAll(this.config.upstreams);
 
       console.error(
@@ -311,7 +309,6 @@ export class McpProxyServer {
         `[proxy] Semantic search: ${this.embeddings.isReady() ? "enabled" : "disabled (lexical fallback)"}`
       );
 
-      // Start MCP server
       const transport = new StdioServerTransport();
       await this.server.connect(transport);
 
