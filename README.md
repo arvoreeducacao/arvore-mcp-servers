@@ -151,6 +151,19 @@ Manage SendGrid Dynamic Templates directly from your AI assistant.
 - Activate specific template versions
 - Full CRUD for templates and versions via SendGrid API v3
 
+### [@arvoretech/mcp-proxy](./packages/mcp-proxy)
+
+MCP Proxy Gateway — consolidates N upstream MCP servers behind 2 tools.
+
+**Features:**
+
+- Exposes only `mcp_search` and `mcp_call` to the agent
+- Semantic search using multilingual embeddings (paraphrase-multilingual-MiniLM-L12-v2)
+- Hybrid ranking: BM25 lexical + cosine similarity
+- Output shaping: strips redundant fields, truncates text, assigns short refs
+- Cursor-based pagination with TTL
+- Supports stdio and HTTP transports with env var expansion
+
 ## 🚀 Quick Start
 
 ### Installation
@@ -170,6 +183,7 @@ npm install -g @arvoretech/memory-mcp
 npm install -g @arvoretech/runtime-lens-mcp
 npm install -g @arvoretech/meet-transcriptions-mcp
 npm install -g @arvoretech/sendgrid-mcp
+npm install -g @arvoretech/mcp-proxy
 ```
 
 Or using pnpm:
@@ -279,6 +293,14 @@ Add to your Claude Desktop configuration file:
       "args": ["-y", "@arvoretech/sendgrid-mcp"],
       "env": {
         "SENDGRID_API_KEY": "SG.your-api-key"
+      }
+    },
+    "mcp-proxy": {
+      "command": "node",
+      "args": ["packages/mcp-proxy/dist/index.js"],
+      "env": {
+        "MYSQL_HOST": "localhost",
+        "MCP_PROXY_UPSTREAMS": "[{\"name\":\"mysql\",\"command\":\"npx\",\"args\":[\"-y\",\"@arvoretech/mysql-mcp\"],\"env\":{\"MYSQL_HOST\":\"${MYSQL_HOST}\"}}]"
       }
     }
   }
