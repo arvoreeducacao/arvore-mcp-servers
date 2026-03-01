@@ -24,6 +24,7 @@ export default [
         global: "readonly",
         NodeJS: "readonly",
         URL: "readonly",
+        URLSearchParams: "readonly",
         Headers: "readonly",
       },
     },
