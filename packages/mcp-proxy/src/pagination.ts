@@ -1,12 +1,18 @@
+import { createHash } from "node:crypto";
 import { PaginationState } from "./types.js";
 
-const CURSOR_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const CURSOR_TTL_MS = 5 * 60 * 1000;
+const MAX_CURSORS = 200;
 
 export class PaginationManager {
-  private cursors = new Map<string, PaginationState>();
+  private readonly cursors = new Map<string, PaginationState>();
 
   create(state: Omit<PaginationState, "createdAt">): string {
-    const key = `c:${state.provider}.${state.originalName}:p${state.page}`;
+    const argsHash = createHash("md5")
+      .update(JSON.stringify(state.args))
+      .digest("hex")
+      .slice(0, 8);
+    const key = `c:${state.provider}.${state.originalName}:${argsHash}:p${state.page}`;
     this.cursors.set(key, { ...state, createdAt: Date.now() });
     this.cleanup();
     return key;
@@ -28,6 +34,11 @@ export class PaginationManager {
       if (now - state.createdAt > CURSOR_TTL_MS) {
         this.cursors.delete(key);
       }
+    }
+    while (this.cursors.size > MAX_CURSORS) {
+      const oldest = this.cursors.keys().next().value;
+      if (oldest) this.cursors.delete(oldest);
+      else break;
     }
   }
 }

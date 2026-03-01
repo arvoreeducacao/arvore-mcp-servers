@@ -76,14 +76,18 @@ export class OutputShaper {
       return [{ value: data }];
     }
     if (Array.isArray(data)) {
-      const objects = data.filter(this.isObject);
-      if (objects.length > 0) return objects;
+      if (data.every((v) => this.isObject(v))) return data as Record<string, unknown>[];
+      if (data.some((v) => this.isObject(v))) return data.filter(this.isObject);
       return data.map((v, i) => ({ index: i, value: v }));
     }
     if (this.isObject(data)) {
       for (const key of ["items", "data", "results", "nodes", "edges", "records", "rows", "entries", "list"]) {
         const val = (data as Record<string, unknown>)[key];
-        if (Array.isArray(val)) return val.filter(this.isObject);
+        if (Array.isArray(val)) {
+          if (val.every((v) => this.isObject(v))) return val as Record<string, unknown>[];
+          if (val.some((v) => this.isObject(v))) return val.filter(this.isObject);
+          return val.map((v, i) => ({ index: i, value: v }));
+        }
       }
       return [data as Record<string, unknown>];
     }

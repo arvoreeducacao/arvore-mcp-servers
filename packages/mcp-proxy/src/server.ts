@@ -290,10 +290,12 @@ export class McpProxyServer {
   private enforceTokenLimit(output: string): string {
     const maxChars = this.config.maxOutputTokens * 4;
     if (output.length <= maxChars) return output;
-    return (
-      output.slice(0, maxChars - 100) +
-      '\n... [truncated: output exceeded token limit]"}'
-    );
+    const truncated = output.slice(0, maxChars - 200);
+    return JSON.stringify({
+      truncated: true,
+      originalLength: output.length,
+      content: truncated,
+    });
   }
 
   async start(): Promise<void> {

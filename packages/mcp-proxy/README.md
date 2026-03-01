@@ -6,7 +6,7 @@ Instead of loading dozens of tool definitions into the agent's context, the prox
 
 ## How It Works
 
-```
+```text
 Agent (Kiro / Claude / Cursor)
   └─ mcp-proxy (2 tools)
        ├─ mysql (4 tools)

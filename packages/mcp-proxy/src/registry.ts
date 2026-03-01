@@ -70,7 +70,7 @@ export class ToolRegistry {
       example,
       tags,
       embedding,
-      _inputSchema: inputSchema,
+      _inputSchema: JSON.parse(JSON.stringify(inputSchema)),
     };
 
     this.register(entry);

@@ -115,6 +115,7 @@ export class McpConnectorManager {
 
   private async ingestTools(provider: string, client: Client): Promise<void> {
     let cursor: string | undefined;
+    let previousCursor: string | undefined;
     do {
       const response = await client.listTools({ cursor });
       for (const tool of response.tools) {
@@ -123,7 +124,10 @@ export class McpConnectorManager {
           (tool.inputSchema as Record<string, unknown>) || {}
         );
       }
+      if (response.nextCursor && response.nextCursor === cursor) break;
+      previousCursor = cursor;
       cursor = response.nextCursor;
+      if (cursor && cursor === previousCursor) break;
     } while (cursor);
   }
 

@@ -1,3 +1,12 @@
 declare module "@xenova/transformers" {
-  export function pipeline(task: string, model: string): Promise<unknown>;
+  interface PretrainedOptions {
+    quantized?: boolean;
+    progress_callback?: (progress: unknown) => void;
+  }
+
+  interface PipelineOutput {
+    (input: string | string[], options?: Record<string, unknown>): Promise<{ data: Float32Array }[]>;
+  }
+
+  export function pipeline(task: string, model?: string, options?: PretrainedOptions): Promise<PipelineOutput>;
 }
