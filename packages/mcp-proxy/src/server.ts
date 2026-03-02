@@ -252,10 +252,12 @@ export class McpProxyServer {
         state.args
       );
 
+      const offset = (state.page - 1) * this.config.callItemLimit;
       const { items, hasMore } = this.shaper.shapeResponse(
         rawResult,
         state.provider,
-        params.detail
+        params.detail,
+        offset
       );
 
       let nextCursor: string | null = null;
