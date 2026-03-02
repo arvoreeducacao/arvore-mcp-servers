@@ -36,13 +36,14 @@ export class OutputShaper {
   shapeResponse(
     data: unknown,
     provider: string,
-    detail = false
+    detail = false,
+    offset = 0
   ): { items: Shaped[]; hasMore: boolean; rawCount: number } {
     const items = this.extractItems(data);
     const rawCount = items.length;
-    const limited = items.slice(0, this.maxItems);
+    const limited = items.slice(offset, offset + this.maxItems);
     const shaped = limited.map((item) => this.shapeItem(item, provider, detail));
-    return { items: shaped, hasMore: rawCount > this.maxItems, rawCount };
+    return { items: shaped, hasMore: rawCount > offset + this.maxItems, rawCount };
   }
 
   shapeItem(
