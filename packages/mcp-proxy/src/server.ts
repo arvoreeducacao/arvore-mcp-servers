@@ -29,6 +29,7 @@ export class McpProxyServer {
   private readonly pagination: PaginationManager;
   private readonly logger: AuditLogger;
   private readonly config: ProxyConfig;
+  private upstreamsReady: Promise<void> = Promise.resolve();
 
   constructor(config: ProxyConfig) {
     this.config = config;
@@ -116,6 +117,7 @@ export class McpProxyServer {
   }
 
   private async handleSearch(params: SearchParams): Promise<McpToolResult> {
+    await this.upstreamsReady;
     const audit = this.logger.createEntry({
       tool: "mcp_search",
       provider: "*",
@@ -143,6 +145,7 @@ export class McpProxyServer {
   }
 
   private async handleCall(params: CallParams): Promise<McpToolResult> {
+    await this.upstreamsReady;
     if (params.page_cursor) {
       return this.handlePaginatedCall(params);
     }
@@ -300,22 +303,25 @@ export class McpProxyServer {
 
   async start(): Promise<void> {
     try {
-      await this.embeddings.init();
-
-      await this.connector.connectAll(this.config.upstreams);
-
-      console.error(
-        `[proxy] Registry loaded: ${this.registry.size} tools from ${this.connector.connectedProviders.length} providers`
-      );
-      console.error(
-        `[proxy] Semantic search: ${this.embeddings.isReady() ? "enabled" : "disabled (lexical fallback)"}`
-      );
-
       const transport = new StdioServerTransport();
       await this.server.connect(transport);
+      console.error("[proxy] MCP transport connected, loading upstreams in background...");
 
-      console.error("[proxy] MCP Proxy Gateway started successfully");
-      console.error("[proxy] Exposing 2 tools: mcp_search, mcp_call");
+      this.upstreamsReady = (async () => {
+        await this.embeddings.init();
+        await this.connector.connectAll(this.config.upstreams);
+        console.error(
+          `[proxy] Registry loaded: ${this.registry.size} tools from ${this.connector.connectedProviders.length} providers`
+        );
+        console.error(
+          `[proxy] Semantic search: ${this.embeddings.isReady() ? "enabled" : "disabled (lexical fallback)"}`
+        );
+        console.error("[proxy] Exposing 2 tools: mcp_search, mcp_call");
+      })();
+
+      this.upstreamsReady.catch((error) => {
+        console.error("[proxy] Background upstream connection failed:", error instanceof Error ? error.message : error);
+      });
     } catch (error) {
       console.error(
         "[proxy] Failed to start:",
