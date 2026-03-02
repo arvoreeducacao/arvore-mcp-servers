@@ -1,6 +1,6 @@
 {
   "name": "@arvoretech/mcp-proxy",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "MCP Proxy Gateway - Intelligent proxy that reduces token usage by exposing only mcp_search and mcp_call",
   "main": "dist/index.js",
   "type": "module",
@@ -37,9 +37,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
+    "@xenova/transformers": "^2.17.2",
     "zod": "^3.22.4"
-  },
-  "optionalDependencies": {
-    "@xenova/transformers": "^2.17.2"
   }
 }
