@@ -73,7 +73,12 @@ export class OutputShaper {
 
   private extractItems(data: unknown): Record<string, unknown>[] {
     if (data == null) return [];
-    if (typeof data === "string" || typeof data === "number" || typeof data === "boolean") {
+    if (typeof data === "string") {
+      const parsed = this.tryParseCsv(data);
+      if (parsed) return parsed;
+      return [{ value: data }];
+    }
+    if (typeof data === "number" || typeof data === "boolean") {
       return [{ value: data }];
     }
     if (Array.isArray(data)) {
@@ -94,6 +99,59 @@ export class OutputShaper {
     }
     return [];
   }
+
+  private tryParseCsv(data: string): Record<string, unknown>[] | null {
+    const lines = data.split("\n").filter((l) => l.trim());
+    if (lines.length < 2) return null;
+
+    const header = this.parseCsvLine(lines[0]);
+    if (header.length < 2) return null;
+
+    const rows: Record<string, unknown>[] = [];
+    for (let i = 1; i < lines.length; i++) {
+      const values = this.parseCsvLine(lines[i]);
+      if (values.length === 0) continue;
+      const row: Record<string, unknown> = {};
+      for (let j = 0; j < header.length; j++) {
+        row[header[j]] = values[j] ?? "";
+      }
+      rows.push(row);
+    }
+
+    return rows.length > 0 ? rows : null;
+  }
+
+  private parseCsvLine(line: string): string[] {
+    const fields: string[] = [];
+    let current = "";
+    let inQuotes = false;
+
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (inQuotes) {
+        if (ch === '"' && line[i + 1] === '"') {
+          current += '"';
+          i++;
+        } else if (ch === '"') {
+          inQuotes = false;
+        } else {
+          current += ch;
+        }
+      } else {
+        if (ch === '"') {
+          inQuotes = true;
+        } else if (ch === ",") {
+          fields.push(current.trim());
+          current = "";
+        } else {
+          current += ch;
+        }
+      }
+    }
+    fields.push(current.trim());
+    return fields;
+  }
+
 
   private isObject(v: unknown): v is Record<string, unknown> {
     return typeof v === "object" && v !== null && !Array.isArray(v);
