@@ -24,7 +24,7 @@ export type UpstreamServerConfig = z.infer<typeof UpstreamServerConfigSchema>;
 
 export const ProxyConfigSchema = z.object({
   upstreams: z.array(UpstreamServerConfigSchema).min(1),
-  searchLimit: z.number().min(1).max(20).default(8),
+  searchLimit: z.number().min(1).max(20).default(5),
   callItemLimit: z.number().min(1).max(100).default(20),
   maxTextLength: z.number().min(50).max(5000).default(500),
   maxOutputTokens: z.number().min(1000).max(32000).default(8000),
@@ -56,8 +56,20 @@ export interface SearchResult {
   ref: string;
   title: string;
   hint: string;
+}
+
+export interface SchemaResult {
+  ref: string;
+  title: string;
+  description: string;
+  params: Record<string, unknown>;
+  required: string[];
   example: Record<string, unknown>;
 }
+
+export const SchemaParamsSchema = z.object({
+  ref: z.string().min(1),
+});
 
 export const CallParamsSchema = z.object({
   ref: z.string().min(1),
