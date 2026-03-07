@@ -53,6 +53,17 @@ Execute read-only PostgreSQL queries safely.
 - Full schema support
 - Read-only operations for safety
 
+### [@arvoretech/clickhouse-mcp](./packages/clickhouse)
+
+Execute read-only ClickHouse queries safely.
+
+**Features:**
+
+- Execute SELECT queries
+- List tables and databases
+- Describe table structure (columns, types, keys)
+- Read-only operations for safety
+
 ### [@arvoretech/npm-registry-mcp](./packages/npm-registry)
 
 Search and get information about npm packages.
@@ -175,6 +186,7 @@ npm install -g @arvoretech/aws-secrets-manager-mcp
 npm install -g @arvoretech/datadog-mcp
 npm install -g @arvoretech/mysql-mcp
 npm install -g @arvoretech/postgresql-mcp
+npm install -g @arvoretech/clickhouse-mcp
 npm install -g @arvoretech/npm-registry-mcp
 npm install -g @arvoretech/launchdarkly-mcp
 npm install -g @arvoretech/tempmail-mcp
@@ -236,6 +248,16 @@ Add to your Claude Desktop configuration file:
         "POSTGRESQL_PASSWORD": "password",
         "POSTGRESQL_DATABASE": "your_database",
         "POSTGRESQL_SSL": "false"
+      }
+    },
+    "clickhouse": {
+      "command": "npx",
+      "args": ["-y", "@arvoretech/clickhouse-mcp"],
+      "env": {
+        "CLICKHOUSE_URL": "https://your-host:8443",
+        "CLICKHOUSE_USER": "default",
+        "CLICKHOUSE_PASSWORD": "secret",
+        "CLICKHOUSE_DATABASE": "default"
       }
     },
     "npm-registry": {

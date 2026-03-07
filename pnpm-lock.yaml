@@ -48,6 +48,18 @@ importers:
         specifier: ^3.22.4
         version: 3.25.76
 
+  packages/clickhouse:
+    dependencies:
+      '@clickhouse/client':
+        specifier: ^1.8.1
+        version: 1.18.1
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.0.0
+        version: 1.20.2
+      zod:
+        specifier: ^3.22.4
+        version: 3.25.76
+
   packages/datadog:
     dependencies:
       '@datadog/datadog-api-client':
@@ -380,6 +392,13 @@ packages:
 
   '@bcoe/v8-coverage@0.2.3':
     resolution: {integrity: sha512-0hYQ8SB4Db5zvZB4axdMHGwEaQjkZzFjQiN9LVYvIFB2nSUHW9tYpxWriPrWDASIxiaXax83REcLxuSdnGPZtw==}
+
+  '@clickhouse/client-common@1.18.1':
+    resolution: {integrity: sha512-kDk8miGZVDAzqFrBZRmD9rD82Li8gwaGlJ5MNUpWgxx1OUXRBUkcV6ULysWP1C9Jinb3yle3YLz/XbNOPVgVtQ==}
+
+  '@clickhouse/client@1.18.1':
+    resolution: {integrity: sha512-fO4QggCOSr0WBS9oGIFa83FUhbweP8VTFGOXF51DJQbR/oEXegdocNSma3Gp6F4Km9A1Xm1ZAhwrldtg3prPiQ==}
+    engines: {node: '>=16'}
 
   '@datadog/datadog-api-client@1.46.0':
     resolution: {integrity: sha512-Ht4Ck7ygtUCS9bAnSqa7qCC63hBgFucPXFs9MBKsQ7D3KylTGDjtT290dHcFL33VAxwlE+ybnI0hDbT/mDyBkA==}
@@ -780,7 +799,6 @@ packages:
   '@lancedb/lancedb@0.26.2':
     resolution: {integrity: sha512-umk4WMCTwJntLquwvUbpqE+TXREolcQVL9MHcxr8EhRjsha88+ATJ4QuS/hpyiE1CG3R/XcgrMgJAGkziPC/gA==}
     engines: {node: '>= 18'}
-    cpu: [x64, arm64]
     os: [darwin, linux, win32]
     peerDependencies:
       apache-arrow: '>=15.0.0 <=18.1.0'
@@ -3222,6 +3240,12 @@ snapshots:
       '@babel/helper-validator-identifier': 7.28.5
 
   '@bcoe/v8-coverage@0.2.3': {}
+
+  '@clickhouse/client-common@1.18.1': {}
+
+  '@clickhouse/client@1.18.1':
+    dependencies:
+      '@clickhouse/client-common': 1.18.1
 
   '@datadog/datadog-api-client@1.46.0':
     dependencies:
