@@ -76,7 +76,7 @@ export class McpProxyServer {
 
       const config = ProxyConfigSchema.parse({
         upstreams,
-        searchLimit: parseInt(process.env.MCP_PROXY_SEARCH_LIMIT || "8", 10),
+        searchLimit: parseInt(process.env.MCP_PROXY_SEARCH_LIMIT || "3", 10),
         callItemLimit: parseInt(process.env.MCP_PROXY_CALL_ITEM_LIMIT || "20", 10),
         maxTextLength: parseInt(process.env.MCP_PROXY_MAX_TEXT_LENGTH || "500", 10),
         maxOutputTokens: parseInt(process.env.MCP_PROXY_MAX_OUTPUT_TOKENS || "8000", 10),
