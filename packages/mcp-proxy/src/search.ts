@@ -122,11 +122,13 @@ export class HybridSearch {
   }
 
   private toSearchResult(tool: RegistryEntry): SearchResult {
+    const params = tool.mainParams.length > 0
+      ? ` [${tool.mainParams.join(", ")}]`
+      : "";
     return {
       ref: tool.ref,
       title: tool.title,
-      hint: `${tool.description} Params: ${tool.mainParams.join(", ")}`,
-      example: tool.example,
+      hint: `${tool.description}${params}`,
     };
   }
 

@@ -8,6 +8,7 @@ import {
   SearchParamsSchema,
   CallParams,
   CallParamsSchema,
+  SchemaParamsSchema,
   McpToolResult,
   ProxyError,
 } from "./types.js";
@@ -114,6 +115,72 @@ export class McpProxyServer {
       },
       async (params) => this.handleCall(params as CallParams)
     );
+
+    this.server.registerTool(
+      "mcp_schema",
+      {
+        title: "Get Tool Schema",
+        description:
+          "Get the full input schema for a tool. Use the ref from mcp_search results to see all parameters, types, and required fields before calling mcp_call.",
+        inputSchema: {
+          ref: SchemaParamsSchema.shape.ref,
+        },
+      },
+      async (params) => this.handleSchema(params as { ref: string })
+    );
+  }
+
+  private async handleSchema(params: { ref: string }): Promise<McpToolResult> {
+    await this.upstreamsReady;
+    const entry = this.registry.get(params.ref);
+    if (!entry) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              error: `Tool not found: ${params.ref}. Use mcp_search to discover available tools.`,
+            }),
+          },
+        ],
+      };
+    }
+
+    const schema = entry._inputSchema as {
+      properties?: Record<string, unknown>;
+      required?: string[];
+    };
+
+    const properties = schema.properties || {};
+    const required = new Set(schema.required || []);
+
+    const lines: string[] = [
+      `ref = "${entry.ref}"`,
+      `title = "${entry.title}"`,
+      `description = "${this.escapeToml(entry.description)}"`,
+      "",
+    ];
+
+    for (const [name, def] of Object.entries(properties)) {
+      const prop = def as { type?: string; description?: string; default?: unknown; enum?: unknown[] };
+      const req = required.has(name) ? "required" : "optional";
+      const type = prop.type || "unknown";
+      lines.push(`[params.${name}]`);
+      lines.push(`type = "${type}"`);
+      lines.push(`status = "${req}"`);
+      if (prop.description) {
+        lines.push(`desc = "${this.escapeToml(this.truncateText(prop.description, 80))}"`);
+      }
+      if (prop.default !== undefined) {
+        lines.push(`default = ${JSON.stringify(prop.default)}`);
+      }
+      if (prop.enum) {
+        lines.push(`enum = ${JSON.stringify(prop.enum)}`);
+      }
+      lines.push("");
+    }
+
+    return { content: [{ type: "text", text: lines.join("\n") }] };
   }
 
   private async handleSearch(params: SearchParams): Promise<McpToolResult> {
@@ -128,7 +195,9 @@ export class McpProxyServer {
       const limit = params.limit || this.config.searchLimit;
       const results = await this.search.search(params.query, limit);
 
-      const output = JSON.stringify({ results }, null, 2);
+      const output = results
+        .map((r) => `[[results]]\nref = "${r.ref}"\ntitle = "${r.title}"\nhint = "${this.escapeToml(r.hint)}"`)
+        .join("\n\n");
       this.logger.finalize(audit, {
         outputSize: output.length,
         itemCount: results.length,
@@ -303,6 +372,15 @@ export class McpProxyServer {
     });
   }
 
+  private escapeToml(value: string): string {
+    return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n");
+  }
+
+  private truncateText(text: string, max: number): string {
+    if (text.length <= max) return text;
+    return text.slice(0, max - 1) + "…";
+  }
+
   async start(): Promise<void> {
     try {
       const transport = new StdioServerTransport();
@@ -318,7 +396,7 @@ export class McpProxyServer {
         console.error(
           `[proxy] Semantic search: ${this.embeddings.isReady() ? "enabled" : "disabled (lexical fallback)"}`
         );
-        console.error("[proxy] Exposing 2 tools: mcp_search, mcp_call");
+        console.error("[proxy] Exposing 3 tools: mcp_search, mcp_schema, mcp_call");
       })();
 
       this.upstreamsReady.catch((error) => {
