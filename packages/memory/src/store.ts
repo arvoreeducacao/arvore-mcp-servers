@@ -229,16 +229,20 @@ export class MemoryStore {
 
     const results = await searchQuery.toArray();
 
-    return results.map((row: Record<string, unknown>) => ({
-      id: row.id as string,
-      title: row.title as string,
-      category: row.category as MemoryCategory,
-      date: row.date as string,
-      tags: (row.tags as string).split(",").filter(Boolean),
-      status: row.status as MemoryStatus,
-      snippet: row.snippet as string,
-      score: round(1 - ((row._distance as number) || 0)),
-    }));
+    const MIN_RELEVANCE_SCORE = -0.2;
+
+    return results
+      .map((row: Record<string, unknown>) => ({
+        id: row.id as string,
+        title: row.title as string,
+        category: row.category as MemoryCategory,
+        date: row.date as string,
+        tags: (row.tags as string).split(",").filter(Boolean),
+        status: row.status as MemoryStatus,
+        snippet: row.snippet as string,
+        score: round(1 - ((row._distance as number) || 0)),
+      }))
+      .filter((r) => r.score >= MIN_RELEVANCE_SCORE);
   }
 
   private keywordSearch(
