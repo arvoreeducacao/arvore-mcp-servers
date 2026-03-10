@@ -175,6 +175,29 @@ MCP Proxy Gateway — consolidates N upstream MCP servers behind 2 tools.
 - Cursor-based pagination with TTL
 - Supports stdio and HTTP transports with env var expansion
 
+### [@arvoretech/agent-teams-lead-mcp](./packages/agent-teams-lead)
+
+Agent Teams Lead — spawn and coordinate multiple AI agent sessions working together as a team. Inspired by [Anthropic's agent teams for Claude Code](https://code.claude.com/docs/en/agent-teams), built as an editor-agnostic MCP layer.
+
+**Features:**
+
+- Spawn teammates as independent CLI processes (Kiro, Cursor, Claude Code, OpenCode)
+- Shared task list with dependencies and exclusive file paths
+- Inter-agent messaging (direct, broadcast, or to lead)
+- Atomic `mkdir`-based file locking for safe parallel task claiming
+- Audit log in `.agent-teams/team.log`
+
+### [@arvoretech/agent-teams-teammate-mcp](./packages/agent-teams-teammate)
+
+Agent Teams Teammate — MCP injected into each teammate session for claiming tasks, messaging, and publishing artifacts.
+
+**Features:**
+
+- Claim pending tasks with dependency and lock validation
+- Communicate with other teammates and the lead
+- Publish artifacts (markdown, JSON, or code) linked to tasks
+- Automatically injected by the lead — no manual configuration needed
+
 ## 🚀 Quick Start
 
 ### Installation
@@ -196,6 +219,8 @@ npm install -g @arvoretech/runtime-lens-mcp
 npm install -g @arvoretech/meet-transcriptions-mcp
 npm install -g @arvoretech/sendgrid-mcp
 npm install -g @arvoretech/mcp-proxy
+npm install -g @arvoretech/agent-teams-lead-mcp
+npm install -g @arvoretech/agent-teams-teammate-mcp
 ```
 
 Or using pnpm:
@@ -323,6 +348,13 @@ Add to your Claude Desktop configuration file:
       "env": {
         "MYSQL_HOST": "localhost",
         "MCP_PROXY_UPSTREAMS": "[{\"name\":\"mysql\",\"command\":\"npx\",\"args\":[\"-y\",\"@arvoretech/mysql-mcp\"],\"env\":{\"MYSQL_HOST\":\"${MYSQL_HOST}\"}}]"
+      }
+    },
+    "agent-teams-lead": {
+      "command": "npx",
+      "args": ["-y", "@arvoretech/agent-teams-lead-mcp"],
+      "env": {
+        "WORKSPACE_PATH": "/path/to/your/workspace"
       }
     }
   }
