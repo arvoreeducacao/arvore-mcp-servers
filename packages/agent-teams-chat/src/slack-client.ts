@@ -34,6 +34,32 @@ export class SlackClient {
     return data as T;
   }
 
+  private async requestGet<T>(method: string, params: Record<string, string>): Promise<T> {
+    const url = new URL(`${SLACK_API_BASE}/${method}`);
+    for (const [key, value] of Object.entries(params)) {
+      url.searchParams.set(key, value);
+    }
+
+    const response = await fetch(url.toString(), {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${this.botToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Slack API error: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json() as Record<string, unknown>;
+
+    if (!data.ok) {
+      throw new Error(`Slack API error: ${data.error as string}`);
+    }
+
+    return data as T;
+  }
+
   async postMessage(text: string, threadTs?: string): Promise<{ ts: string; channel: string }> {
     const body: Record<string, unknown> = {
       channel: this.channel,
@@ -51,31 +77,31 @@ export class SlackClient {
   }
 
   async getThreadReplies(threadTs: string, limit = 50, oldest?: string): Promise<SlackMessage[]> {
-    const body: Record<string, unknown> = {
+    const params: Record<string, string> = {
       channel: this.channel,
       ts: threadTs,
-      limit,
-      inclusive: true,
+      limit: String(limit),
+      inclusive: "true",
     };
 
     if (oldest) {
-      body.oldest = oldest;
+      params.oldest = oldest;
     }
 
-    const result = await this.request<{ messages: SlackMessage[] }>(
+    const result = await this.requestGet<{ messages: SlackMessage[] }>(
       "conversations.replies",
-      body,
+      params,
     );
 
     return result.messages ?? [];
   }
 
   async getChannelHistory(limit = 50): Promise<SlackMessage[]> {
-    const result = await this.request<{ messages: SlackMessage[] }>(
+    const result = await this.requestGet<{ messages: SlackMessage[] }>(
       "conversations.history",
       {
         channel: this.channel,
-        limit,
+        limit: String(limit),
       },
     );
 
