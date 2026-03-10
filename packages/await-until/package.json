@@ -8,7 +8,7 @@
     "access": "public"
   },
   "bin": {
-    "await-until-mcp": "./dist/index.js"
+    "await-until-mcp": "./dist/cli.js"
   },
   "scripts": {
     "build": "tsc",

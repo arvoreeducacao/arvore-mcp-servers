@@ -49,7 +49,7 @@ function execCommand(
       command,
       {
         cwd,
-        shell: shell ?? "/bin/bash",
+        shell: shell ?? (process.platform === "win32" ? "cmd.exe" : "/bin/bash"),
         timeout: 30_000,
         maxBuffer: 1024 * 1024,
       },

@@ -249,7 +249,6 @@ Polls another MCP server's tool at a given interval until the result matches a c
 pnpm install
 pnpm dev
 pnpm build
-pnpm test
 pnpm lint
 ```
 

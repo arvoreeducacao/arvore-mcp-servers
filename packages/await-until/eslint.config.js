@@ -26,7 +26,6 @@ export default [
         URL: "readonly",
         AbortSignal: "readonly",
         setTimeout: "readonly",
-        Record: "readonly",
       },
     },
     plugins: {
