@@ -1,6 +1,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { writeFile, mkdir, readFile, unlink, appendFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
+import { createRequire } from "node:module";
 import { join, resolve } from "node:path";
 import type { Teammate } from "./types.js";
 
@@ -44,11 +45,10 @@ export class TeammateSpawner {
     }
 
     try {
-      const resolved = require.resolve(
-        "@arvoretech/agent-teams-teammate-mcp/dist/index.js",
-        { paths: [this.workspacePath] }
+      const esmRequire = createRequire(join(this.workspacePath, "package.json"));
+      return esmRequire.resolve(
+        "@arvoretech/agent-teams-teammate-mcp/dist/index.js"
       );
-      return resolved;
     } catch {
       // noop
     }
@@ -221,11 +221,13 @@ export class TeammateSpawner {
               }
             }
 
-            const { name: _name, env: _env, ...rest } = upstream;
-            flatServers[upstream.name] = {
-              ...rest,
-              env: resolvedEnv,
-            } as McpServerConfig;
+            flatServers[upstream.name] = Object.assign(
+              {},
+              ...Object.entries(upstream)
+                .filter(([key]) => key !== "name" && key !== "env")
+                .map(([key, val]) => ({ [key]: val })),
+              { env: resolvedEnv }
+            ) as McpServerConfig;
           }
         } catch {
           flatServers[name] = config;
