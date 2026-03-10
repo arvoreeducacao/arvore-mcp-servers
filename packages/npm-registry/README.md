@@ -6,13 +6,13 @@ A Model Context Protocol (MCP) server implementation that provides comprehensive
 
 ## Features
 
-- 📦 **Package Information**: Complete metadata, dependencies, and version history
-- 📊 **Download Statistics**: Weekly download counts and trends
-- 🔍 **Package Search**: Advanced search with scoring and filtering
-- 🚀 **Fast**: Direct API calls to NPM registry using fetch
-- 📡 **MCP Protocol**: Communication via stdio transport
-- 🛠️ **TypeScript**: Fully typed with Zod validation
-- 🌐 **No Configuration**: Uses public NPM APIs - no setup required
+- **Package Information**: Complete metadata, dependencies, and version history
+- **Download Statistics**: Weekly download counts and trends
+- **Package Search**: Advanced search with scoring and filtering
+- **Fast**: Direct API calls to NPM registry using fetch
+- **MCP Protocol**: Communication via stdio transport
+- **TypeScript**: Fully typed with Zod validation
+- **No Configuration**: Uses public NPM APIs - no setup required
 
 ## Installation
 

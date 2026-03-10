@@ -6,12 +6,12 @@ A Model Context Protocol (MCP) server implementation for MySQL that enables read
 
 ## Features
 
-- ✅ **Read-only**: Executes only SELECT, SHOW, DESCRIBE and EXPLAIN queries
-- 🔒 **Secure**: Validates queries to prevent write operations
-- 🚀 **Fast**: Direct MySQL connection using mysql2
-- 📡 **MCP Protocol**: Communication via stdio transport
-- 🛠️ **TypeScript**: Fully typed with Zod validation
-- 🌍 **Environment Configuration**: Easy setup via environment variables
+- **Read-only**: Executes only SELECT, SHOW, DESCRIBE and EXPLAIN queries
+- **Secure**: Validates queries to prevent write operations
+- **Fast**: Direct MySQL connection using mysql2
+- **MCP Protocol**: Communication via stdio transport
+- **TypeScript**: Fully typed with Zod validation
+- **Environment Configuration**: Easy setup via environment variables
 
 ## Installation
 

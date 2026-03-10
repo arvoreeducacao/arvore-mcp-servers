@@ -40,7 +40,7 @@
     "directory": "packages/tempmail"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@modelcontextprotocol/sdk": "~1.22.0",
     "mailparser": "^3.7.0",
     "zod": "^3.22.4"
   },
