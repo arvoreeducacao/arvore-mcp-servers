@@ -31,11 +31,17 @@ async function acquireLock(lockPath: string): Promise<void> {
           }
           continue;
         }
-        await new Promise((r) => setTimeout(r, RETRY_INTERVAL_MS + Math.random() * 30));
+        await new Promise((r) =>
+          setTimeout(r, RETRY_INTERVAL_MS + Math.random() * 30)
+        );
         continue;
       }
       throw err;
     }
+  }
+
+  if (!(await isLockStale(lockPath))) {
+    throw new Error(`Failed to acquire lock: ${lockPath} (timeout)`);
   }
 
   try {
@@ -43,7 +49,16 @@ async function acquireLock(lockPath: string): Promise<void> {
   } catch {
     // noop
   }
-  await mkdir(lockPath);
+
+  try {
+    await mkdir(lockPath);
+  } catch (err: unknown) {
+    const code = (err as { code?: string }).code;
+    if (code === "EEXIST") {
+      throw new Error(`Failed to acquire lock: ${lockPath} (contention)`);
+    }
+    throw err;
+  }
 }
 
 async function releaseLock(lockPath: string): Promise<void> {

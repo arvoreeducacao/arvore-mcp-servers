@@ -84,40 +84,42 @@ export class TeamStore {
     objective: string,
     teammateConfigs: Array<{ agent: string; mcp_servers?: string[] }>
   ): Promise<Team> {
-    resetNames();
+    return withFileLock(this.teamPath(), async () => {
+      resetNames();
 
-    const teammates: Teammate[] = teammateConfigs.map((config) => {
-      const name = generateTeammateName();
-      const role = config.agent.replace(/\.(md|json)$/, "");
-      return {
+      const teammates: Teammate[] = teammateConfigs.map((config) => {
+        const name = generateTeammateName();
+        const role = config.agent.replace(/\.(md|json)$/, "");
+        return {
+          id: this.generateId(),
+          name,
+          role,
+          agent: config.agent,
+          mcp_servers: config.mcp_servers,
+          status: "active",
+          registered_at: new Date().toISOString(),
+        };
+      });
+
+      this.team = {
         id: this.generateId(),
-        name,
-        role,
-        agent: config.agent,
-        mcp_servers: config.mcp_servers,
-        status: "active",
-        registered_at: new Date().toISOString(),
+        objective,
+        created_at: new Date().toISOString(),
+        teammates,
       };
+
+      this.tasks = [];
+      this.messages = [];
+      this.artifacts = [];
+
+      await this.ensureDir();
+      await this.writeJson(this.teamPath(), this.team);
+      await this.writeJson(this.tasksPath(), this.tasks);
+      await this.writeJson(this.messagesPath(), this.messages);
+      await this.writeJson(this.artifactsPath(), this.artifacts);
+
+      return this.team;
     });
-
-    this.team = {
-      id: this.generateId(),
-      objective,
-      created_at: new Date().toISOString(),
-      teammates,
-    };
-
-    this.tasks = [];
-    this.messages = [];
-    this.artifacts = [];
-
-    await this.ensureDir();
-    await this.writeJson(this.teamPath(), this.team);
-    await this.writeJson(this.tasksPath(), this.tasks);
-    await this.writeJson(this.messagesPath(), this.messages);
-    await this.writeJson(this.artifactsPath(), this.artifacts);
-
-    return this.team;
   }
 
   async addTeammate(

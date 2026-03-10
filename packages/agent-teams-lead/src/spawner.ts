@@ -35,7 +35,25 @@ export class TeammateSpawner {
     this.workspacePath = resolve(workspacePath);
     this.agentsDir = join(this.workspacePath, ".kiro", "agents");
     this.logPath = join(this.workspacePath, ".agent-teams", "team.log");
-    this.teammateMcpPath = join(
+    this.teammateMcpPath = this.resolveTeammateMcpPath();
+  }
+
+  private resolveTeammateMcpPath(): string {
+    if (process.env.TEAMMATE_MCP_PATH) {
+      return resolve(process.env.TEAMMATE_MCP_PATH);
+    }
+
+    try {
+      const resolved = require.resolve(
+        "@arvoretech/agent-teams-teammate-mcp/dist/index.js",
+        { paths: [this.workspacePath] }
+      );
+      return resolved;
+    } catch {
+      // noop
+    }
+
+    return join(
       this.workspacePath,
       "arvore-mcp-servers",
       "packages",
@@ -181,12 +199,12 @@ export class TeammateSpawner {
         try {
           const upstreams = JSON.parse(
             config.env.MCP_PROXY_UPSTREAMS
-          ) as Array<{
-            name: string;
-            command: string;
-            args?: string[];
-            env?: Record<string, string>;
-          }>;
+          ) as Array<
+            Record<string, unknown> & {
+              name: string;
+              env?: Record<string, string>;
+            }
+          >;
 
           const proxyEnv = config.env || {};
 
@@ -203,11 +221,11 @@ export class TeammateSpawner {
               }
             }
 
+            const { name: _name, env: _env, ...rest } = upstream;
             flatServers[upstream.name] = {
-              command: upstream.command,
-              args: upstream.args,
+              ...rest,
               env: resolvedEnv,
-            };
+            } as McpServerConfig;
           }
         } catch {
           flatServers[name] = config;
