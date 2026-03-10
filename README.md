@@ -162,6 +162,18 @@ Manage SendGrid Dynamic Templates directly from your AI assistant.
 - Activate specific template versions
 - Full CRUD for templates and versions via SendGrid API v3
 
+### [@arvoretech/await-until-mcp](./packages/await-until)
+
+Polling/waiting primitives — repeatedly check conditions until they're met or time out.
+
+**Features:**
+
+- Execute shell commands until output matches a condition
+- Poll HTTP endpoints until they return expected status/body
+- Watch filesystem until files exist, disappear, or contain content
+- Call any other MCP server's tool and poll until the result matches (auto-discovers from mcp.json)
+- Configurable interval, timeout, and match conditions
+
 ### [@arvoretech/mcp-proxy](./packages/mcp-proxy)
 
 MCP Proxy Gateway — consolidates N upstream MCP servers behind 2 tools.
@@ -231,6 +243,7 @@ npm install -g @arvoretech/memory-mcp
 npm install -g @arvoretech/runtime-lens-mcp
 npm install -g @arvoretech/meet-transcriptions-mcp
 npm install -g @arvoretech/sendgrid-mcp
+npm install -g @arvoretech/await-until-mcp
 npm install -g @arvoretech/mcp-proxy
 npm install -g @arvoretech/agent-teams-lead-mcp
 npm install -g @arvoretech/agent-teams-teammate-mcp
@@ -355,6 +368,10 @@ Add to your Claude Desktop configuration file:
       "env": {
         "SENDGRID_API_KEY": "SG.your-api-key"
       }
+    },
+    "await-until": {
+      "command": "npx",
+      "args": ["-y", "@arvoretech/await-until-mcp"]
     },
     "mcp-proxy": {
       "command": "node",

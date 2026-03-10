@@ -6,13 +6,13 @@ A Model Context Protocol (MCP) server for temporary/disposable email management,
 
 ## Features
 
-- 📧 **Create Accounts**: Generate temporary email addresses on your domain
-- 📬 **Read Emails**: Full access to email content (text + HTML)
-- 🗑️ **Manage**: Delete accounts and messages
-- ☁️ **Cloudflare D1**: Serverless SQLite storage on the edge
-- 📮 **Email Workers**: Cloudflare handles MX, SMTP, and email routing
-- 📡 **MCP Protocol**: Communication via stdio transport
-- 🛠️ **TypeScript**: Fully typed with Zod validation
+- **Create Accounts**: Generate temporary email addresses on your domain
+- **Read Emails**: Full access to email content (text + HTML)
+- **Manage**: Delete accounts and messages
+- **Cloudflare D1**: Serverless SQLite storage on the edge
+- **Email Workers**: Cloudflare handles MX, SMTP, and email routing
+- **MCP Protocol**: Communication via stdio transport
+- **TypeScript**: Fully typed with Zod validation
 
 ## Architecture
 

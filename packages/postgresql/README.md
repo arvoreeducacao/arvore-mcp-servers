@@ -6,13 +6,13 @@ A Model Context Protocol (MCP) server implementation for PostgreSQL that enables
 
 ## Features
 
-- ✅ **Read-only**: Executes only SELECT, SHOW, EXPLAIN and WITH (CTE) queries
-- 🔒 **Secure**: Validates queries to prevent write operations
-- 🚀 **Fast**: Direct PostgreSQL connection using node-postgres (pg)
-- 📡 **MCP Protocol**: Communication via stdio transport
-- 🛠️ **TypeScript**: Fully typed with Zod validation
-- 🌍 **Environment Configuration**: Easy setup via environment variables
-- 📁 **Schema Support**: Full support for PostgreSQL schemas
+- **Read-only**: Executes only SELECT, SHOW, EXPLAIN and WITH (CTE) queries
+- **Secure**: Validates queries to prevent write operations
+- **Fast**: Direct PostgreSQL connection using node-postgres (pg)
+- **MCP Protocol**: Communication via stdio transport
+- **TypeScript**: Fully typed with Zod validation
+- **Environment Configuration**: Easy setup via environment variables
+- **Schema Support**: Full support for PostgreSQL schemas
 
 ## Installation
 
