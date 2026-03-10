@@ -36,8 +36,8 @@ importers:
   packages/agent-teams-chat:
     dependencies:
       '@modelcontextprotocol/sdk':
-        specifier: ^1.0.0
-        version: 1.20.2
+        specifier: ^1.27.0
+        version: 1.27.1(zod@3.25.76)
       zod:
         specifier: ^3.22.4
         version: 3.25.76
@@ -61,8 +61,8 @@ importers:
   packages/agent-teams-lead:
     dependencies:
       '@modelcontextprotocol/sdk':
-        specifier: ^1.0.0
-        version: 1.20.2
+        specifier: ^1.27.0
+        version: 1.27.1(zod@3.25.76)
       zod:
         specifier: ^3.22.4
         version: 3.25.76
@@ -86,8 +86,8 @@ importers:
   packages/agent-teams-teammate:
     dependencies:
       '@modelcontextprotocol/sdk':
-        specifier: ^1.0.0
-        version: 1.20.2
+        specifier: ^1.27.0
+        version: 1.27.1(zod@3.25.76)
       zod:
         specifier: ^3.22.4
         version: 3.25.76
@@ -126,8 +126,8 @@ importers:
         specifier: ^3.920.0
         version: 3.920.0
       '@modelcontextprotocol/sdk':
-        specifier: ^1.0.0
-        version: 1.20.2
+        specifier: ^1.27.0
+        version: 1.27.1(zod@3.25.76)
       zod:
         specifier: ^3.22.4
         version: 3.25.76
@@ -138,8 +138,8 @@ importers:
         specifier: ^1.8.1
         version: 1.18.1
       '@modelcontextprotocol/sdk':
-        specifier: ^1.0.0
-        version: 1.20.2
+        specifier: ^1.27.0
+        version: 1.27.1(zod@3.25.76)
       zod:
         specifier: ^3.22.4
         version: 3.25.76
@@ -150,8 +150,8 @@ importers:
         specifier: ^1.29.0
         version: 1.46.0
       '@modelcontextprotocol/sdk':
-        specifier: ^1.0.0
-        version: 1.20.2
+        specifier: ^1.27.0
+        version: 1.27.1(zod@3.25.76)
       zod:
         specifier: ^3.22.4
         version: 3.25.76
@@ -159,8 +159,8 @@ importers:
   packages/google-chat:
     dependencies:
       '@modelcontextprotocol/sdk':
-        specifier: ^1.0.0
-        version: 1.20.2
+        specifier: ^1.27.0
+        version: 1.27.1(zod@3.25.76)
       zod:
         specifier: ^3.22.4
         version: 3.25.76
@@ -168,8 +168,8 @@ importers:
   packages/launchdarkly:
     dependencies:
       '@modelcontextprotocol/sdk':
-        specifier: ^1.0.0
-        version: 1.20.2
+        specifier: ^1.27.0
+        version: 1.27.1(zod@3.25.76)
       zod:
         specifier: ^3.22.4
         version: 3.25.76
@@ -177,8 +177,8 @@ importers:
   packages/mcp-proxy:
     dependencies:
       '@modelcontextprotocol/sdk':
-        specifier: ^1.0.0
-        version: 1.20.2
+        specifier: ^1.27.0
+        version: 1.27.1(zod@3.25.76)
       '@xenova/transformers':
         specifier: ^2.17.2
         version: 2.17.2
@@ -192,8 +192,8 @@ importers:
         specifier: ^0.26.2
         version: 0.26.2(apache-arrow@18.1.0)
       '@modelcontextprotocol/sdk':
-        specifier: ^1.0.0
-        version: 1.20.2
+        specifier: ^1.27.0
+        version: 1.27.1(zod@3.25.76)
       '@xenova/transformers':
         specifier: ^2.17.2
         version: 2.17.2
@@ -223,8 +223,8 @@ importers:
         specifier: ^0.26.2
         version: 0.26.2(apache-arrow@18.1.0)
       '@modelcontextprotocol/sdk':
-        specifier: ^1.0.0
-        version: 1.20.2
+        specifier: ^1.27.0
+        version: 1.27.1(zod@3.25.76)
       '@xenova/transformers':
         specifier: ^2.17.2
         version: 2.17.2
@@ -251,8 +251,8 @@ importers:
   packages/mysql:
     dependencies:
       '@modelcontextprotocol/sdk':
-        specifier: ^1.0.0
-        version: 1.20.2
+        specifier: ^1.27.0
+        version: 1.27.1(zod@3.25.76)
       mysql2:
         specifier: ^3.6.5
         version: 3.15.3
@@ -263,8 +263,8 @@ importers:
   packages/npm-registry:
     dependencies:
       '@modelcontextprotocol/sdk':
-        specifier: ^1.0.0
-        version: 1.20.2
+        specifier: ^1.27.0
+        version: 1.27.1(zod@3.25.76)
       zod:
         specifier: ^3.22.4
         version: 3.25.76
@@ -272,8 +272,8 @@ importers:
   packages/postgresql:
     dependencies:
       '@modelcontextprotocol/sdk':
-        specifier: ^1.0.0
-        version: 1.20.2
+        specifier: ^1.27.0
+        version: 1.27.1(zod@3.25.76)
       pg:
         specifier: ^8.17.2
         version: 8.17.2
@@ -288,8 +288,8 @@ importers:
   packages/runtime-lens:
     dependencies:
       '@modelcontextprotocol/sdk':
-        specifier: ^1.0.0
-        version: 1.20.2
+        specifier: ^1.27.0
+        version: 1.27.1(zod@3.25.76)
       zod:
         specifier: ^3.22.4
         version: 3.25.76
@@ -304,8 +304,8 @@ importers:
   packages/sendgrid:
     dependencies:
       '@modelcontextprotocol/sdk':
-        specifier: ^1.0.0
-        version: 1.20.2
+        specifier: ^1.27.0
+        version: 1.27.1(zod@3.25.76)
       zod:
         specifier: ^3.22.4
         version: 3.25.76
@@ -313,8 +313,8 @@ importers:
   packages/tempmail:
     dependencies:
       '@modelcontextprotocol/sdk':
-        specifier: ^1.0.0
-        version: 1.20.2
+        specifier: ^1.27.0
+        version: 1.27.1(zod@3.25.76)
       mailparser:
         specifier: ^3.7.0
         version: 3.9.3
@@ -892,10 +892,6 @@ packages:
     os: [darwin, linux, win32]
     peerDependencies:
       apache-arrow: '>=15.0.0 <=18.1.0'
-
-  '@modelcontextprotocol/sdk@1.20.2':
-    resolution: {integrity: sha512-6rqTdFt67AAAzln3NOKsXRmv5ZzPkgbfaebKBqUbts7vK1GZudqnrun5a8d3M/h955cam9RHZ6Jb4Y1XhnmFPg==}
-    engines: {node: '>=18'}
 
   '@modelcontextprotocol/sdk@1.27.1':
     resolution: {integrity: sha512-sr6GbP+4edBwFndLbM60gf07z0FQ79gaExpnsjMGePXqFcSSb7t6iscpjk9DhFhwd+mTEQrzNafGP8/iGGFYaA==}
@@ -1491,10 +1487,6 @@ packages:
   bl@4.1.0:
     resolution: {integrity: sha512-1W07cM9gS6DcLperZfFSj+bWLtaPGSOHWhPiGzXmvVJbRLdG82sH/Kn8EtW1VqWVA54AKf2h5k5BbnIbwF3h6w==}
 
-  body-parser@2.2.0:
-    resolution: {integrity: sha512-02qvAaxv8tp7fBa/mw1ga98OGm+eCbqzJOKoRt70sLmfEEi+jyBYVTDGfCL/k06/4EMk/z01gCe7HoCH/f2LTg==}
-    engines: {node: '>=18'}
-
   body-parser@2.2.2:
     resolution: {integrity: sha512-oP5VkATKlNwcgvxi0vM0p/D3n2C3EReYVX+DNYs5TjZFn/oQt2j+4sVJtSMr18pdRr8wjTcBl6LoV+FUwzPmNA==}
     engines: {node: '>=18'}
@@ -1802,21 +1794,11 @@ packages:
     resolution: {integrity: sha512-XYfuKMvj4O35f/pOXLObndIRvyQ+/+6AhODh+OKWj9S9498pHHn/IMszH+gt0fBCRWMNfk1ZSp5x3AifmnI2vg==}
     engines: {node: '>=6'}
 
-  express-rate-limit@7.5.1:
-    resolution: {integrity: sha512-7iN8iPMDzOMHPUYllBEsQdWVB6fPDMPqwjBaFrgr4Jgr/+okjvzAy+UHlYYL/Vs0OsOrMkwS6PJDkFlJwoxUnw==}
-    engines: {node: '>= 16'}
-    peerDependencies:
-      express: '>= 4.11'
-
   express-rate-limit@8.3.1:
     resolution: {integrity: sha512-D1dKN+cmyPWuvB+G2SREQDzPY1agpBIcTa9sJxOPMCNeH3gwzhqJRDWCXW3gg0y//+LQ/8j52JbMROWyrKdMdw==}
     engines: {node: '>= 16'}
     peerDependencies:
       express: '>= 4.11'
-
-  express@5.1.0:
-    resolution: {integrity: sha512-DT9ck5YIRU+8GYzzU5kT3eHGA5iL+1Zd0EutOmTE9Dtk+Tvuzd23VBU+ec7HPNSTxXYO55gPV/hq4pSBJDjFpA==}
-    engines: {node: '>= 18'}
 
   express@5.2.1:
     resolution: {integrity: sha512-hIS4idWWai69NezIdRt2xFVofaF4j+6INOpJlVOLDO8zXGpUVEVzIYk12UUi2JzjEzWL3IOAxcTubgz9Po0yXw==}
@@ -2932,11 +2914,6 @@ packages:
     resolution: {integrity: sha512-AyeEbWOu/TAXdxlV9wmGcR0+yh2j3vYPGOECcIj2S7MkrLyC7ne+oye2BKTItt0ii2PHk4cDy+95+LshzbXnGg==}
     engines: {node: '>=12.20'}
 
-  zod-to-json-schema@3.24.6:
-    resolution: {integrity: sha512-h/z3PKvcTcTetyjl1fkj79MHNEjm+HpD6NXheWjzOekY7kV+lwDYnHw+ivHkijnCSMz1yJaWBD9vu/Fcmk+vEg==}
-    peerDependencies:
-      zod: ^3.24.1
-
   zod-to-json-schema@3.25.1:
     resolution: {integrity: sha512-pM/SU9d3YAggzi6MtR4h7ruuQlqKtad8e9S0fmxcMi+ueAK5Korys/aWcV9LIIHTVbj01NdzxcnXSN+O74ZIVA==}
     peerDependencies:
@@ -3661,23 +3638,6 @@ snapshots:
       '@lancedb/lancedb-win32-arm64-msvc': 0.26.2
       '@lancedb/lancedb-win32-x64-msvc': 0.26.2
 
-  '@modelcontextprotocol/sdk@1.20.2':
-    dependencies:
-      ajv: 6.12.6
-      content-type: 1.0.5
-      cors: 2.8.5
-      cross-spawn: 7.0.6
-      eventsource: 3.0.7
-      eventsource-parser: 3.0.6
-      express: 5.1.0
-      express-rate-limit: 7.5.1(express@5.1.0)
-      pkce-challenge: 5.0.0
-      raw-body: 3.0.1
-      zod: 3.25.76
-      zod-to-json-schema: 3.24.6(zod@3.25.76)
-    transitivePeerDependencies:
-      - supports-color
-
   '@modelcontextprotocol/sdk@1.27.1(zod@3.25.76)':
     dependencies:
       '@hono/node-server': 1.19.11(hono@4.12.7)
@@ -4392,20 +4352,6 @@ snapshots:
       inherits: 2.0.4
       readable-stream: 3.6.2
 
-  body-parser@2.2.0:
-    dependencies:
-      bytes: 3.1.2
-      content-type: 1.0.5
-      debug: 4.4.3
-      http-errors: 2.0.0
-      iconv-lite: 0.6.3
-      on-finished: 2.4.1
-      qs: 6.14.0
-      raw-body: 3.0.1
-      type-is: 2.0.1
-    transitivePeerDependencies:
-      - supports-color
-
   body-parser@2.2.2:
     dependencies:
       bytes: 3.1.2
@@ -4796,46 +4742,10 @@ snapshots:
 
   expand-template@2.0.3: {}
 
-  express-rate-limit@7.5.1(express@5.1.0):
-    dependencies:
-      express: 5.1.0
-
   express-rate-limit@8.3.1(express@5.2.1):
     dependencies:
       express: 5.2.1
       ip-address: 10.1.0
-
-  express@5.1.0:
-    dependencies:
-      accepts: 2.0.0
-      body-parser: 2.2.0
-      content-disposition: 1.0.0
-      content-type: 1.0.5
-      cookie: 0.7.2
-      cookie-signature: 1.2.2
-      debug: 4.4.3
-      encodeurl: 2.0.0
-      escape-html: 1.0.3
-      etag: 1.8.1
-      finalhandler: 2.1.0
-      fresh: 2.0.0
-      http-errors: 2.0.0
-      merge-descriptors: 2.0.0
-      mime-types: 3.0.1
-      on-finished: 2.4.1
-      once: 1.4.0
-      parseurl: 1.3.3
-      proxy-addr: 2.0.7
-      qs: 6.14.0
-      range-parser: 1.2.1
-      router: 2.2.0
-      send: 1.2.0
-      serve-static: 2.2.0
-      statuses: 2.0.2
-      type-is: 2.0.1
-      vary: 1.1.2
-    transitivePeerDependencies:
-      - supports-color
 
   express@5.2.1:
     dependencies:
@@ -6008,10 +5918,6 @@ snapshots:
   yocto-queue@0.1.0: {}
 
   yocto-queue@1.2.1: {}
-
-  zod-to-json-schema@3.24.6(zod@3.25.76):
-    dependencies:
-      zod: 3.25.76
 
   zod-to-json-schema@3.25.1(zod@3.25.76):
     dependencies:
