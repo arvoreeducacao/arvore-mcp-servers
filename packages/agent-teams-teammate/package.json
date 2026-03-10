@@ -1,0 +1,35 @@
+{
+  "name": "@arvoretech/agent-teams-teammate-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for teammate agents — claim tasks, communicate, publish artifacts",
+  "main": "dist/index.js",
+  "type": "module",
+  "bin": {
+    "agent-teams-teammate-mcp": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:cov": "vitest run --coverage",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@vitest/coverage-v8": "^1.0.0",
+    "tsx": "^4.6.0",
+    "typescript": "^5.3.0",
+    "vitest": "^1.0.0"
+  },
+  "author": "Arvore",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
