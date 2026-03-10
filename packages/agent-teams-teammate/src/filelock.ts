@@ -21,7 +21,7 @@ async function acquireLock(lockPath: string): Promise<void> {
       await mkdir(lockPath);
       return;
     } catch (err: unknown) {
-      const code = (err as NodeJS.ErrnoException).code;
+      const code = (err as { code?: string }).code;
       if (code === "EEXIST") {
         if (await isLockStale(lockPath)) {
           try {

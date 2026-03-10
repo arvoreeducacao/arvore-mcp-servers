@@ -1,5 +1,4 @@
 import { mkdir, rmdir, stat } from "node:fs/promises";
-import { existsSync } from "node:fs";
 
 const STALE_LOCK_MS = 10_000;
 const RETRY_INTERVAL_MS = 50;
@@ -22,7 +21,7 @@ async function acquireLock(lockPath: string): Promise<void> {
       await mkdir(lockPath);
       return;
     } catch (err: unknown) {
-      const code = (err as NodeJS.ErrnoException).code;
+      const code = (err as { code?: string }).code;
       if (code === "EEXIST") {
         if (await isLockStale(lockPath)) {
           try {
