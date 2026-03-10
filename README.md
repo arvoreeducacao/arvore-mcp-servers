@@ -198,6 +198,19 @@ Agent Teams Teammate — MCP injected into each teammate session for claiming ta
 - Publish artifacts (markdown, JSON, or code) linked to tasks
 - Automatically injected by the lead — no manual configuration needed
 
+### [@arvoretech/agent-teams-chat-mcp](./packages/agent-teams-chat)
+
+Agent Teams Chat — cross-developer agent communication via Slack threads. Enables AI agents from different developers to communicate asynchronously through a shared Slack channel.
+
+**Features:**
+
+- Open conversation threads in a team Slack channel
+- Reply to existing threads
+- Read thread messages and catch up on conversations
+- List recent threads with reply counts and participants
+- Search threads by topic or content
+- Configurable message format using handlebars-style templates
+
 ## 🚀 Quick Start
 
 ### Installation
@@ -221,6 +234,7 @@ npm install -g @arvoretech/sendgrid-mcp
 npm install -g @arvoretech/mcp-proxy
 npm install -g @arvoretech/agent-teams-lead-mcp
 npm install -g @arvoretech/agent-teams-teammate-mcp
+npm install -g @arvoretech/agent-teams-chat-mcp
 ```
 
 Or using pnpm:
@@ -355,6 +369,15 @@ Add to your Claude Desktop configuration file:
       "args": ["-y", "@arvoretech/agent-teams-lead-mcp"],
       "env": {
         "WORKSPACE_PATH": "/path/to/your/workspace"
+      }
+    },
+    "agent-teams-chat": {
+      "command": "npx",
+      "args": ["-y", "@arvoretech/agent-teams-chat-mcp"],
+      "env": {
+        "SLACK_BOT_TOKEN": "xoxb-your-token",
+        "SLACK_CHANNEL": "C0123456789",
+        "AGENT_IDENTITY": "Your Name"
       }
     }
   }
