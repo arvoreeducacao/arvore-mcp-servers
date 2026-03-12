@@ -98,61 +98,74 @@ export class LeadTools {
   }
 
   async teamStatus(): Promise<McpToolResult> {
-    try {
-      await this.store.load();
-      const team = this.store.getTeam();
-      if (!team) {
-        return this.ok({ active: false, message: "No active team" });
-      }
+      try {
+        await this.store.load();
+        const team = this.store.getTeam();
+        if (!team) {
+          return this.ok({ active: false, message: "No active team" });
+        }
 
-      const tasks = this.store.getTasks();
-      const messages = this.store.getMessages({ to: "lead" });
-      const unreadMessages = this.store.getMessages({
-        to: "lead",
-        unread_by: "lead",
-      });
+        const tasks = this.store.getTasks();
+        const messages = this.store.getMessages({ to: "lead" });
+        const unreadMessages = this.store.getMessages({
+          to: "lead",
+          unread_by: "lead",
+        });
 
-      const taskSummary = {
-        total: tasks.length,
-        pending: tasks.filter((t) => t.status === "pending").length,
-        in_progress: tasks.filter((t) => t.status === "in_progress").length,
-        completed: tasks.filter((t) => t.status === "completed").length,
-        blocked: tasks.filter((t) => t.status === "blocked").length,
-      };
+        const unansweredQuestions = unreadMessages.filter(
+          (m) => m.kind === "question" || m.kind === "blocker"
+        );
 
-      return this.ok({
-        active: true,
-        team_id: team.id,
-        objective: team.objective,
-        teammates: team.teammates
-          .filter((t) => t.status !== "removed")
-          .map((t) => ({
+        const taskSummary = {
+          total: tasks.length,
+          pending: tasks.filter((t) => t.status === "pending").length,
+          in_progress: tasks.filter((t) => t.status === "in_progress").length,
+          completed: tasks.filter((t) => t.status === "completed").length,
+          blocked: tasks.filter((t) => t.status === "blocked").length,
+        };
+
+        return this.ok({
+          active: true,
+          team_id: team.id,
+          objective: team.objective,
+          teammates: team.teammates
+            .filter((t) => t.status !== "removed")
+            .map((t) => ({
+              id: t.id,
+              name: t.name,
+              role: t.role,
+              status: t.status,
+              running: this.spawner.isRunning(t.id),
+            })),
+          task_summary: taskSummary,
+          tasks: tasks.map((t) => ({
             id: t.id,
-            name: t.name,
-            role: t.role,
+            title: t.title,
             status: t.status,
-            running: this.spawner.isRunning(t.id),
+            assigned_to: t.assigned_to,
           })),
-        task_summary: taskSummary,
-        tasks: tasks.map((t) => ({
-          id: t.id,
-          title: t.title,
-          status: t.status,
-          assigned_to: t.assigned_to,
-        })),
-        unread_messages: unreadMessages.length,
-        recent_messages: messages.slice(-10).map((m) => ({
-          id: m.id,
-          from_name: m.from_name,
-          kind: m.kind,
-          subject: m.subject,
-          created_at: m.created_at,
-        })),
-      });
-    } catch (error) {
-      return this.errorResult(error);
+          unread_messages: unreadMessages.length,
+          needs_response: unansweredQuestions.length > 0,
+          unanswered_questions: unansweredQuestions.map((m) => ({
+            id: m.id,
+            from_name: m.from_name,
+            kind: m.kind,
+            subject: m.subject,
+            body: m.body,
+            created_at: m.created_at,
+          })),
+          recent_messages: messages.slice(-10).map((m) => ({
+            id: m.id,
+            from_name: m.from_name,
+            kind: m.kind,
+            subject: m.subject,
+            created_at: m.created_at,
+          })),
+        });
+      } catch (error) {
+        return this.errorResult(error);
+      }
     }
-  }
 
   async sendMessage(params: SendMessageParams): Promise<McpToolResult> {
     try {
@@ -183,82 +196,136 @@ export class LeadTools {
   }
 
   async waitForTeam(params: WaitForTeamParams): Promise<McpToolResult> {
-    try {
-      const team = this.store.getTeam();
-      if (!team) {
-        return this.ok({ error: "No active team" });
-      }
-
-      const timeoutMs = params.timeout_seconds * 1000;
-      const pollInterval = 3000;
-      const startTime = Date.now();
-
-      while (Date.now() - startTime < timeoutMs) {
-        await this.store.load();
-        const tasks = this.store.getTasks();
-
-        const pending = tasks.filter((t) => t.status === "pending");
-        const inProgress = tasks.filter((t) => t.status === "in_progress");
-        const completed = tasks.filter((t) => t.status === "completed");
-        const blocked = tasks.filter((t) => t.status === "blocked");
-
-        const allTeammatesDone = team.teammates
-          .filter((t) => t.status === "active")
-          .every((t) => !this.spawner.isRunning(t.id));
-
-        if (
-          (inProgress.length === 0 && pending.length === 0) ||
-          allTeammatesDone
-        ) {
-          return this.ok({
-            done: true,
-            reason:
-              inProgress.length === 0 && pending.length === 0
-                ? "all_tasks_resolved"
-                : "all_teammates_finished",
-            elapsed_seconds: Math.round((Date.now() - startTime) / 1000),
-            completed: completed.map((t) => ({
-              id: t.id,
-              title: t.title,
-              summary: t.summary,
-            })),
-            blocked: blocked.map((t) => ({
-              id: t.id,
-              title: t.title,
-              notes: t.notes,
-            })),
-          });
+      try {
+        const team = this.store.getTeam();
+        if (!team) {
+          return this.ok({ error: "No active team" });
         }
 
-        await new Promise((resolve) => setTimeout(resolve, pollInterval));
-      }
+        const timeoutMs = params.timeout_seconds * 1000;
+        const pollInterval = 3000;
+        const startTime = Date.now();
 
-      const tasks = this.store.getTasks();
-      return this.ok({
-        done: false,
-        timed_out: true,
-        elapsed_seconds: params.timeout_seconds,
-        pending: tasks
-          .filter((t) => t.status === "pending")
-          .map((t) => ({ id: t.id, title: t.title })),
-        in_progress: tasks
-          .filter((t) => t.status === "in_progress")
-          .map((t) => ({
-            id: t.id,
-            title: t.title,
-            assigned_to: t.assigned_to,
-          })),
-        completed: tasks
-          .filter((t) => t.status === "completed")
-          .map((t) => ({ id: t.id, title: t.title })),
-        blocked: tasks
-          .filter((t) => t.status === "blocked")
-          .map((t) => ({ id: t.id, title: t.title })),
-      });
-    } catch (error) {
-      return this.errorResult(error);
+        while (Date.now() - startTime < timeoutMs) {
+          await this.store.load();
+          const tasks = this.store.getTasks();
+
+          const pending = tasks.filter((t) => t.status === "pending");
+          const inProgress = tasks.filter((t) => t.status === "in_progress");
+          const completed = tasks.filter((t) => t.status === "completed");
+          const blocked = tasks.filter((t) => t.status === "blocked");
+
+          const unreadQuestions = this.store
+            .getMessages({ to: "lead", unread_by: "lead" })
+            .filter((m) => m.kind === "question" || m.kind === "blocker");
+
+          const allTeammatesDone = team.teammates
+            .filter((t) => t.status === "active")
+            .every((t) => !this.spawner.isRunning(t.id));
+
+          const allTasksResolved =
+            inProgress.length === 0 && pending.length === 0;
+
+          if (allTasksResolved) {
+            return this.ok({
+              done: true,
+              reason: "all_tasks_resolved",
+              elapsed_seconds: Math.round((Date.now() - startTime) / 1000),
+              completed: completed.map((t) => ({
+                id: t.id,
+                title: t.title,
+                summary: t.summary,
+              })),
+              blocked: blocked.map((t) => ({
+                id: t.id,
+                title: t.title,
+                notes: t.notes,
+              })),
+            });
+          }
+
+          if (unreadQuestions.length > 0) {
+            return this.ok({
+              done: false,
+              reason: "teammates_need_response",
+              elapsed_seconds: Math.round((Date.now() - startTime) / 1000),
+              unanswered_messages: unreadQuestions.map((m) => ({
+                id: m.id,
+                from: m.from,
+                from_name: m.from_name,
+                kind: m.kind,
+                subject: m.subject,
+                body: m.body,
+                created_at: m.created_at,
+              })),
+              tasks: tasks.map((t) => ({
+                id: t.id,
+                title: t.title,
+                status: t.status,
+                assigned_to: t.assigned_to,
+              })),
+            });
+          }
+
+          if (allTeammatesDone) {
+            const hasPendingWork = pending.length > 0 || inProgress.length > 0;
+            return this.ok({
+              done: !hasPendingWork,
+              reason: hasPendingWork
+                ? "teammates_exited_with_pending_work"
+                : "all_teammates_finished",
+              elapsed_seconds: Math.round((Date.now() - startTime) / 1000),
+              pending: pending.map((t) => ({
+                id: t.id,
+                title: t.title,
+              })),
+              in_progress: inProgress.map((t) => ({
+                id: t.id,
+                title: t.title,
+                assigned_to: t.assigned_to,
+              })),
+              completed: completed.map((t) => ({
+                id: t.id,
+                title: t.title,
+                summary: t.summary,
+              })),
+              blocked: blocked.map((t) => ({
+                id: t.id,
+                title: t.title,
+                notes: t.notes,
+              })),
+            });
+          }
+
+          await new Promise((resolve) => setTimeout(resolve, pollInterval));
+        }
+
+        const tasks = this.store.getTasks();
+        return this.ok({
+          done: false,
+          timed_out: true,
+          elapsed_seconds: params.timeout_seconds,
+          pending: tasks
+            .filter((t) => t.status === "pending")
+            .map((t) => ({ id: t.id, title: t.title })),
+          in_progress: tasks
+            .filter((t) => t.status === "in_progress")
+            .map((t) => ({
+              id: t.id,
+              title: t.title,
+              assigned_to: t.assigned_to,
+            })),
+          completed: tasks
+            .filter((t) => t.status === "completed")
+            .map((t) => ({ id: t.id, title: t.title })),
+          blocked: tasks
+            .filter((t) => t.status === "blocked")
+            .map((t) => ({ id: t.id, title: t.title })),
+        });
+      } catch (error) {
+        return this.errorResult(error);
+      }
     }
-  }
 
   async readArtifact(params: ReadArtifactParams): Promise<McpToolResult> {
     try {
