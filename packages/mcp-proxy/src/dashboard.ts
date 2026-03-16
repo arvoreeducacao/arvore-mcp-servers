@@ -101,7 +101,7 @@ async function load(){
       \${u.tools.length?\`<h3>Tools</h3><div class="tools">\${u.tools.map(t=>\`
         <div class="tool"><span class="name">\${esc(t.name)}</span><div class="desc">\${esc(t.description)}</div></div>
       \`).join('')}</div>\`:''}
-      \${u.logs.length?\`<h3>Logs</h3><div class="logs">\${esc(u.logs.join('\\n'))}</div>\`:''}
+      \${!u.error&&u.logs.length?\`<h3>Logs</h3><div class="logs">\${esc(u.logs.join('\\n'))}</div>\`:''}
     </div>
   \`).join('');
   const audit=document.getElementById('audit');
