@@ -82,8 +82,8 @@ export class McpConnectorManager {
       env: { ...process.env, ...config.env } as Record<string, string>,
       stderr: "pipe",
     });
-    await client.connect(transport);
     this.pipeStderr(config.name, transport);
+    await client.connect(transport);
     this.upstreams.set(config.name, { config, client });
   }
 
