@@ -71,7 +71,7 @@ h1{font-size:1.4rem;margin-bottom:20px;color:#58a6ff}
 .tool .name{color:#79c0ff;font-weight:600}
 .tool .desc{color:#8b949e;margin-top:2px;font-size:.8rem}
 .logs{margin-top:12px;max-height:200px;overflow-y:auto;background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:8px;font-family:monospace;font-size:.75rem;line-height:1.5;white-space:pre-wrap;word-break:break-all;color:#8b949e}
-.error-msg{color:#f85149;margin-top:6px;font-size:.85rem;font-family:monospace}
+.error-msg{color:#f85149;margin-top:6px;font-size:.85rem;font-family:monospace;white-space:pre-wrap;word-break:break-all;background:#1c0c0c;border:1px solid #da3633;border-radius:4px;padding:8px;max-height:300px;overflow-y:auto}
 .meta{color:#8b949e;font-size:.8rem;margin-top:4px}
 h3{font-size:.85rem;color:#8b949e;margin-top:12px;margin-bottom:4px}
 .audit{margin-top:20px}

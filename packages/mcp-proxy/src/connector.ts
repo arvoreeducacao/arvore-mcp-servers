@@ -54,15 +54,21 @@ export class McpConnectorManager {
       this.addLog(config.name, `Connected — ${toolCount} tools`);
       console.error(`[connector] ${config.name} — ${toolCount} tools`);
     } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
       const s = this.statuses.get(config.name)!;
       s.status = "error";
-      s.error = msg;
-      this.addLog(config.name, `ERROR: ${msg}`);
+      const exMsg = error instanceof Error ? error.message : String(error);
+      this.addLog(config.name, `ERROR: ${exMsg}`);
       if (error instanceof Error && error.stack) {
         this.addLog(config.name, error.stack);
       }
-      console.error(`[connector] Failed ${config.name}:`, msg);
+      // Use captured stderr logs as the error if available — they contain
+      // the actual reason (auth failures, missing config, crash traces).
+      // Strip the timestamp prefix from log lines for readability.
+      const stderrLines = s.logs
+        .map((l) => l.replace(/^\[.*?\]\s*/, ""))
+        .filter((l) => l !== `Connecting via ${config.transport}...`);
+      s.error = stderrLines.length > 0 ? stderrLines.join("\n") : exMsg;
+      console.error(`[connector] Failed ${config.name}:`, exMsg);
       throw new ProxyError(`Failed to connect: ${config.name}`, "UPSTREAM_CONNECTION_FAILED");
     }
   }
