@@ -2,7 +2,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { UpstreamServerConfig, ProxyError } from "./types.js";
+import { UpstreamServerConfig, UpstreamStatus, ProxyError } from "./types.js";
 import { ToolRegistry } from "./registry.js";
 
 interface ConnectedUpstream {
@@ -10,13 +10,34 @@ interface ConnectedUpstream {
   client: Client;
 }
 
+const MAX_LOGS = 100;
+
 export class McpConnectorManager {
   private readonly upstreams = new Map<string, ConnectedUpstream>();
+  private readonly statuses = new Map<string, UpstreamStatus>();
 
   constructor(private readonly registry: ToolRegistry) {}
 
+  private addLog(name: string, msg: string): void {
+    const s = this.statuses.get(name);
+    if (!s) return;
+    s.logs.push(`[${new Date().toISOString()}] ${msg}`);
+    if (s.logs.length > MAX_LOGS) s.logs = s.logs.slice(-MAX_LOGS);
+  }
+
+  getStatuses(): UpstreamStatus[] {
+    return Array.from(this.statuses.values());
+  }
+
   async connect(config: UpstreamServerConfig): Promise<void> {
-    console.error(`[connector] Connecting to ${config.name} via ${config.transport}...`);
+    this.statuses.set(config.name, {
+      name: config.name,
+      transport: config.transport,
+      status: "connecting",
+      toolCount: 0,
+      logs: [],
+    });
+    this.addLog(config.name, `Connecting via ${config.transport}...`);
 
     try {
       if (config.transport === "http") {
@@ -26,9 +47,22 @@ export class McpConnectorManager {
       }
 
       await this.ingestTools(config.name, this.upstreams.get(config.name)!.client);
-      console.error(`[connector] ${config.name} — ${this.registry.getByProvider(config.name).length} tools`);
+      const toolCount = this.registry.getByProvider(config.name).length;
+      const s = this.statuses.get(config.name)!;
+      s.status = "connected";
+      s.toolCount = toolCount;
+      this.addLog(config.name, `Connected — ${toolCount} tools`);
+      console.error(`[connector] ${config.name} — ${toolCount} tools`);
     } catch (error) {
-      console.error(`[connector] Failed ${config.name}:`, error instanceof Error ? error.message : error);
+      const msg = error instanceof Error ? error.message : String(error);
+      const s = this.statuses.get(config.name)!;
+      s.status = "error";
+      s.error = msg;
+      this.addLog(config.name, `ERROR: ${msg}`);
+      if (error instanceof Error && error.stack) {
+        this.addLog(config.name, error.stack);
+      }
+      console.error(`[connector] Failed ${config.name}:`, msg);
       throw new ProxyError(`Failed to connect: ${config.name}`, "UPSTREAM_CONNECTION_FAILED");
     }
   }

@@ -19,6 +19,7 @@ import { EmbeddingEngine } from "./embeddings.js";
 import { OutputShaper } from "./output-shaper.js";
 import { PaginationManager } from "./pagination.js";
 import { AuditLogger } from "./logger.js";
+import { Dashboard } from "./dashboard.js";
 
 export class McpProxyServer {
   private readonly server: McpServer;
@@ -29,6 +30,7 @@ export class McpProxyServer {
   private readonly shaper: OutputShaper;
   private readonly pagination: PaginationManager;
   private readonly logger: AuditLogger;
+  private readonly dashboard: Dashboard;
   private readonly config: ProxyConfig;
   private upstreamsReady: Promise<void> = Promise.resolve();
 
@@ -46,6 +48,12 @@ export class McpProxyServer {
     this.shaper = new OutputShaper(config.callItemLimit, config.maxTextLength);
     this.pagination = new PaginationManager();
     this.logger = new AuditLogger();
+    this.dashboard = new Dashboard(
+      this.connector,
+      this.registry,
+      this.logger,
+      parseInt(process.env.MCP_PROXY_DASHBOARD_PORT || "9100", 10)
+    );
 
     this.setupTools();
   }
@@ -386,6 +394,7 @@ export class McpProxyServer {
       const transport = new StdioServerTransport();
       await this.server.connect(transport);
       console.error("[proxy] MCP transport connected, loading upstreams in background...");
+      this.dashboard.start();
 
       this.upstreamsReady = (async () => {
         await this.embeddings.init();
@@ -414,6 +423,7 @@ export class McpProxyServer {
 
   async cleanup(): Promise<void> {
     try {
+      this.dashboard.stop();
       await this.connector.disconnectAll();
     } catch (error) {
       console.error(

@@ -22,4 +22,5 @@ export { EmbeddingEngine } from "./embeddings.js";
 export { OutputShaper } from "./output-shaper.js";
 export { PaginationManager } from "./pagination.js";
 export { AuditLogger } from "./logger.js";
+export { Dashboard } from "./dashboard.js";
 export * from "./types.js";
