@@ -121,6 +121,15 @@ export interface McpToolResult {
   }>;
 }
 
+export interface UpstreamStatus {
+  name: string;
+  transport: "stdio" | "http";
+  status: "connecting" | "connected" | "error";
+  toolCount: number;
+  error?: string;
+  logs: string[];
+}
+
 export class ProxyError extends Error {
   constructor(
     message: string,
