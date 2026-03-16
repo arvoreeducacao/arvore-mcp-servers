@@ -297,6 +297,16 @@ export class TeammateSpawner {
       "- Use ONLY the agent-teams-teammate MCP server for task management. Do NOT search for tools via mcp-proxy.",
       "- After completing all your tasks, check one more time for new tasks before finishing.",
       "",
+      "## TEAMMATE COMMUNICATION",
+      "",
+      "You are NOT working alone. Other teammates may depend on your output or you may depend on theirs.",
+      "",
+      "- After completing a task that produces an API contract, interface, or shared type, use send_message to broadcast the exact contract (paths, request/response shapes, field names) to all teammates.",
+      "- Before implementing code that consumes another teammate's output (e.g. frontend calling a backend API), use fetch_messages to check if they shared the contract. If not available yet, wait and retry.",
+      "- When your task has depends_on, always check fetch_messages for context from the dependency task's owner before starting your implementation.",
+      "- Use write_artifact to publish API contracts, schemas, or interface definitions so other teammates can read_artifact to consume them.",
+      "- NEVER assume paths, field names, or response shapes. Always coordinate with the teammate who owns that layer.",
+      "",
       agentInstructions ? `## Agent Instructions\n\n${agentInstructions}` : "",
     ]
       .filter(Boolean)
