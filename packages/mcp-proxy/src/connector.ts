@@ -1,3 +1,4 @@
+import { Readable } from "node:stream";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
@@ -88,7 +89,7 @@ export class McpConnectorManager {
   }
 
   private pipeStderr(name: string, transport: StdioClientTransport): void {
-    const stream = transport.stderr as unknown as NodeJS.ReadableStream | null;
+    const stream = transport.stderr as unknown as Readable | null;
     if (!stream || typeof stream.on !== "function") return;
     let buf = "";
     stream.on("data", (chunk: Buffer | string) => {
