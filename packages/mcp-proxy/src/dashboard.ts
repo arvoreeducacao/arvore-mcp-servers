@@ -23,7 +23,7 @@ export class Dashboard {
       res.writeHead(200, { "Content-Type": "text/html" });
       res.end(this.getHtml());
     });
-    this.server.on("error", (err: NodeJS.ErrnoException) => {
+    this.server.on("error", (err: Error & { code?: string }) => {
       if (err.code === "EADDRINUSE") {
         this.port++;
         console.error(`[dashboard] Port taken, trying ${this.port}...`);
