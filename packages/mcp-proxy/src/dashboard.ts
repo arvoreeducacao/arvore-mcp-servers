@@ -10,7 +10,7 @@ export class Dashboard {
     private readonly connector: McpConnectorManager,
     private readonly registry: ToolRegistry,
     private readonly logger: AuditLogger,
-    private readonly port: number = 9100
+    private port: number = 9100
   ) {}
 
   start(): void {
@@ -22,6 +22,13 @@ export class Dashboard {
       }
       res.writeHead(200, { "Content-Type": "text/html" });
       res.end(this.getHtml());
+    });
+    this.server.on("error", (err: NodeJS.ErrnoException) => {
+      if (err.code === "EADDRINUSE") {
+        this.port++;
+        console.error(`[dashboard] Port taken, trying ${this.port}...`);
+        this.server!.listen(this.port);
+      }
     });
     this.server.listen(this.port, () => {
       console.error(`[dashboard] http://localhost:${this.port}`);
