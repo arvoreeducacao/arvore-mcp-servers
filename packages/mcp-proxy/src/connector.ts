@@ -62,9 +62,6 @@ export class McpConnectorManager {
       if (error instanceof Error && error.stack) {
         this.addLog(config.name, error.stack);
       }
-      // Use captured stderr logs as the error if available — they contain
-      // the actual reason (auth failures, missing config, crash traces).
-      // Strip the timestamp prefix from log lines for readability.
       const stderrLines = s.logs
         .map((l) => l.replace(/^\[.*?\]\s*/, ""))
         .filter((l) => l !== `Connecting via ${config.transport}...`);
