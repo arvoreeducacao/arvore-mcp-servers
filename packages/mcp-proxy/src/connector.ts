@@ -74,9 +74,35 @@ export class McpConnectorManager {
       command: config.command,
       args: config.args,
       env: { ...process.env, ...config.env } as Record<string, string>,
+      stderr: "pipe",
     });
     await client.connect(transport);
+    this.pipeStderr(config.name, transport);
     this.upstreams.set(config.name, { config, client });
+  }
+
+  private pipeStderr(name: string, transport: StdioClientTransport): void {
+    const stream = transport.stderr as unknown as NodeJS.ReadableStream | null;
+    if (!stream || typeof stream.on !== "function") return;
+    let buf = "";
+    stream.on("data", (chunk: Buffer | string) => {
+      buf += chunk.toString();
+      let nl: number;
+      while ((nl = buf.indexOf("\n")) !== -1) {
+        const line = buf.slice(0, nl).trimEnd();
+        buf = buf.slice(nl + 1);
+        if (line) {
+          this.addLog(name, line);
+          console.error(`[${name}] ${line}`);
+        }
+      }
+    });
+    stream.on("end", () => {
+      if (buf.trim()) {
+        this.addLog(name, buf.trim());
+        console.error(`[${name}] ${buf.trim()}`);
+      }
+    });
   }
 
   private async connectHttp(config: UpstreamServerConfig): Promise<void> {
