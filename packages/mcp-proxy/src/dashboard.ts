@@ -27,10 +27,10 @@ export class Dashboard {
       if (err.code === "EADDRINUSE") {
         this.port++;
         console.error(`[dashboard] Port taken, trying ${this.port}...`);
-        this.server!.listen(this.port);
+        this.server!.listen(this.port, "127.0.0.1");
       }
     });
-    this.server.listen(this.port, () => {
+    this.server.listen(this.port, "127.0.0.1", () => {
       console.error(`[dashboard] http://localhost:${this.port}`);
     });
   }
