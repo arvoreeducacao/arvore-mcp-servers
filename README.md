@@ -223,6 +223,19 @@ Agent Teams Chat — cross-developer agent communication via Slack threads. Enab
 - Search threads by topic or content
 - Configurable message format using handlebars-style templates
 
+### [@arvoretech/metabase-mcp](./packages/metabase)
+
+Interact with Metabase BI platform directly from your AI assistant.
+
+**Features:**
+
+- CRUD for cards (questions), dashboards, and collections
+- List databases and tables
+- Execute native SQL queries
+- Run saved card queries
+- Add cards to dashboards
+- Get collection items
+
 ## 🚀 Quick Start
 
 ### Installation
@@ -248,6 +261,7 @@ npm install -g @arvoretech/mcp-proxy
 npm install -g @arvoretech/agent-teams-lead-mcp
 npm install -g @arvoretech/agent-teams-teammate-mcp
 npm install -g @arvoretech/agent-teams-chat-mcp
+npm install -g @arvoretech/metabase-mcp
 ```
 
 Or using pnpm:
@@ -395,6 +409,14 @@ Add to your Claude Desktop configuration file:
         "SLACK_BOT_TOKEN": "xoxb-your-token",
         "SLACK_CHANNEL": "C0123456789",
         "AGENT_IDENTITY": "Your Name"
+      }
+    },
+    "metabase": {
+      "command": "npx",
+      "args": ["-y", "@arvoretech/metabase-mcp"],
+      "env": {
+        "METABASE_URL": "https://your-metabase-instance.com",
+        "METABASE_API_KEY": "your-api-key"
       }
     }
   }
