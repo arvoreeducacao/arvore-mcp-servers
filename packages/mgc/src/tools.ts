@@ -1,4 +1,5 @@
 import { MgcClient } from "./mgc-client.js";
+import { DocsIndex } from "./docs-index.js";
 import {
   MgcExecuteParams,
   VmListParams,
@@ -14,11 +15,19 @@ import {
   DbListParams,
   BlockStorageListParams,
   BlockStorageCreateParams,
+  SearchDocsParams,
+  GetDocParams,
   McpToolResult,
 } from "./types.js";
 
 export class MgcTools {
-  constructor(private client: MgcClient) {}
+  private docsIndex: DocsIndex | null = null;
+
+  constructor(private client: MgcClient, docsDir?: string) {
+    if (docsDir) {
+      this.docsIndex = new DocsIndex(docsDir);
+    }
+  }
 
   private formatResult(
     stdout: string,
@@ -296,5 +305,63 @@ export class MgcTools {
       params.output_format
     );
     return this.formatResult(result.stdout, result.stderr, result.exitCode);
+  }
+
+  async searchDocs(params: SearchDocsParams): Promise<McpToolResult> {
+    if (!this.docsIndex) {
+      return {
+        content: [{ type: "text", text: JSON.stringify({ error: "Docs index not configured. Set MAGALU_DOCS_DIR env var." }, null, 2) }],
+        isError: true,
+      };
+    }
+
+    try {
+      await this.docsIndex.load();
+      const results = this.docsIndex.search(params.query, params.max_results);
+
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify({
+            query: params.query,
+            totalIndexed: this.docsIndex.documentCount,
+            results,
+          }, null, 2),
+        }],
+      };
+    } catch (error) {
+      return {
+        content: [{ type: "text", text: JSON.stringify({ error: error instanceof Error ? error.message : String(error) }, null, 2) }],
+        isError: true,
+      };
+    }
+  }
+
+  async getDoc(params: GetDocParams): Promise<McpToolResult> {
+    if (!this.docsIndex) {
+      return {
+        content: [{ type: "text", text: JSON.stringify({ error: "Docs index not configured. Set MAGALU_DOCS_DIR env var." }, null, 2) }],
+        isError: true,
+      };
+    }
+
+    try {
+      await this.docsIndex.load();
+      const content = this.docsIndex.getDocContent(params.filepath);
+
+      if (!content) {
+        return {
+          content: [{ type: "text", text: JSON.stringify({ error: "Document not found", filepath: params.filepath }, null, 2) }],
+          isError: true,
+        };
+      }
+
+      return { content: [{ type: "text", text: content }] };
+    } catch (error) {
+      return {
+        content: [{ type: "text", text: JSON.stringify({ error: error instanceof Error ? error.message : String(error) }, null, 2) }],
+        isError: true,
+      };
+    }
   }
 }

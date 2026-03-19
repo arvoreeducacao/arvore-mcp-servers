@@ -121,6 +121,15 @@ export const BlockStorageCreateParamsSchema = z.object({
   type: z.string().optional().describe("Volume type"),
 });
 
+export const SearchDocsParamsSchema = z.object({
+  query: z.string().min(1, "Query is required").describe("Search query in natural language to find relevant Magalu documentation"),
+  max_results: z.number().int().positive().optional().default(5).describe("Maximum number of results to return (default: 5)"),
+});
+
+export const GetDocParamsSchema = z.object({
+  filepath: z.string().min(1, "Filepath is required").describe("Relative filepath of the document (from search_magalu_docs results)"),
+});
+
 export type MgcExecuteParams = z.infer<typeof MgcExecuteParamsSchema>;
 export type VmListParams = z.infer<typeof VmListParamsSchema>;
 export type VmCreateParams = z.infer<typeof VmCreateParamsSchema>;
@@ -135,6 +144,8 @@ export type KubernetesClusterCreateParams = z.infer<typeof KubernetesClusterCrea
 export type DbListParams = z.infer<typeof DbListParamsSchema>;
 export type BlockStorageListParams = z.infer<typeof BlockStorageListParamsSchema>;
 export type BlockStorageCreateParams = z.infer<typeof BlockStorageCreateParamsSchema>;
+export type SearchDocsParams = z.infer<typeof SearchDocsParamsSchema>;
+export type GetDocParams = z.infer<typeof GetDocParamsSchema>;
 
 export interface McpToolResult {
   [key: string]: unknown;

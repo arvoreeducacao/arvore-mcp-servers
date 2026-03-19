@@ -27,6 +27,7 @@ Add to your MCP client config:
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `MGC_CLI_PATH` | Custom path to the mgc binary | `mgc` |
+| `MAGALU_DOCS_DIR` | Path to scraped Magalu docs (enables doc search tools) | — |
 
 ## Available Tools
 
@@ -67,6 +68,20 @@ Add to your MCP client config:
 ### Block Storage
 - **mgc_block_storage_volume_list** — List volumes
 - **mgc_block_storage_volume_create** — Create a volume
+
+### Documentation Search
+- **search_magalu_docs** — Semantic search across Magalu developer docs (requires `MAGALU_DOCS_DIR`)
+- **get_magalu_doc** — Get full markdown content of a doc page (use search first to find filepath)
+
+#### Scraping docs
+
+Use `docusaurus-to-md` to scrape the Magalu docs into a local directory:
+
+```bash
+pnpm scrape-docs
+```
+
+Then set `MAGALU_DOCS_DIR` to the output path when running the MCP server.
 
 ## Development
 
