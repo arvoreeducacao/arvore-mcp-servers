@@ -170,6 +170,6 @@ export class DocsIndex {
 
   private filepathToUrl(filepath: string): string {
     const rel = relative(this.docsDir, filepath).replace(/\.md$/, "");
-    return `https://dev.magalu.com/docs/${rel}`;
+    return `https://docs.magalu.cloud/docs/${rel}`;
   }
 }
