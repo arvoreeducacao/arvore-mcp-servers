@@ -27,6 +27,7 @@ Add to your MCP client config:
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `MGC_CLI_PATH` | Custom path to the mgc binary | `mgc` |
+| `MGC_REGION` | Default region for all commands (e.g., `br-ne1`, `br-se1`, `br-mgl1`) | CLI default |
 | `MAGALU_DOCS_DIR` | Path to scraped Magalu docs (enables doc search tools) | — |
 
 ## Available Tools
