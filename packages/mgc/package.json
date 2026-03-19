@@ -1,6 +1,6 @@
 {
   "name": "@arvoretech/mgc-mcp",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Magalu Cloud (MGC) CLI MCP Server for managing cloud infrastructure",
   "main": "dist/index.js",
   "type": "module",
