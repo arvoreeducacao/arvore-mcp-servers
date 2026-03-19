@@ -25,15 +25,14 @@ export class DocsIndex {
 
     const files = await this.findMarkdownFiles(this.docsDir);
 
-    let manifestMap = new Map<string, string>();
+    const manifestMap = new Map<string, string>();
     try {
       const manifestRaw = await readFile(join(this.docsDir, "_manifest.json"), "utf-8");
       const manifest: Array<{ url: string; filepath: string }> = JSON.parse(manifestRaw);
       for (const entry of manifest) {
         manifestMap.set(entry.filepath, entry.url);
       }
-    } catch {
-    }
+    } catch (_e) { /* manifest may not exist */ }
 
     for (const file of files) {
       if (file.endsWith("_all.md") || file.endsWith("_manifest.json")) continue;
@@ -165,8 +164,7 @@ export class DocsIndex {
           results.push(fullPath);
         }
       }
-    } catch {
-    }
+    } catch (_e) { /* directory may not exist */ }
     return results;
   }
 
