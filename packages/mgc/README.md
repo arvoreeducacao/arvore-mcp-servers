@@ -78,7 +78,7 @@ Add to your MCP client config:
 Use `docusaurus-to-md` to scrape the Magalu docs into a local directory:
 
 ```bash
-pnpm scrape-docs
+npx docusaurus-to-md https://dev.magalu.com -o ./docs-cache
 ```
 
 Then set `MAGALU_DOCS_DIR` to the output path when running the MCP server.
