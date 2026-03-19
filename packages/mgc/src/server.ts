@@ -17,6 +17,8 @@ import {
   DbListParamsSchema,
   BlockStorageListParamsSchema,
   BlockStorageCreateParamsSchema,
+  SearchDocsParamsSchema,
+  GetDocParamsSchema,
 } from "./types.js";
 
 export class MgcMCPServer {
@@ -30,7 +32,8 @@ export class MgcMCPServer {
     });
 
     const client = new MgcClient(mgcPath);
-    this.tools = new MgcTools(client);
+    const docsDir = process.env.MAGALU_DOCS_DIR;
+    this.tools = new MgcTools(client, docsDir);
 
     this.setupTools();
   }
@@ -382,6 +385,34 @@ export class MgcMCPServer {
       async (params) => {
         const validated = BlockStorageCreateParamsSchema.parse(params);
         return this.tools.blockStorageVolumeCreate(validated);
+      }
+    );
+
+    this.server.registerTool(
+      "search_magalu_docs",
+      {
+        title: "Search Magalu Documentation",
+        description:
+          "Semantic search across Magalu Cloud developer documentation. Returns relevant doc pages with snippets and links. Requires MAGALU_DOCS_DIR env var pointing to scraped docs.",
+        inputSchema: SearchDocsParamsSchema.shape,
+      },
+      async (params) => {
+        const validated = SearchDocsParamsSchema.parse(params);
+        return this.tools.searchDocs(validated);
+      }
+    );
+
+    this.server.registerTool(
+      "get_magalu_doc",
+      {
+        title: "Get Magalu Doc Content",
+        description:
+          "Get the full markdown content of a specific Magalu documentation page by filepath. Use search_magalu_docs first to find the filepath.",
+        inputSchema: GetDocParamsSchema.shape,
+      },
+      async (params) => {
+        const validated = GetDocParamsSchema.parse(params);
+        return this.tools.getDoc(validated);
       }
     );
   }
