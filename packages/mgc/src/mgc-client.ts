@@ -3,17 +3,31 @@ import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 
+// eslint-disable-next-line no-control-regex
+const ANSI_REGEX = /\u001b\[[0-9;]*m/g;
+
+function stripAnsi(text: string): string {
+  return text.replace(ANSI_REGEX, "");
+}
+
 export interface MgcExecResult {
   stdout: string;
   stderr: string;
   exitCode: number;
 }
 
+export interface MgcClientOptions {
+  mgcPath?: string;
+  region?: string;
+}
+
 export class MgcClient {
   private mgcPath: string;
+  private region: string | undefined;
 
-  constructor(mgcPath?: string) {
-    this.mgcPath = mgcPath || process.env.MGC_CLI_PATH || "mgc";
+  constructor(options?: MgcClientOptions) {
+    this.mgcPath = options?.mgcPath || process.env.MGC_CLI_PATH || "mgc";
+    this.region = options?.region || process.env.MGC_REGION || undefined;
   }
 
   async execute(
@@ -29,10 +43,11 @@ export class MgcClient {
         env: {
           ...process.env,
           NO_COLOR: "1",
+          TERM: "dumb",
         },
       });
 
-      return { stdout, stderr, exitCode: 0 };
+      return { stdout: stripAnsi(stdout), stderr: stripAnsi(stderr), exitCode: 0 };
     } catch (error: unknown) {
       const execError = error as {
         stdout?: string;
@@ -43,15 +58,15 @@ export class MgcClient {
 
       if (execError.killed) {
         return {
-          stdout: execError.stdout || "",
+          stdout: stripAnsi(execError.stdout || ""),
           stderr: `Command timed out after ${timeout}ms`,
           exitCode: 124,
         };
       }
 
       return {
-        stdout: execError.stdout || "",
-        stderr: execError.stderr || String(error),
+        stdout: stripAnsi(execError.stdout || ""),
+        stderr: stripAnsi(execError.stderr || String(error)),
         exitCode: typeof execError.code === "number" ? execError.code : 1,
       };
     }
@@ -67,9 +82,12 @@ export class MgcClient {
       args.push("-o", outputFormat);
     }
 
-    // Always add --no-confirm to avoid interactive prompts
     if (!args.includes("--no-confirm")) {
       args.push("--no-confirm");
+    }
+
+    if (this.region && !args.includes("--region")) {
+      args.push("--region", this.region);
     }
 
     return this.execute(args);

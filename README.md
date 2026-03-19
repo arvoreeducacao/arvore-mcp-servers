@@ -236,6 +236,20 @@ Interact with Metabase BI platform directly from your AI assistant.
 - Add cards to dashboards
 - Get collection items
 
+### [@arvoretech/mgc-mcp](./packages/mgc)
+
+Manage Magalu Cloud infrastructure through the MGC CLI.
+
+**Features:**
+
+- Virtual Machines: list, create, start, stop, reboot, delete
+- Object Storage: buckets and objects management
+- Networking: VPCs, subnets, public IPs
+- Kubernetes: cluster management and kubeconfig retrieval
+- Block Storage and DBaaS instance listing
+- Semantic search across Magalu developer documentation
+- Configurable region via `MGC_REGION` env var
+
 ## 🚀 Quick Start
 
 ### Installation
@@ -262,6 +276,7 @@ npm install -g @arvoretech/agent-teams-lead-mcp
 npm install -g @arvoretech/agent-teams-teammate-mcp
 npm install -g @arvoretech/agent-teams-chat-mcp
 npm install -g @arvoretech/metabase-mcp
+npm install -g @arvoretech/mgc-mcp
 ```
 
 Or using pnpm:
@@ -417,6 +432,14 @@ Add to your Claude Desktop configuration file:
       "env": {
         "METABASE_URL": "https://your-metabase-instance.com",
         "METABASE_API_KEY": "your-api-key"
+      }
+    },
+    "mgc": {
+      "command": "npx",
+      "args": ["-y", "@arvoretech/mgc-mcp"],
+      "env": {
+        "MGC_REGION": "br-ne1",
+        "MAGALU_DOCS_DIR": "./magalu-cloud-docs"
       }
     }
   }

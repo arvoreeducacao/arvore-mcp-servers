@@ -31,7 +31,7 @@ export class MgcMCPServer {
       version: "1.0.0",
     });
 
-    const client = new MgcClient(mgcPath);
+    const client = new MgcClient({ mgcPath });
     const docsDir = process.env.MAGALU_DOCS_DIR;
     this.tools = new MgcTools(client, docsDir);
 
