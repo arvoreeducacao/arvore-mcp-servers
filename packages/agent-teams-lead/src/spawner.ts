@@ -3,7 +3,7 @@ import { writeFile, mkdir, readFile, unlink, appendFile } from "node:fs/promises
 import { existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join, resolve } from "node:path";
-import type { Teammate } from "./types.js";
+import type { Teammate, Message } from "./types.js";
 
 interface SpawnedProcess {
   teammateId: string;
@@ -135,6 +135,7 @@ export class TeammateSpawner {
 
     proc.on("exit", (code) => {
       this.log(teammate.name, `Exited with code ${code}`);
+      this.deliverPendingMessages(teammate.id, teammate.name);
       this.processes.delete(teammate.id);
       this.cleanupAgentConfig(configPath);
     });
@@ -366,6 +367,45 @@ export class TeammateSpawner {
     try {
       if (existsSync(configPath)) {
         await unlink(configPath);
+      }
+    } catch {
+      // noop
+    }
+  }
+
+  private async deliverPendingMessages(
+    teammateId: string,
+    teammateName: string
+  ): Promise<void> {
+    try {
+      const messagesPath = join(
+        this.workspacePath,
+        ".agent-teams",
+        "messages.json"
+      );
+      if (!existsSync(messagesPath)) return;
+
+      const raw = await readFile(messagesPath, "utf-8");
+      const messages = JSON.parse(raw) as Message[];
+
+      const pending = messages.filter(
+        (m) =>
+          (m.to === teammateId || m.to === "broadcast") &&
+          !m.read_by.includes(teammateId)
+      );
+
+      if (pending.length === 0) return;
+
+      await this.log(
+        teammateName,
+        `[pending] ${pending.length} unread message(s) on exit:`
+      );
+
+      for (const msg of pending) {
+        await this.log(
+          teammateName,
+          `  [${msg.kind}] from ${msg.from_name}: ${msg.subject} — ${msg.body}`
+        );
       }
     } catch {
       // noop

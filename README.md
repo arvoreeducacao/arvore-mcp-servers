@@ -223,6 +223,19 @@ Agent Teams Chat — cross-developer agent communication via Slack threads. Enab
 - Search threads by topic or content
 - Configurable message format using handlebars-style templates
 
+### [@arvoretech/agent-teams-ui](./packages/agent-teams-ui)
+
+Agent Teams UI — TUI dashboard for monitoring agent teams in real time. Watches `.agent-teams/` and auto-refreshes.
+
+**Features:**
+
+- Team view with per-teammate task counts and current activity
+- Kanban board with task selection and detail view
+- WhatsApp-style message view with date separators and sender grouping
+- Chat view showing agent stdout as conversation, filterable by agent
+- Live timer, progress bar, and new-activity indicators per tab
+- Auto-refresh via filesystem watching (chokidar)
+
 ### [@arvoretech/metabase-mcp](./packages/metabase)
 
 Interact with Metabase BI platform directly from your AI assistant.
