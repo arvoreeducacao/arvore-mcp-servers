@@ -72,7 +72,7 @@ export function MessagesView({ messages }: Props) {
         const date = formatDate(msg.created_at);
         const showDate = date !== lastDate;
         lastDate = date;
-        const showName = msg.from_name !== lastFrom;
+        const showName = msg.from_name !== lastFrom || showDate;
         lastFrom = msg.from_name;
 
         const target =

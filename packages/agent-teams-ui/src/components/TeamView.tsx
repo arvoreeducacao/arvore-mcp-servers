@@ -59,7 +59,7 @@ export function TeamView({ team, tasks }: Props) {
                 <Text color={colors.brand}>{symbols.check} all tasks done</Text>
               </Box>
             )}
-            {!current && doneCount === 0 && (
+            {!current && doneCount === 0 && totalAssigned === 0 && (
               <Box paddingLeft={3}>
                 <Text color={colors.muted}>waiting for tasks</Text>
               </Box>

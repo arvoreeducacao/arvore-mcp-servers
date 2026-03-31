@@ -215,6 +215,10 @@ export class LeadTools {
             unread_by: "lead",
           });
 
+          if (leadMessages.length > 0) {
+            await this.store.ackMessages("lead", leadMessages.map((m) => m.id));
+          }
+
           return this.ok({
             done: true,
             reason:
@@ -251,6 +255,11 @@ export class LeadTools {
         to: "lead",
         unread_by: "lead",
       });
+
+      if (leadMessagesOnTimeout.length > 0) {
+        await this.store.ackMessages("lead", leadMessagesOnTimeout.map((m) => m.id));
+      }
+
       return this.ok({
         done: false,
         timed_out: true,
