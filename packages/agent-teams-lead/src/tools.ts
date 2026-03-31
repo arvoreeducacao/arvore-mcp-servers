@@ -210,6 +210,11 @@ export class LeadTools {
           (inProgress.length === 0 && pending.length === 0) ||
           allTeammatesDone
         ) {
+          const leadMessages = this.store.getMessages({
+            to: "lead",
+            unread_by: "lead",
+          });
+
           return this.ok({
             done: true,
             reason:
@@ -227,6 +232,14 @@ export class LeadTools {
               title: t.title,
               notes: t.notes,
             })),
+            pending_messages: leadMessages.map((m) => ({
+              id: m.id,
+              from_name: m.from_name,
+              kind: m.kind,
+              subject: m.subject,
+              body: m.body,
+              created_at: m.created_at,
+            })),
           });
         }
 
@@ -234,6 +247,10 @@ export class LeadTools {
       }
 
       const tasks = this.store.getTasks();
+      const leadMessagesOnTimeout = this.store.getMessages({
+        to: "lead",
+        unread_by: "lead",
+      });
       return this.ok({
         done: false,
         timed_out: true,
@@ -254,6 +271,14 @@ export class LeadTools {
         blocked: tasks
           .filter((t) => t.status === "blocked")
           .map((t) => ({ id: t.id, title: t.title })),
+        pending_messages: leadMessagesOnTimeout.map((m) => ({
+          id: m.id,
+          from_name: m.from_name,
+          kind: m.kind,
+          subject: m.subject,
+          body: m.body,
+          created_at: m.created_at,
+        })),
       });
     } catch (error) {
       return this.errorResult(error);
