@@ -236,6 +236,20 @@ Agent Teams UI — TUI dashboard for monitoring agent teams in real time. Watche
 - Live timer, progress bar, and new-activity indicators per tab
 - Auto-refresh via filesystem watching (chokidar)
 
+### [@arvoretech/kanban-mcp](./packages/kanban)
+
+Persistent kanban boards for AI agents — manage tasks across sessions with multi-agent coordination, semantic search, and a Linear-style web UI.
+
+**Features:**
+
+- 12 MCP tools for board and card management
+- Multi-session: claim/release cards with session tracking across parallel chats
+- Semantic search via LanceDB with multilingual embeddings
+- Subtasks via `parent_card_id`
+- Optional web UI (Linear-style dark theme with drag-and-drop, hotkeys, context menus)
+- JSON persistence with atomic writes
+- Re-read from disk for multi-process visibility
+
 ### [@arvoretech/metabase-mcp](./packages/metabase)
 
 Interact with Metabase BI platform directly from your AI assistant.
@@ -290,6 +304,7 @@ npm install -g @arvoretech/agent-teams-teammate-mcp
 npm install -g @arvoretech/agent-teams-chat-mcp
 npm install -g @arvoretech/metabase-mcp
 npm install -g @arvoretech/mgc-mcp
+npm install -g @arvoretech/kanban-mcp
 ```
 
 Or using pnpm:
@@ -453,6 +468,15 @@ Add to your Claude Desktop configuration file:
       "env": {
         "MGC_REGION": "br-ne1",
         "MAGALU_DOCS_DIR": "./magalu-cloud-docs"
+      }
+    },
+    "kanban": {
+      "command": "npx",
+      "args": ["-y", "@arvoretech/kanban-mcp"],
+      "env": {
+        "KANBAN_PATH": "./kanban",
+        "KANBAN_UI": "true",
+        "KANBAN_PORT": "4799"
       }
     }
   }
