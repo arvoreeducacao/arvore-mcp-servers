@@ -87,15 +87,15 @@ function TaskDetail({ task, nameMap }: { task: Task; nameMap: Map<string, string
 export function TasksView({ tasks, teammates }: Props) {
   const { stdout } = useStdout();
   const totalWidth = Math.min(stdout?.columns || 80, 120);
-  const colWidth = Math.floor((totalWidth - COLUMNS.length - 1) / COLUMNS.length);
+  const colWidth = Math.max(10, Math.floor((totalWidth - COLUMNS.length - 1) / COLUMNS.length));
   const nameMap = new Map(teammates.map((t) => [t.id, t.name]));
 
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [detailTask, setDetailTask] = useState<Task | null>(null);
 
   const allTasks = [
-    ...tasks.filter((t) => t.status === "in_progress"),
     ...tasks.filter((t) => t.status === "pending"),
+    ...tasks.filter((t) => t.status === "in_progress"),
     ...tasks.filter((t) => t.status === "blocked"),
     ...tasks.filter((t) => t.status === "completed"),
   ];
@@ -109,7 +109,7 @@ export function TasksView({ tasks, teammates }: Props) {
       setSelectedIdx((i) => Math.max(0, i - 1));
     }
     if (key.downArrow || input === "j") {
-      setSelectedIdx((i) => Math.min(allTasks.length - 1, i + 1));
+      setSelectedIdx((i) => Math.min(Math.max(0, allTasks.length - 1), i + 1));
     }
     if (key.return && allTasks[selectedIdx]) {
       setDetailTask(allTasks[selectedIdx]);

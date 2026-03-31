@@ -80,8 +80,8 @@ export function ChatView({ lines }: Props) {
     if (key.downArrow || input === "j") {
       setScrollOffset((o) => Math.max(0, o - 3));
     }
-    if (input === "g") setScrollOffset(Math.max(0, filtered.length - viewHeight));
-    if (input === "G") setScrollOffset(0);
+    if (input === "g") setScrollOffset(0);
+    if (input === "G") setScrollOffset(Math.max(0, filtered.length - viewHeight));
   });
 
   const agentColors = new Map<string, string>();

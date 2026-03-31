@@ -8,4 +8,7 @@ const workspacePath = resolve(process.argv[2] || process.cwd());
 
 const { waitUntilExit } = render(<App workspacePath={workspacePath} />);
 
-waitUntilExit().catch(() => process.exit(0));
+waitUntilExit().catch((err) => {
+  if (err) process.stderr.write(String(err) + "\n");
+  process.exit(1);
+});

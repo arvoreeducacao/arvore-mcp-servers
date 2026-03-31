@@ -281,6 +281,18 @@ export class TeamStore {
     return this.artifacts.find((a) => a.id === artifactId);
   }
 
+  async ackMessages(readerId: string, messageIds: string[]): Promise<void> {
+    return withFileLock(this.messagesPath(), async () => {
+      this.messages = await this.readJson<Message[]>(this.messagesPath(), []);
+      for (const msg of this.messages) {
+        if (messageIds.includes(msg.id) && !msg.read_by.includes(readerId)) {
+          msg.read_by.push(readerId);
+        }
+      }
+      await this.writeJson(this.messagesPath(), this.messages);
+    });
+  }
+
   getArtifacts(): Artifact[] {
     return [...this.artifacts];
   }
