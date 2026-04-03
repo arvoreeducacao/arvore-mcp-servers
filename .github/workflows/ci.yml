@@ -49,7 +49,7 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: read
-      packages: write
+      id-token: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -75,8 +75,6 @@ jobs:
           for pkg in packages/*/; do
             echo "Publishing $pkg..."
             cd "$pkg"
-            npm publish --access public || echo "Skipped $pkg (already published or error)"
+            npm publish --access public --provenance || echo "Skipped $pkg (already published or error)"
             cd ../..
           done
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
