@@ -4,6 +4,7 @@
   "description": "Arc Browser MCP Server — control tabs, navigate, execute JS, and capture screenshots via AppleScript (macOS only)",
   "main": "dist/index.js",
   "type": "module",
+  "files": ["dist"],
   "bin": {
     "arc-browser-mcp": "./dist/index.js"
   },

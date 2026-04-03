@@ -29,6 +29,9 @@ export default [
         Response: "readonly",
         Headers: "readonly",
         Request: "readonly",
+        WebSocket: "readonly",
+        AbortSignal: "readonly",
+        ErrorEvent: "readonly",
       },
     },
     plugins: {
