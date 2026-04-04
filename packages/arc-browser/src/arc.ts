@@ -86,11 +86,11 @@ export async function searchTabs(query: string): Promise<Tab[]> {
 }
 
 export async function executeJavaScript(js: string): Promise<string> {
-  const escaped = js.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  const encoded = Buffer.from(js, "utf8").toString("base64");
   return osascript(`
 tell application "Arc"
     tell active tab of first window
-        set jsResult to execute javascript "${escaped}"
+        set jsResult to execute javascript "eval(atob('${encoded}'))"
     end tell
     return jsResult
 end tell

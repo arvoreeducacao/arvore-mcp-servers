@@ -18,6 +18,9 @@
   "keywords": ["mcp", "arc", "browser", "applescript", "macos", "arvore"],
   "author": "Arvore",
   "license": "MIT",
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/arvoreeducacao/arvore-mcp-servers.git",

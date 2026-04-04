@@ -277,6 +277,20 @@ Manage Magalu Cloud infrastructure through the MGC CLI.
 - Semantic search across Magalu developer documentation
 - Configurable region via `MGC_REGION` env var
 
+### [@arvoretech/arc-browser-mcp](./packages/arc-browser)
+
+Control Arc Browser on macOS via a hybrid AppleScript + Chrome DevTools Protocol approach.
+
+**Features:**
+
+- Tab management: list, open, close, search, focus
+- Space management: list, get active, switch
+- Screenshots via CDP (viewport or full page)
+- Network request capture and console log monitoring
+- DOM interaction: click, hover, type, scroll, wait for selector
+- JavaScript execution (AppleScript for quick queries, CDP for async/await)
+- Cookie inspection and page content extraction
+
 ## 🚀 Quick Start
 
 ### Installation

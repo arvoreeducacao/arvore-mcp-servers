@@ -18,7 +18,11 @@ export class ArcBrowserMCPServer {
   }
 
   private async ensureCDP(targetId?: string): Promise<CDPClient> {
-    if (!this.cdp.connected) {
+    const needsReconnect =
+      !this.cdp.connected ||
+      (targetId && this.cdp.currentTargetId !== targetId);
+
+    if (needsReconnect) {
       const available = await CDPClient.isAvailable();
       if (!available) {
         throw new Error(
@@ -270,11 +274,13 @@ export class ArcBrowserMCPServer {
 
         await cdp.send("Network.enable");
 
-        await new Promise((r) => setTimeout(r, duration));
-
-        await cdp.send("Network.disable");
-        cdp.off("Network.requestWillBeSent");
-        cdp.off("Network.responseReceived");
+        try {
+          await new Promise((r) => setTimeout(r, duration));
+        } finally {
+          await cdp.send("Network.disable");
+          cdp.off("Network.requestWillBeSent");
+          cdp.off("Network.responseReceived");
+        }
 
         const captured = [...requests.values()].map((r) => ({
           method: r.method,
@@ -360,9 +366,12 @@ export class ArcBrowserMCPServer {
         });
 
         await cdp.send("Runtime.enable");
-        await new Promise((r) => setTimeout(r, duration));
-        await cdp.send("Runtime.disable");
-        cdp.off("Runtime.consoleAPICalled");
+        try {
+          await new Promise((r) => setTimeout(r, duration));
+        } finally {
+          await cdp.send("Runtime.disable");
+          cdp.off("Runtime.consoleAPICalled");
+        }
 
         return {
           content: [

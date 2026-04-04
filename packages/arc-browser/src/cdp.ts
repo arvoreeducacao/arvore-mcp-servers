@@ -114,20 +114,39 @@ export class CDPClient {
     });
   }
 
-  on(event: string, handler: (params: Record<string, unknown>) => void): void {
+  on(event: string, handler: (params: Record<string, unknown>) => void): () => void {
     const handlers = this.eventHandlers.get(event) ?? [];
     handlers.push(handler);
     this.eventHandlers.set(event, handlers);
+    return () => {
+      const current = this.eventHandlers.get(event) ?? [];
+      this.eventHandlers.set(
+        event,
+        current.filter((h) => h !== handler)
+      );
+    };
   }
 
-  off(event: string): void {
-    this.eventHandlers.delete(event);
+  off(event: string, handler?: (params: Record<string, unknown>) => void): void {
+    if (!handler) {
+      this.eventHandlers.delete(event);
+      return;
+    }
+    const current = this.eventHandlers.get(event) ?? [];
+    this.eventHandlers.set(
+      event,
+      current.filter((h) => h !== handler)
+    );
   }
 
   disconnect(): void {
     if (this.ws) {
       this.ws.close();
       this.ws = null;
+    }
+    for (const [id, handler] of this.pending) {
+      handler.reject(new Error("WebSocket closed"));
+      this.pending.delete(id);
     }
     this.pending.clear();
     this.eventHandlers.clear();
