@@ -1,6 +1,6 @@
 {
   "name": "@arvoretech/arc-browser-mcp",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Arc Browser MCP Server — control tabs, navigate, execute JS, and capture screenshots via AppleScript (macOS only)",
   "main": "dist/index.js",
   "type": "module",
