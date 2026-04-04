@@ -324,6 +324,17 @@ export class ArcBrowserMCPServer {
           return { content: [{ type: "text" as const, text: val }] };
         }
 
+        if (targetId) {
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: "CDP is not available and targetId was specified. Cannot fetch content for a specific target without CDP. Restart Arc with: open -a 'Arc' --args --remote-debugging-port=9222",
+              },
+            ],
+          };
+        }
+
         const tab = await arc.getActiveTab();
         const text = await arc.executeJavaScript("document.body.innerText.substring(0, 50000)");
         return {
@@ -458,6 +469,7 @@ export class ArcBrowserMCPServer {
         const messages: Record<string, string> = {
           switched: `Switched to space: ${title}`,
           not_found: `Space not found: ${title}`,
+          too_many_spaces: `Cannot switch: space "${title}" is beyond index 10 (only first 10 spaces supported via keyboard shortcut)`,
           no_accessibility_permission:
             "Cannot switch spaces: grant Accessibility permission to the terminal in System Settings > Privacy & Security > Accessibility",
         };

@@ -169,18 +169,20 @@ end tell
 }
 
 export async function switchSpace(title: string): Promise<string> {
+  const keyCodes = [18, 19, 20, 21, 23, 22, 26, 28, 25, 29];
   const spaces = await listSpaces();
   const index = spaces.findIndex(
     (s) => s.title.toLowerCase() === title.toLowerCase()
   );
   if (index === -1) return "not_found";
+  if (index >= keyCodes.length) return "too_many_spaces";
 
   try {
     await osascript(`
 tell application "Arc" to activate
 delay 0.3
 tell application "System Events"
-    key code ${[18, 19, 20, 21, 23, 22, 26, 28, 25, 29][index] ?? 18} using control down
+    key code ${keyCodes[index]} using control down
 end tell
 `);
     return "switched";

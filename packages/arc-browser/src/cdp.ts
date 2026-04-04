@@ -58,8 +58,8 @@ export class CDPClient {
 
     if (!target) throw new Error("No page target found in Arc");
 
-    this.targetId = target.id;
     await this.connectWs(target.webSocketDebuggerUrl);
+    this.targetId = target.id;
   }
 
   private connectWs(url: string): Promise<void> {
@@ -95,7 +95,7 @@ export class CDPClient {
     });
   }
 
-  send(method: string, params: Record<string, unknown> = {}): Promise<Record<string, unknown>> {
+  send(method: string, params: Record<string, unknown> = {}, timeoutMs = 30_000): Promise<Record<string, unknown>> {
     return new Promise((resolve, reject) => {
       if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
         reject(new Error("Not connected"));
@@ -110,7 +110,7 @@ export class CDPClient {
           this.pending.delete(id);
           reject(new Error(`CDP timeout for ${method}`));
         }
-      }, 30_000);
+      }, timeoutMs);
     });
   }
 
@@ -255,7 +255,7 @@ export class CDPClient {
       })`,
       awaitPromise: true,
       returnByValue: true,
-    });
+    }, timeoutMs + 5_000);
 
     return (result.result as { value?: boolean }).value ?? false;
   }
