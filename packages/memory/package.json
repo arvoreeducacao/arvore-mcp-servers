@@ -42,6 +42,11 @@
   ],
   "author": "Arvore",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/arvoreeducacao/arvore-mcp-servers",
+    "directory": "packages/memory"
+  },
   "engines": {
     "node": ">=20.0.0"
   }
