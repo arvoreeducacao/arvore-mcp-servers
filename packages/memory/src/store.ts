@@ -3,6 +3,7 @@ import { join, basename } from "node:path";
 import { existsSync } from "node:fs";
 import { createHash } from "node:crypto";
 import * as lancedb from "@lancedb/lancedb";
+import type { VectorQuery } from "@lancedb/lancedb";
 import { EmbeddingEngine } from "./embeddings.js";
 import {
   type MemoryEntry,
@@ -221,7 +222,7 @@ export class MemoryStore {
     if (opts.status) filters.push(`status = '${opts.status}'`);
     if (opts.category) filters.push(`category = '${opts.category}'`);
 
-    const searchQuery = this.table!.search(queryVector).limit(opts.limit);
+    const searchQuery = (this.table!.search(queryVector) as VectorQuery).distanceType("cosine").limit(opts.limit);
 
     if (filters.length > 0) {
       searchQuery.where(filters.join(" AND "));
