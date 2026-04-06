@@ -1,25 +1,25 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import {
-  ProxyConfig,
-  ProxyConfigSchema,
-  UpstreamServerConfigSchema,
-  SearchParams,
-  SearchParamsSchema,
-  CallParams,
-  CallParamsSchema,
-  SchemaParamsSchema,
-  McpToolResult,
-  ProxyError,
-} from "./types.js";
-import { ToolRegistry } from "./registry.js";
 import { McpConnectorManager } from "./connector.js";
-import { HybridSearch } from "./search.js";
+import { Dashboard } from "./dashboard.js";
 import { EmbeddingEngine } from "./embeddings.js";
+import { AuditLogger } from "./logger.js";
 import { OutputShaper } from "./output-shaper.js";
 import { PaginationManager } from "./pagination.js";
-import { AuditLogger } from "./logger.js";
-import { Dashboard } from "./dashboard.js";
+import { ToolRegistry } from "./registry.js";
+import { HybridSearch } from "./search.js";
+import {
+  type CallParams,
+  CallParamsSchema,
+  type McpToolResult,
+  type ProxyConfig,
+  ProxyConfigSchema,
+  ProxyError,
+  SchemaParamsSchema,
+  type SearchParams,
+  SearchParamsSchema,
+  UpstreamServerConfigSchema,
+} from "./types.js";
 
 export class McpProxyServer {
   private readonly server: McpServer;
@@ -52,46 +52,62 @@ export class McpProxyServer {
       this.connector,
       this.registry,
       this.logger,
-      parseInt(process.env.MCP_PROXY_DASHBOARD_PORT || "9100", 10)
+      parseInt(process.env.MCP_PROXY_DASHBOARD_PORT || "9100", 10),
     );
 
     this.setupTools();
   }
 
   static fromEnvironment(): McpProxyServer {
-      const upstreamsRaw = process.env.MCP_PROXY_UPSTREAMS;
-      if (!upstreamsRaw) {
-        throw new ProxyError(
-          "MCP_PROXY_UPSTREAMS environment variable is required (JSON array of upstream configs)",
-          "MISSING_CONFIG"
-        );
-      }
-
-      const expanded = upstreamsRaw.replace(/\$\{(\w+)\}/g, (_, key) => process.env[key] || "");
-
-      let upstreams;
-      try {
-        const parsed = JSON.parse(expanded);
-        upstreams = Array.isArray(parsed)
-          ? parsed.map((u: unknown) => UpstreamServerConfigSchema.parse(u))
-          : [UpstreamServerConfigSchema.parse(parsed)];
-      } catch (error) {
-        throw new ProxyError(
-          `Invalid MCP_PROXY_UPSTREAMS: ${error instanceof Error ? error.message : error}`,
-          "INVALID_CONFIG"
-        );
-      }
-
-      const config = ProxyConfigSchema.parse({
-        upstreams,
-        searchLimit: parseInt(process.env.MCP_PROXY_SEARCH_LIMIT || "3", 10),
-        callItemLimit: parseInt(process.env.MCP_PROXY_CALL_ITEM_LIMIT || "20", 10),
-        maxTextLength: parseInt(process.env.MCP_PROXY_MAX_TEXT_LENGTH || "500", 10),
-        maxOutputTokens: parseInt(process.env.MCP_PROXY_MAX_OUTPUT_TOKENS || "8000", 10),
-      });
-
-      return new McpProxyServer(config);
+    const upstreamsRaw = process.env.MCP_PROXY_UPSTREAMS;
+    if (!upstreamsRaw) {
+      throw new ProxyError(
+        "MCP_PROXY_UPSTREAMS environment variable is required (JSON array of upstream configs)",
+        "MISSING_CONFIG",
+      );
     }
+
+    const expanded = upstreamsRaw.replace(
+      /\$\{(\w+)\}/g,
+      (_, key) => process.env[key] || "",
+    );
+
+    let upstreams;
+    try {
+      const parsed = JSON.parse(expanded);
+      upstreams = Array.isArray(parsed)
+        ? parsed.map((u: unknown) => UpstreamServerConfigSchema.parse(u))
+        : [UpstreamServerConfigSchema.parse(parsed)];
+    } catch (error) {
+      throw new ProxyError(
+        `Invalid MCP_PROXY_UPSTREAMS: ${error instanceof Error ? error.message : error}`,
+        "INVALID_CONFIG",
+      );
+    }
+
+    const config = ProxyConfigSchema.parse({
+      upstreams,
+      searchLimit: parseInt(process.env.MCP_PROXY_SEARCH_LIMIT || "3", 10),
+      callItemLimit: parseInt(
+        process.env.MCP_PROXY_CALL_ITEM_LIMIT || "20",
+        10,
+      ),
+      maxTextLength: parseInt(
+        process.env.MCP_PROXY_MAX_TEXT_LENGTH || "500",
+        10,
+      ),
+      maxOutputTokens: parseInt(
+        process.env.MCP_PROXY_MAX_OUTPUT_TOKENS || "8000",
+        10,
+      ),
+      idleTimeoutMs: parseInt(
+        process.env.MCP_PROXY_IDLE_TIMEOUT_MS || String(5 * 60 * 1000),
+        10,
+      ),
+    });
+
+    return new McpProxyServer(config);
+  }
 
   private setupTools(): void {
     this.server.registerTool(
@@ -105,7 +121,7 @@ export class McpProxyServer {
           limit: SearchParamsSchema.shape.limit,
         },
       },
-      async (params) => this.handleSearch(params as SearchParams)
+      async (params) => this.handleSearch(params as SearchParams),
     );
 
     this.server.registerTool(
@@ -121,7 +137,7 @@ export class McpProxyServer {
           detail: CallParamsSchema.shape.detail,
         },
       },
-      async (params) => this.handleCall(params as CallParams)
+      async (params) => this.handleCall(params as CallParams),
     );
 
     this.server.registerTool(
@@ -134,7 +150,7 @@ export class McpProxyServer {
           ref: SchemaParamsSchema.shape.ref,
         },
       },
-      async (params) => this.handleSchema(params as { ref: string })
+      async (params) => this.handleSchema(params as { ref: string }),
     );
   }
 
@@ -170,14 +186,21 @@ export class McpProxyServer {
     ];
 
     for (const [name, def] of Object.entries(properties)) {
-      const prop = def as { type?: string; description?: string; default?: unknown; enum?: unknown[] };
+      const prop = def as {
+        type?: string;
+        description?: string;
+        default?: unknown;
+        enum?: unknown[];
+      };
       const req = required.has(name) ? "required" : "optional";
       const type = prop.type || "unknown";
       lines.push(`[params.${name}]`);
       lines.push(`type = "${type}"`);
       lines.push(`status = "${req}"`);
       if (prop.description) {
-        lines.push(`desc = "${this.escapeToml(this.truncateText(prop.description, 80))}"`);
+        lines.push(
+          `desc = "${this.escapeToml(this.truncateText(prop.description, 80))}"`,
+        );
       }
       if (prop.default !== undefined) {
         lines.push(`default = ${JSON.stringify(prop.default)}`);
@@ -204,7 +227,10 @@ export class McpProxyServer {
       const results = await this.search.search(params.query, limit);
 
       const output = results
-        .map((r) => `[[results]]\nref = "${r.ref}"\ntitle = "${r.title}"\nhint = "${this.escapeToml(r.hint)}"`)
+        .map(
+          (r) =>
+            `[[results]]\nref = "${r.ref}"\ntitle = "${r.title}"\nhint = "${this.escapeToml(r.hint)}"`,
+        )
         .join("\n\n");
       this.logger.finalize(audit, {
         outputSize: output.length,
@@ -251,13 +277,13 @@ export class McpProxyServer {
       const rawResult = await this.connector.callTool(
         entry.provider,
         entry.originalName,
-        params.args
+        params.args,
       );
 
       const { items, hasMore } = this.shaper.shapeResponse(
         rawResult,
         entry.provider,
-        params.detail
+        params.detail,
       );
 
       let nextCursor: string | null = null;
@@ -274,7 +300,7 @@ export class McpProxyServer {
       const output = JSON.stringify(
         { items, next_cursor: nextCursor },
         null,
-        2
+        2,
       );
       const truncated = this.enforceTokenLimit(output);
 
@@ -299,7 +325,7 @@ export class McpProxyServer {
   }
 
   private async handlePaginatedCall(
-    params: CallParams
+    params: CallParams,
   ): Promise<McpToolResult> {
     const state = this.pagination.resolve(params.page_cursor!);
     if (!state) {
@@ -326,7 +352,7 @@ export class McpProxyServer {
       const rawResult = await this.connector.callTool(
         state.provider,
         state.originalName,
-        state.args
+        state.args,
       );
 
       const offset = (state.page - 1) * this.config.callItemLimit;
@@ -334,7 +360,7 @@ export class McpProxyServer {
         rawResult,
         state.provider,
         params.detail,
-        offset
+        offset,
       );
 
       let nextCursor: string | null = null;
@@ -348,7 +374,7 @@ export class McpProxyServer {
       const output = JSON.stringify(
         { items, next_cursor: nextCursor },
         null,
-        2
+        2,
       );
       const truncated = this.enforceTokenLimit(output);
 
@@ -362,9 +388,7 @@ export class McpProxyServer {
       const msg = error instanceof Error ? error.message : "Unknown error";
       this.logger.finalize(audit, { outputSize: 0, error: msg });
       return {
-        content: [
-          { type: "text", text: JSON.stringify({ error: msg }) },
-        ],
+        content: [{ type: "text", text: JSON.stringify({ error: msg }) }],
       };
     }
   }
@@ -381,7 +405,10 @@ export class McpProxyServer {
   }
 
   private escapeToml(value: string): string {
-    return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n");
+    return value
+      .replace(/\\/g, "\\\\")
+      .replace(/"/g, '\\"')
+      .replace(/\n/g, "\\n");
   }
 
   private truncateText(text: string, max: number): string {
@@ -393,28 +420,39 @@ export class McpProxyServer {
     try {
       const transport = new StdioServerTransport();
       await this.server.connect(transport);
-      console.error("[proxy] MCP transport connected, loading upstreams in background...");
+      console.error(
+        "[proxy] MCP transport connected, discovering upstreams in background...",
+      );
       this.dashboard.start();
 
       this.upstreamsReady = (async () => {
         await this.embeddings.init();
-        await this.connector.connectAll(this.config.upstreams);
+        await this.connector.discoverAll(this.config.upstreams);
+        this.connector.startIdleReaper(this.config.idleTimeoutMs);
         console.error(
-          `[proxy] Registry loaded: ${this.registry.size} tools from ${this.connector.connectedProviders.length} providers`
+          `[proxy] Registry loaded: ${this.registry.size} tools from ${this.connector.discoveredProviders.length} providers (all idle)`,
         );
         console.error(
-          `[proxy] Semantic search: ${this.embeddings.isReady() ? "enabled" : "disabled (lexical fallback)"}`
+          `[proxy] Idle timeout: ${this.config.idleTimeoutMs > 0 ? `${this.config.idleTimeoutMs / 1000}s` : "disabled"}`,
         );
-        console.error("[proxy] Exposing 3 tools: mcp_search, mcp_schema, mcp_call");
+        console.error(
+          `[proxy] Semantic search: ${this.embeddings.isReady() ? "enabled" : "disabled (lexical fallback)"}`,
+        );
+        console.error(
+          "[proxy] Exposing 3 tools: mcp_search, mcp_schema, mcp_call",
+        );
       })();
 
       this.upstreamsReady.catch((error) => {
-        console.error("[proxy] Background upstream connection failed:", error instanceof Error ? error.message : error);
+        console.error(
+          "[proxy] Background upstream discovery failed:",
+          error instanceof Error ? error.message : error,
+        );
       });
     } catch (error) {
       console.error(
         "[proxy] Failed to start:",
-        error instanceof Error ? error.message : error
+        error instanceof Error ? error.message : error,
       );
       await this.cleanup();
       process.exit(1);
@@ -423,12 +461,13 @@ export class McpProxyServer {
 
   async cleanup(): Promise<void> {
     try {
+      this.connector.stopIdleReaper();
       this.dashboard.stop();
       await this.connector.disconnectAll();
     } catch (error) {
       console.error(
         "[proxy] Error during cleanup:",
-        error instanceof Error ? error.message : error
+        error instanceof Error ? error.message : error,
       );
     }
   }
