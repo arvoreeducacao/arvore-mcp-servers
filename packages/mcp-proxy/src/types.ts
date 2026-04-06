@@ -28,6 +28,10 @@ export const ProxyConfigSchema = z.object({
   callItemLimit: z.number().min(1).max(100).default(20),
   maxTextLength: z.number().min(50).max(5000).default(500),
   maxOutputTokens: z.number().min(1000).max(32000).default(8000),
+  idleTimeoutMs: z
+    .number()
+    .min(0)
+    .default(5 * 60 * 1000),
 });
 
 export type ProxyConfig = z.infer<typeof ProxyConfigSchema>;
@@ -124,16 +128,17 @@ export interface McpToolResult {
 export interface UpstreamStatus {
   name: string;
   transport: "stdio" | "http";
-  status: "connecting" | "connected" | "error";
+  status: "connecting" | "connected" | "idle" | "activating" | "error";
   toolCount: number;
   error?: string;
+  lastUsedAt?: number;
   logs: string[];
 }
 
 export class ProxyError extends Error {
   constructor(
     message: string,
-    public readonly code: string
+    public readonly code: string,
   ) {
     super(message);
     this.name = "ProxyError";
