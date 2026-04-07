@@ -280,18 +280,28 @@ export class McpProxyServer {
         params.args,
       );
 
-      if (
-        rawResult &&
-        typeof rawResult === "object" &&
-        "_rawContent" in (rawResult as Record<string, unknown>)
-      ) {
-        const content = (rawResult as { _rawContent: McpToolResult["content"] })
-          ._rawContent;
-        this.logger.finalize(audit, {
-          outputSize: content.length,
-          itemCount: content.length,
-        });
-        return { content };
+      if (rawResult && typeof rawResult === "object") {
+        const maybeRaw = (rawResult as Record<string, unknown>)["_rawContent"];
+        const isValidRawContent =
+          Array.isArray(maybeRaw) &&
+          maybeRaw.every((part) => {
+            if (!part || typeof part !== "object") return false;
+            const p = part as Record<string, unknown>;
+            if (p.type === "text") return typeof p.text === "string";
+            if (p.type === "image")
+              return (
+                typeof p.data === "string" && typeof p.mimeType === "string"
+              );
+            return false;
+          });
+        if (isValidRawContent) {
+          const content = maybeRaw as McpToolResult["content"];
+          this.logger.finalize(audit, {
+            outputSize: content.length,
+            itemCount: content.length,
+          });
+          return { content };
+        }
       }
 
       const { items, hasMore } = this.shaper.shapeResponse(
