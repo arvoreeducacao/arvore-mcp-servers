@@ -183,6 +183,13 @@ export class McpConnectorManager {
     });
 
     if (result.content && Array.isArray(result.content)) {
+      const hasNonText = result.content.some(
+        (c: { type: string }) => c.type !== "text",
+      );
+      if (hasNonText) {
+        return { _rawContent: result.content };
+      }
+
       const textParts = result.content
         .filter((c: { type: string }) => c.type === "text")
         .map((c: { text: string }) => c.text);
