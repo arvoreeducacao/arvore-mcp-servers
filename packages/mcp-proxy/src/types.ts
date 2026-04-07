@@ -119,10 +119,10 @@ export interface AuditEntry {
 
 export interface McpToolResult {
   [x: string]: unknown;
-  content: Array<{
-    type: "text";
-    text: string;
-  }>;
+  content: Array<
+    | { type: "text"; text: string }
+    | { type: "image"; data: string; mimeType: string }
+  >;
 }
 
 export interface UpstreamStatus {
