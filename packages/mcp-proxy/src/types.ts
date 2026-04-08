@@ -13,6 +13,7 @@ export const UpstreamServerConfigSchema = z.object({
 
   command: z.string().optional(),
   args: z.array(z.string()).default([]),
+  cwd: z.string().optional(),
 
   url: z.string().optional(),
   auth: UpstreamAuthSchema.optional(),
