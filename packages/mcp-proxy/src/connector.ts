@@ -259,6 +259,7 @@ export class McpConnectorManager {
       command: config.command,
       args: config.args,
       env: { ...process.env, ...config.env } as Record<string, string>,
+      cwd: config.cwd || process.cwd(),
       stderr: "pipe",
     });
     this.pipeStderr(config.name, transport);
