@@ -37,6 +37,11 @@
     "task-management",
     "arvore"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/arvoreeducacao/arvore-mcp-servers",
+    "directory": "packages/kanban"
+  },
   "author": "Arvore",
   "license": "MIT",
   "engines": {
