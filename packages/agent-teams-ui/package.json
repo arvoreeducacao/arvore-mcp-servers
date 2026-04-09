@@ -24,6 +24,11 @@
     "tsx": "^4.6.0",
     "typescript": "^5.3.0"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/arvoreeducacao/arvore-mcp-servers",
+    "directory": "packages/agent-teams-ui"
+  },
   "author": "Arvore",
   "license": "MIT",
   "engines": {

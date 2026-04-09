@@ -38,6 +38,11 @@
     "orchestration",
     "arvore"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/arvoreeducacao/arvore-mcp-servers",
+    "directory": "packages/agent-teams-lead"
+  },
   "author": "Arvore",
   "license": "MIT",
   "engines": {
