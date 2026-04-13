@@ -1,6 +1,6 @@
 # @arvoretech/slack-advanced-mcp
 
-Advanced Slack MCP Server — sends messages as the authenticated user, with fuzzy user search, smart DMs, writing style analysis, thread extraction, audio transcription (ElevenLabs), and image analysis.
+Advanced Slack MCP Server -- sends messages as the authenticated user, with fuzzy user search, smart DMs, writing style analysis, thread extraction, audio transcription (ElevenLabs), and image analysis.
 
 ## Setup
 
@@ -8,8 +8,10 @@ Advanced Slack MCP Server — sends messages as the authenticated user, with fuz
 
 | Variable | Required | Description |
 |---|---|---|
-| `SLACK_USER_TOKEN` | ✅ | Slack user OAuth token (`xoxp-...`) |
-| `ELEVENLABS_API_KEY` | ❌ | ElevenLabs API key for audio transcription |
+| `SLACK_USER_TOKEN` | Yes | Slack user OAuth token (`xoxp-...`) |
+| `ELEVENLABS_API_KEY` | No | ElevenLabs API key for audio transcription |
+| `SLACK_USERS_CACHE_PATH` | No | Path to users cache JSON (default: `~/.slack-advanced-mcp/users_cache.json`) |
+| `SLACK_USERS_CACHE_TTL_MINUTES` | No | Cache TTL in minutes (default: 240) |
 
 ### Slack App Scopes (User Token Scopes)
 
@@ -21,8 +23,8 @@ Advanced Slack MCP Server — sends messages as the authenticated user, with fuz
 {
   "mcpServers": {
     "slack-advanced": {
-      "command": "node",
-      "args": ["./arvore-mcp-servers/packages/slack-advanced/dist/index.js"],
+      "command": "npx",
+      "args": ["-y", "@arvoretech/slack-advanced-mcp"],
       "env": {
         "SLACK_USER_TOKEN": "xoxp-...",
         "ELEVENLABS_API_KEY": "sk_..."
@@ -36,7 +38,7 @@ Advanced Slack MCP Server — sends messages as the authenticated user, with fuz
 
 | Tool | Description |
 |---|---|
-| `search_users` | Fuzzy search users by name, email, or display name |
+| `search_users` | Fuzzy search users by name, email, or display name with disk cache |
 | `get_user_profile` | Full user profile (title, status, timezone, avatar) |
 | `send_dm` | Send DM resolving user by name/email/ID. Messages sent as you |
 | `get_dm_history` | DM history with a user, with pagination |

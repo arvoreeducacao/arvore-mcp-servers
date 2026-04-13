@@ -291,6 +291,20 @@ Control Arc Browser on macOS via a hybrid AppleScript + Chrome DevTools Protocol
 - JavaScript execution (AppleScript for quick queries, CDP for async/await)
 - Cookie inspection and page content extraction
 
+### [@arvoretech/slack-advanced-mcp](./packages/slack-advanced)
+
+Advanced Slack integration using user tokens -- messages sent as the authenticated user.
+
+**Features:**
+
+- Fuzzy user search with disk cache (47k+ users load instantly)
+- Smart DM: resolve user by name/email/ID, auto-open DM channel
+- Writing style analysis (emoji usage, punctuation, vocabulary, formality)
+- Thread extraction from Slack URLs with participant resolution
+- Audio transcription via ElevenLabs STT
+- Image download and base64 return for model analysis
+- Rate limit retry with backoff
+
 ## 🚀 Quick Start
 
 ### Installation
@@ -319,6 +333,7 @@ npm install -g @arvoretech/agent-teams-chat-mcp
 npm install -g @arvoretech/metabase-mcp
 npm install -g @arvoretech/mgc-mcp
 npm install -g @arvoretech/kanban-mcp
+npm install -g @arvoretech/slack-advanced-mcp
 ```
 
 Or using pnpm:
@@ -491,6 +506,14 @@ Add to your Claude Desktop configuration file:
         "KANBAN_PATH": "./kanban",
         "KANBAN_UI": "true",
         "KANBAN_PORT": "4799"
+      }
+    },
+    "slack-advanced": {
+      "command": "npx",
+      "args": ["-y", "@arvoretech/slack-advanced-mcp"],
+      "env": {
+        "SLACK_USER_TOKEN": "xoxp-your-user-token",
+        "ELEVENLABS_API_KEY": "sk_your-elevenlabs-key"
       }
     }
   }
