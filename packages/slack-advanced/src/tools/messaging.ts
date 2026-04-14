@@ -1,3 +1,4 @@
+import { slackifyMarkdown } from "slackify-markdown";
 import { SlackClient } from "../slack-client.js";
 import type {
   SendDmParams,
@@ -9,16 +10,35 @@ import type {
 import { SlackAdvancedMCPError } from "../types.js";
 
 export class MessagingTools {
+  private readonly ATTRIBUTION_TEXT = "Enviado pelo Árvore Slack Advanced MCP";
+
   constructor(private readonly slack: SlackClient) {}
+
+  private toMrkdwn(text: string): string {
+    return slackifyMarkdown(text);
+  }
+
+  private buildBlocks(text: string): Array<Record<string, unknown>> {
+    return [
+      { type: "section", block_id: "msg", text: { type: "mrkdwn", text } },
+      {
+        type: "context",
+        elements: [{ type: "mrkdwn", text: this.ATTRIBUTION_TEXT }],
+      },
+    ];
+  }
 
   async sendDm(params: SendDmParams): Promise<McpToolResult> {
     try {
       const userId = await this.slack.resolveUserId(params.user);
       const channelId = await this.slack.openDm(userId);
 
+      const mrkdwn = this.toMrkdwn(params.text);
+      const blocks = this.buildBlocks(mrkdwn);
       const msgParams: Record<string, unknown> = {
         channel: channelId,
-        text: params.text,
+        text: mrkdwn,
+        blocks: JSON.stringify(blocks),
       };
 
       if (params.thread_ts) {
@@ -87,14 +107,12 @@ export class MessagingTools {
     try {
       const channelId = await this.slack.resolveChannelId(params.channel);
 
-      let text = params.text;
-      if (params.content_type === "text/markdown") {
-        text = this.convertMarkdownLinksToMrkdwn(text);
-      }
-
+      const mrkdwn = this.toMrkdwn(params.text);
+      const blocks = this.buildBlocks(mrkdwn);
       const msgParams: Record<string, unknown> = {
         channel: channelId,
-        text,
+        text: mrkdwn,
+        blocks: JSON.stringify(blocks),
       };
 
       if (params.thread_ts) {
@@ -116,10 +134,6 @@ export class MessagingTools {
     } catch (error) {
       return this.formatError(error);
     }
-  }
-
-  private convertMarkdownLinksToMrkdwn(text: string): string {
-    return text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, "<$2|$1>");
   }
 
   private ok(data: unknown): McpToolResult {
