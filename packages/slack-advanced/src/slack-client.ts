@@ -205,6 +205,36 @@ export class SlackClient {
     );
   }
 
+  async resolveChannelId(identifier: string): Promise<string> {
+    if (/^[A-Z0-9]+$/.test(identifier)) {
+      return identifier;
+    }
+
+    const name = identifier.replace(/^#/, "");
+
+    let cursor: string | undefined;
+    do {
+      const params: Record<string, unknown> = { limit: 200, types: "public_channel,private_channel" };
+      if (cursor) params.cursor = cursor;
+
+      const res = await this.request<{
+        ok: boolean;
+        channels: Array<{ id: string; name: string }>;
+        response_metadata?: { next_cursor?: string };
+      }>("conversations.list", params);
+
+      const match = res.channels.find((c) => c.name === name);
+      if (match) return match.id;
+
+      cursor = res.response_metadata?.next_cursor || undefined;
+    } while (cursor);
+
+    throw new SlackAdvancedMCPError(
+      `Could not resolve channel: ${identifier}`,
+      "CHANNEL_NOT_FOUND"
+    );
+  }
+
   async openDm(userId: string): Promise<string> {
     const res = await this.request<{
       ok: boolean;

@@ -2,6 +2,7 @@ import { SlackClient } from "../slack-client.js";
 import type {
   SendDmParams,
   GetDmHistoryParams,
+  SendChannelMessageParams,
   McpToolResult,
   SlackMessage,
 } from "../types.js";
@@ -80,6 +81,45 @@ export class MessagingTools {
     } catch (error) {
       return this.formatError(error);
     }
+  }
+
+  async sendChannelMessage(params: SendChannelMessageParams): Promise<McpToolResult> {
+    try {
+      const channelId = await this.slack.resolveChannelId(params.channel);
+
+      let text = params.text;
+      if (params.content_type === "text/markdown") {
+        text = this.convertMarkdownLinksToMrkdwn(text);
+      }
+
+      const msgParams: Record<string, unknown> = {
+        channel: channelId,
+        text,
+      };
+
+      if (params.thread_ts) {
+        msgParams.thread_ts = params.thread_ts;
+      }
+
+      const res = await this.slack.request<{
+        ok: boolean;
+        channel: string;
+        ts: string;
+        message: { text: string; ts: string };
+      }>("chat.postMessage", msgParams);
+
+      return this.ok({
+        sent: true,
+        channel: res.channel,
+        ts: res.ts,
+      });
+    } catch (error) {
+      return this.formatError(error);
+    }
+  }
+
+  private convertMarkdownLinksToMrkdwn(text: string): string {
+    return text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, "<$2|$1>");
   }
 
   private ok(data: unknown): McpToolResult {
