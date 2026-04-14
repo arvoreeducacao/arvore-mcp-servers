@@ -8,6 +8,7 @@ import { StyleAnalysisTools } from "./tools/style-analysis.js";
 import { ThreadTools } from "./tools/threads.js";
 import { AudioTools } from "./tools/audio.js";
 import { ImageTools } from "./tools/images.js";
+import { UploadTools } from "./tools/uploads.js";
 import {
   SearchUsersParamsSchema,
   GetUserProfileParamsSchema,
@@ -19,6 +20,8 @@ import {
   AnalyzeImageParamsSchema,
   GetFileInfoParamsSchema,
   SendChannelMessageParamsSchema,
+  SendAudioParamsSchema,
+  SendImageParamsSchema,
 } from "./types.js";
 
 export class SlackAdvancedMCPServer {
@@ -29,6 +32,7 @@ export class SlackAdvancedMCPServer {
   private readonly threadTools: ThreadTools;
   private readonly audioTools: AudioTools;
   private readonly imageTools: ImageTools;
+  private readonly uploadTools: UploadTools;
 
   constructor() {
     const slackToken = process.env.SLACK_USER_TOKEN;
@@ -48,7 +52,8 @@ export class SlackAdvancedMCPServer {
     );
 
     const elevenLabsKey = process.env.ELEVENLABS_API_KEY;
-    const elevenlabs = elevenLabsKey ? new ElevenLabsSTTClient(elevenLabsKey) : null;
+    const defaultVoiceId = process.env.ELEVENLABS_DEFAULT_VOICE_ID;
+    const elevenlabs = elevenLabsKey ? new ElevenLabsSTTClient(elevenLabsKey, defaultVoiceId) : null;
 
     if (!elevenLabsKey) {
       console.error("⚠️  ELEVENLABS_API_KEY not set — audio transcription will be unavailable");
@@ -60,6 +65,7 @@ export class SlackAdvancedMCPServer {
     this.threadTools = new ThreadTools(slack);
     this.audioTools = new AudioTools(slack, elevenlabs);
     this.imageTools = new ImageTools(slack);
+    this.uploadTools = new UploadTools(slack, elevenlabs);
 
     this.setupTools();
   }
@@ -153,6 +159,24 @@ export class SlackAdvancedMCPServer {
       inputSchema: GetFileInfoParamsSchema.shape,
     }, async (params) => {
       return this.imageTools.getFileInfo(GetFileInfoParamsSchema.parse(params));
+    });
+
+    this.server.registerTool("send_audio", {
+      title: "Send Audio",
+      description:
+        "Send an audio message to a Slack user (DM) or channel. Can generate speech from text using ElevenLabs TTS (pass 'text' param) or upload an existing audio file (pass file_path or file_base64). Supports thread replies.",
+      inputSchema: SendAudioParamsSchema.shape,
+    }, async (params) => {
+      return this.uploadTools.sendAudio(SendAudioParamsSchema.parse(params));
+    });
+
+    this.server.registerTool("send_image", {
+      title: "Send Image",
+      description:
+        "Upload and send an image to a Slack user (DM) or channel. Accepts a file path on disk or base64-encoded content. Supports thread replies.",
+      inputSchema: SendImageParamsSchema.shape,
+    }, async (params) => {
+      return this.uploadTools.sendImage(SendImageParamsSchema.parse(params));
     });
   }
 

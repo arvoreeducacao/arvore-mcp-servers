@@ -147,6 +147,80 @@ export const SendChannelMessageParamsSchema = z.object({
     .describe("Content type for link formatting. Use text/markdown for [text](url) links"),
 });
 
+export const SendAudioParamsSchema = z.object({
+  target: z
+    .string()
+    .min(1, "Target is required")
+    .describe("User (name, email, or ID) or channel (ID or #channel-name) to send the audio to"),
+  target_type: z
+    .enum(["user", "channel"])
+    .describe("Whether the target is a user (DM) or a channel"),
+  text: z
+    .string()
+    .optional()
+    .describe("Text to convert to speech using ElevenLabs TTS. Use this to send a voice message generated from text. Mutually exclusive with file_path/file_base64"),
+  voice_id: z
+    .string()
+    .optional()
+    .describe("ElevenLabs voice ID for TTS. Defaults to George (JBFqnCBsd6RMkjVDRZzb)"),
+  language_code: z
+    .string()
+    .optional()
+    .describe("Language code for TTS (e.g. pt, en, es). Helps with pronunciation"),
+  file_path: z
+    .string()
+    .optional()
+    .describe("Absolute path to the audio file on disk. Either text, file_path, or file_base64 is required"),
+  file_base64: z
+    .string()
+    .optional()
+    .describe("Base64-encoded audio content. Either text, file_path, or file_base64 is required"),
+  filename: z
+    .string()
+    .optional()
+    .default("audio.mp3")
+    .describe("Filename for the uploaded audio (e.g. message.mp3, recording.ogg)"),
+  message: z
+    .string()
+    .optional()
+    .describe("Optional text message to accompany the audio"),
+  thread_ts: z
+    .string()
+    .optional()
+    .describe("Thread timestamp to reply in a thread"),
+});
+
+export const SendImageParamsSchema = z.object({
+  target: z
+    .string()
+    .min(1, "Target is required")
+    .describe("User (name, email, or ID) or channel (ID or #channel-name) to send the image to"),
+  target_type: z
+    .enum(["user", "channel"])
+    .describe("Whether the target is a user (DM) or a channel"),
+  file_path: z
+    .string()
+    .optional()
+    .describe("Absolute path to the image file on disk. Either file_path or file_base64 is required"),
+  file_base64: z
+    .string()
+    .optional()
+    .describe("Base64-encoded image content. Either file_path or file_base64 is required"),
+  filename: z
+    .string()
+    .optional()
+    .default("image.png")
+    .describe("Filename for the uploaded image (e.g. screenshot.png, photo.jpg)"),
+  message: z
+    .string()
+    .optional()
+    .describe("Optional text message to accompany the image"),
+  thread_ts: z
+    .string()
+    .optional()
+    .describe("Thread timestamp to reply in a thread"),
+});
+
 export type SearchUsersParams = z.infer<typeof SearchUsersParamsSchema>;
 export type GetUserProfileParams = z.infer<typeof GetUserProfileParamsSchema>;
 export type SendDmParams = z.infer<typeof SendDmParamsSchema>;
@@ -157,6 +231,8 @@ export type TranscribeAudioParams = z.infer<typeof TranscribeAudioParamsSchema>;
 export type AnalyzeImageParams = z.infer<typeof AnalyzeImageParamsSchema>;
 export type GetFileInfoParams = z.infer<typeof GetFileInfoParamsSchema>;
 export type SendChannelMessageParams = z.infer<typeof SendChannelMessageParamsSchema>;
+export type SendAudioParams = z.infer<typeof SendAudioParamsSchema>;
+export type SendImageParams = z.infer<typeof SendImageParamsSchema>;
 
 export type McpTextContent = {
   type: "text";
