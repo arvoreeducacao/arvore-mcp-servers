@@ -64,7 +64,7 @@ describe("MemoryStore", () => {
   describe("load", () => {
     it("should load an empty directory without errors", async () => {
       await store.load();
-      const result = store.list();
+      const result = await store.list();
       expect(result).toEqual([]);
     });
 
@@ -96,7 +96,7 @@ describe("MemoryStore", () => {
       );
 
       await store.load();
-      const result = store.list();
+      const result = await store.list();
 
       expect(result).toHaveLength(2);
       expect(result.map((m) => m.title)).toContain("Use PostgreSQL");
@@ -119,7 +119,7 @@ describe("MemoryStore", () => {
       );
 
       await store.load();
-      const result = store.list();
+      const result = await store.list();
 
       expect(result[0].title).toBe("New");
       expect(result[1].title).toBe("Old");
@@ -224,7 +224,7 @@ describe("MemoryStore", () => {
       );
 
       await store.load();
-      const entry = store.get("use-postgres");
+      const entry = await store.get("use-postgres");
 
       expect(entry).not.toBeNull();
       expect(entry!.title).toBe("Use PostgreSQL");
@@ -233,7 +233,7 @@ describe("MemoryStore", () => {
 
     it("should return null for non-existent id", async () => {
       await store.load();
-      const entry = store.get("does-not-exist");
+      const entry = await store.get("does-not-exist");
       expect(entry).toBeNull();
     });
   });
@@ -310,10 +310,10 @@ describe("MemoryStore", () => {
       );
 
       await store.load();
-      expect(store.get("glossary-term")).not.toBeNull();
+      expect(await store.get("glossary-term")).not.toBeNull();
 
       await store.remove("glossary-term");
-      expect(store.get("glossary-term")).toBeNull();
+      expect(await store.get("glossary-term")).toBeNull();
     });
 
     it("should throw for non-existent memory", async () => {
@@ -338,7 +338,7 @@ describe("MemoryStore", () => {
       );
 
       await store.load();
-      const decisions = store.list({ category: "decisions" });
+      const decisions = await store.list({ category: "decisions" });
 
       expect(decisions).toHaveLength(1);
       expect(decisions[0].category).toBe("decisions");
@@ -359,8 +359,8 @@ describe("MemoryStore", () => {
       );
 
       await store.load();
-      const active = store.list({ status: "active" });
-      const archived = store.list({ status: "archived" });
+      const active = await store.list({ status: "active" });
+      const archived = await store.list({ status: "archived" });
 
       expect(active).toHaveLength(1);
       expect(active[0].title).toBe("Active");

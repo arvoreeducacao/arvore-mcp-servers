@@ -44,7 +44,7 @@ export class MemoryMCPTools {
 
   async getMemory(params: GetMemoryParams): Promise<McpToolResult> {
     try {
-      const entry = this.store.get(params.id);
+      const entry = await this.store.get(params.id);
 
       if (!entry) {
         return {
@@ -116,7 +116,7 @@ export class MemoryMCPTools {
 
   async listMemories(params: ListMemoriesParams): Promise<McpToolResult> {
     try {
-      const results = this.store.list({
+      const results = await this.store.list({
         category: params.category,
         status: params.status,
         limit: params.limit,
