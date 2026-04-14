@@ -13,6 +13,7 @@ import {
 export class BridgeServer {
   private readonly server: McpServer;
   private client: Client | null = null;
+  private clientPromise: Promise<Client> | null = null;
   private readonly primaryUrl: string;
 
   constructor(port: number) {
@@ -78,29 +79,37 @@ export class BridgeServer {
 
   private async ensureClient(): Promise<Client> {
     if (this.client) return this.client;
+    if (this.clientPromise) return this.clientPromise;
 
-    this.client = new Client({
-      name: "mcp-proxy-bridge-client",
-      version: "1.0.0",
-    });
-
-    const url = new URL(this.primaryUrl);
-
-    try {
-      const transport = new StreamableHTTPClientTransport(url);
-      await this.client.connect(transport);
-    } catch {
-      console.error("[bridge] StreamableHTTP failed, trying SSE...");
-      this.client = new Client({
+    this.clientPromise = (async () => {
+      const url = new URL(this.primaryUrl);
+      let client = new Client({
         name: "mcp-proxy-bridge-client",
         version: "1.0.0",
       });
-      const sseTransport = new SSEClientTransport(url);
-      await this.client.connect(sseTransport);
-    }
 
-    console.error(`[bridge] Connected to primary at ${this.primaryUrl}`);
-    return this.client;
+      try {
+        const transport = new StreamableHTTPClientTransport(url);
+        await client.connect(transport);
+      } catch {
+        console.error("[bridge] StreamableHTTP failed, trying SSE...");
+        client = new Client({
+          name: "mcp-proxy-bridge-client",
+          version: "1.0.0",
+        });
+        const sseTransport = new SSEClientTransport(url);
+        await client.connect(sseTransport);
+      }
+
+      console.error(`[bridge] Connected to primary at ${this.primaryUrl}`);
+      this.client = client;
+      return client;
+    })().catch((err) => {
+      this.clientPromise = null;
+      throw err;
+    });
+
+    return this.clientPromise;
   }
 
   private async forward(
@@ -150,7 +159,8 @@ export class BridgeServer {
     try {
       if (this.client) {
         await this.client.close();
-        this.client = null;
+      this.client = null;
+      this.clientPromise = null;
       }
     } catch (error) {
       console.error(

@@ -1,4 +1,4 @@
-import { openSync, closeSync, readFileSync, writeFileSync, unlinkSync, existsSync } from "node:fs";
+import { openSync, closeSync, writeSync, readFileSync, unlinkSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -28,18 +28,20 @@ export function tryAcquireLock(port: number): boolean {
 
   try {
     const fd = openSync(lockPath, "wx");
-    const info: LockInfo = { pid: process.pid, port };
-    writeFileSync(lockPath, JSON.stringify(info));
-    closeSync(fd);
-    return true;
+    try {
+      const info: LockInfo = { pid: process.pid, port };
+      writeSync(fd, JSON.stringify(info));
+      return true;
+    } finally {
+      closeSync(fd);
+    }
   } catch (err: unknown) {
     if ((err as { code?: string }).code !== "EEXIST") throw err;
   }
 
   const existing = readLock();
   if (!existing) {
-    unlinkSync(lockPath);
-    return tryAcquireLock(port);
+    return false;
   }
 
   if (!isProcessAlive(existing.pid)) {

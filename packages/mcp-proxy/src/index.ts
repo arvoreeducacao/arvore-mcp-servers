@@ -23,8 +23,11 @@ try {
 
     const originalCleanup = server.cleanup.bind(server);
     server.cleanup = async () => {
-      releaseLock();
-      await originalCleanup();
+      try {
+        await originalCleanup();
+      } finally {
+        releaseLock();
+      }
     };
 
     server.setupGracefulShutdown();
