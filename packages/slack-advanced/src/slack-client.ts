@@ -268,6 +268,60 @@ export class SlackClient {
     return res.file;
   }
 
+  async uploadFile(params: {
+    channelId: string;
+    fileBuffer: Buffer;
+    filename: string;
+    initialComment?: string;
+    threadTs?: string;
+  }): Promise<{ fileId: string; permalink: string }> {
+    const { channelId, fileBuffer, filename, initialComment, threadTs } = params;
+
+    const uploadUrlRes = await this.request<{
+      ok: boolean;
+      upload_url: string;
+      file_id: string;
+    }>("files.getUploadURLExternal", {
+      filename,
+      length: fileBuffer.length,
+    });
+
+    const uploadRes = await fetch(uploadUrlRes.upload_url, {
+      method: "POST",
+      body: new Uint8Array(fileBuffer),
+    });
+
+    if (!uploadRes.ok) {
+      throw new SlackAdvancedMCPError(
+        `Failed to upload file to Slack (${uploadRes.status})`,
+        "FILE_UPLOAD_ERROR",
+        uploadRes.status
+      );
+    }
+
+    const fileObj: Record<string, unknown> = { id: uploadUrlRes.file_id };
+    if (initialComment) fileObj.title = filename;
+
+    const completeParams: Record<string, unknown> = {
+      files: JSON.stringify([fileObj]),
+      channel_id: channelId,
+    };
+
+    if (initialComment) completeParams.initial_comment = initialComment;
+    if (threadTs) completeParams.thread_ts = threadTs;
+
+    const completeRes = await this.request<{
+      ok: boolean;
+      files: Array<{ id: string; permalink: string }>;
+    }>("files.completeUploadExternal", completeParams);
+
+    const file = completeRes.files?.[0];
+    return {
+      fileId: file?.id ?? uploadUrlRes.file_id,
+      permalink: file?.permalink ?? "",
+    };
+  }
+
   parseThreadLink(url: string): { channelId: string; threadTs: string } | null {
     const match = url.match(/archives\/([A-Z0-9]+)\/p(\d+)/);
     if (!match) return null;
