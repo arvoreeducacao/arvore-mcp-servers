@@ -33,7 +33,7 @@ export function tryAcquireLock(port: number): boolean {
     closeSync(fd);
     return true;
   } catch (err: unknown) {
-    if ((err as NodeJS.ErrnoException).code !== "EEXIST") throw err;
+    if ((err as { code?: string }).code !== "EEXIST") throw err;
   }
 
   const existing = readLock();
