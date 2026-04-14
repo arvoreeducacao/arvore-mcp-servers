@@ -132,7 +132,7 @@ export const SendChannelMessageParamsSchema = z.object({
   channel: z
     .string()
     .min(1, "Channel is required")
-    .describe("Channel ID (e.g. C07US58UC1Z) or channel name (e.g. #eng-prs)"),
+    .describe("Channel ID (e.g. C01EXAMPLE) or channel name (e.g. #general)"),
   text: z
     .string()
     .min(1, "Message text is required")
