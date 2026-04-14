@@ -212,25 +212,35 @@ export class SlackClient {
 
     const name = identifier.replace(/^#/, "");
 
-    let cursor: string | undefined;
-    do {
-      const params: Record<string, unknown> = { limit: 200, types: "public_channel,private_channel" };
-      if (cursor) params.cursor = cursor;
+    const channelTypes = ["public_channel", "private_channel"];
 
-      const res = await this.request<{
-        ok: boolean;
-        channels: Array<{ id: string; name: string }>;
-        response_metadata?: { next_cursor?: string };
-      }>("conversations.list", params);
+    for (const type of channelTypes) {
+      try {
+        let cursor: string | undefined;
+        do {
+          const params: Record<string, unknown> = { limit: 200, types: type };
+          if (cursor) params.cursor = cursor;
 
-      const match = res.channels.find((c) => c.name === name);
-      if (match) return match.id;
+          const res = await this.request<{
+            ok: boolean;
+            channels: Array<{ id: string; name: string }>;
+            response_metadata?: { next_cursor?: string };
+          }>("conversations.list", params);
 
-      cursor = res.response_metadata?.next_cursor || undefined;
-    } while (cursor);
+          const match = res.channels.find((c) => c.name === name);
+          if (match) return match.id;
+
+          cursor = res.response_metadata?.next_cursor || undefined;
+        } while (cursor);
+      } catch (error) {
+        const isScopeError =
+          error instanceof SlackAdvancedMCPError && error.message.includes("missing_scope");
+        if (!isScopeError) throw error;
+      }
+    }
 
     throw new SlackAdvancedMCPError(
-      `Could not resolve channel: ${identifier}`,
+      `Could not resolve channel: ${identifier}. Tried public and private channel lists. Ensure the token has channels:read and/or groups:read scopes.`,
       "CHANNEL_NOT_FOUND"
     );
   }
