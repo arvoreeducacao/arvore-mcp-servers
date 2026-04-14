@@ -36,6 +36,7 @@ export class MemoryStore {
   private db: lancedb.Connection | null = null;
   private table: lancedb.Table | null = null;
   private loaded = false;
+  private loadingPromise: Promise<void> | null = null;
 
   constructor(memoriesPath: string, embeddingModel?: string) {
     this.memoriesPath = memoriesPath;
@@ -43,6 +44,11 @@ export class MemoryStore {
   }
 
   async load(): Promise<void> {
+    this.loadingPromise = this.doLoad();
+    return this.loadingPromise;
+  }
+
+  private async doLoad(): Promise<void> {
     this.catalog = [];
 
     await this.embeddings.init();
@@ -186,17 +192,20 @@ export class MemoryStore {
     }
   }
 
-  private ensureLoaded(): void {
-    if (!this.loaded) {
-      throw new MemoryMCPError("Store not loaded. Call load() first.", "NOT_LOADED");
+  private async ensureLoaded(): Promise<void> {
+    if (this.loaded) return;
+    if (this.loadingPromise) {
+      await this.loadingPromise;
+      return;
     }
+    throw new MemoryMCPError("Store not loaded. Call load() first.", "NOT_LOADED");
   }
 
   async search(
     query: string,
     opts?: { category?: MemoryCategory; status?: MemoryStatus; limit?: number }
   ): Promise<(MemoryCatalogEntry & { score: number })[]> {
-    this.ensureLoaded();
+    await this.ensureLoaded();
 
     const status = opts?.status || "active";
     const limit = opts?.limit || 10;
@@ -274,12 +283,12 @@ export class MemoryStore {
       .map((s) => ({ ...this.toCatalogEntry(s.entry), score: round(s.score) }));
   }
 
-  list(opts?: {
+  async list(opts?: {
     category?: MemoryCategory;
     status?: MemoryStatus;
     limit?: number;
-  }): MemoryCatalogEntry[] {
-    this.ensureLoaded();
+  }): Promise<MemoryCatalogEntry[]> {
+    await this.ensureLoaded();
 
     let filtered = [...this.catalog];
 
@@ -294,8 +303,8 @@ export class MemoryStore {
     return filtered.slice(0, limit).map((e) => this.toCatalogEntry(e));
   }
 
-  get(id: string): MemoryEntry | null {
-    this.ensureLoaded();
+  async get(id: string): Promise<MemoryEntry | null> {
+    await this.ensureLoaded();
     return this.catalog.find((m) => m.id === id) || null;
   }
 
@@ -359,7 +368,7 @@ export class MemoryStore {
   }
 
   async archive(id: string): Promise<MemoryEntry> {
-    const entry = this.get(id);
+    const entry = await this.get(id);
     if (!entry) {
       throw new MemoryMCPError(`Memory "${id}" not found`, "NOT_FOUND");
     }
@@ -380,7 +389,7 @@ export class MemoryStore {
   }
 
   async remove(id: string): Promise<void> {
-    const entry = this.get(id);
+    const entry = await this.get(id);
     if (!entry) {
       throw new MemoryMCPError(`Memory "${id}" not found`, "NOT_FOUND");
     }

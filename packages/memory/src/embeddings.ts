@@ -13,7 +13,10 @@ export class EmbeddingEngine {
 
   async init(): Promise<void> {
     try {
-      const { pipeline } = await import("@xenova/transformers");
+      const { pipeline, env } = await import("@xenova/transformers");
+      if (process.env.TRANSFORMERS_CACHE_DIR) {
+        env.cacheDir = process.env.TRANSFORMERS_CACHE_DIR;
+      }
       this.pipeline = (await pipeline(
         "feature-extraction",
         this.modelName

@@ -119,10 +119,15 @@ export class MemoryMCPServer {
   }
 
   async start(): Promise<void> {
-    await this.store.load();
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
-    console.error("Memory MCP Server started successfully");
+    console.error("Memory MCP Server connected, loading store in background...");
+
+    this.store.load().then(() => {
+      console.error("Memory MCP Server store loaded successfully");
+    }).catch((error) => {
+      console.error(`Failed to load store: ${error instanceof Error ? error.message : error}`);
+    });
   }
 
   setupGracefulShutdown(): void {
