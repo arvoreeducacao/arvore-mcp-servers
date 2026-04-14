@@ -80,7 +80,7 @@ export const CallParamsSchema = z.object({
   ref: z.string().min(1),
   args: z.record(z.unknown()).default({}),
   page_cursor: z.string().optional(),
-  detail: z.boolean().optional(),
+  detail: z.boolean().optional().describe("When true, preserves ALL fields and extends text truncation to 1500 chars. Default (false) strips metadata fields and truncates text to 500 chars. Use true when output seems incomplete or you need full data."),
 });
 
 export type CallParams = z.infer<typeof CallParamsSchema>;
