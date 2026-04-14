@@ -1,5 +1,8 @@
+import { createServer, type Server as HttpServer } from "node:http";
+import { randomUUID } from "node:crypto";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { McpConnectorManager } from "./connector.js";
 import { Dashboard } from "./dashboard.js";
 import { EmbeddingEngine } from "./embeddings.js";
@@ -33,6 +36,8 @@ export class McpProxyServer {
   private readonly dashboard: Dashboard;
   private readonly config: ProxyConfig;
   private upstreamsReady: Promise<void> = Promise.resolve();
+  private httpServer: HttpServer | null = null;
+  private httpTransports = new Map<string, StreamableHTTPServerTransport>();
 
   constructor(config: ProxyConfig) {
     this.config = config;
@@ -490,10 +495,66 @@ export class McpProxyServer {
     }
   }
 
+  startHttpTransport(port: number): void {
+    this.httpServer = createServer(async (req, res) => {
+      const url = new URL(req.url || "/", `http://127.0.0.1:${port}`);
+      if (url.pathname !== "/mcp") {
+        res.writeHead(404);
+        res.end("Not found");
+        return;
+      }
+
+      const sessionId = req.headers["mcp-session-id"] as string | undefined;
+
+      if (req.method === "POST" || req.method === "GET" || req.method === "DELETE") {
+        let transport = sessionId ? this.httpTransports.get(sessionId) : undefined;
+
+        if (!transport && req.method === "POST") {
+          transport = new StreamableHTTPServerTransport({
+            sessionIdGenerator: () => randomUUID(),
+            onsessioninitialized: (id) => {
+              this.httpTransports.set(id, transport!);
+              console.error(`[proxy] HTTP session created: ${id.slice(0, 8)}...`);
+            },
+          });
+
+          transport.onclose = () => {
+            if (transport!.sessionId) {
+              this.httpTransports.delete(transport!.sessionId);
+            }
+          };
+
+          await this.server.connect(transport);
+        }
+
+        if (transport) {
+          await transport.handleRequest(req, res);
+        } else {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "No valid session" }));
+        }
+      } else {
+        res.writeHead(405);
+        res.end("Method not allowed");
+      }
+    });
+
+    this.httpServer.listen(port, "127.0.0.1", () => {
+      console.error(`[proxy] HTTP transport listening on http://127.0.0.1:${port}/mcp`);
+    });
+  }
+
   async cleanup(): Promise<void> {
     try {
       this.connector.stopIdleReaper();
       this.dashboard.stop();
+      if (this.httpServer) {
+        this.httpServer.close();
+        for (const transport of this.httpTransports.values()) {
+          await transport.close();
+        }
+        this.httpTransports.clear();
+      }
       await this.connector.disconnectAll();
     } catch (error) {
       console.error(
