@@ -128,6 +128,25 @@ export const GetFileInfoParamsSchema = z.object({
     .describe("Slack file ID"),
 });
 
+export const SendChannelMessageParamsSchema = z.object({
+  channel: z
+    .string()
+    .min(1, "Channel is required")
+    .describe("Channel ID (e.g. C01EXAMPLE) or channel name (e.g. #general)"),
+  text: z
+    .string()
+    .min(1, "Message text is required")
+    .describe("Message content (supports Slack mrkdwn)"),
+  thread_ts: z
+    .string()
+    .optional()
+    .describe("Thread timestamp to reply in a thread"),
+  content_type: z
+    .enum(["text/plain", "text/markdown"])
+    .optional()
+    .describe("Content type for link formatting. Use text/markdown for [text](url) links"),
+});
+
 export type SearchUsersParams = z.infer<typeof SearchUsersParamsSchema>;
 export type GetUserProfileParams = z.infer<typeof GetUserProfileParamsSchema>;
 export type SendDmParams = z.infer<typeof SendDmParamsSchema>;
@@ -137,6 +156,7 @@ export type GetThreadFromLinkParams = z.infer<typeof GetThreadFromLinkParamsSche
 export type TranscribeAudioParams = z.infer<typeof TranscribeAudioParamsSchema>;
 export type AnalyzeImageParams = z.infer<typeof AnalyzeImageParamsSchema>;
 export type GetFileInfoParams = z.infer<typeof GetFileInfoParamsSchema>;
+export type SendChannelMessageParams = z.infer<typeof SendChannelMessageParamsSchema>;
 
 export type McpTextContent = {
   type: "text";

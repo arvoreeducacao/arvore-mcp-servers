@@ -18,6 +18,7 @@ import {
   TranscribeAudioParamsSchema,
   AnalyzeImageParamsSchema,
   GetFileInfoParamsSchema,
+  SendChannelMessageParamsSchema,
 } from "./types.js";
 
 export class SlackAdvancedMCPServer {
@@ -89,6 +90,15 @@ export class SlackAdvancedMCPServer {
       inputSchema: SendDmParamsSchema.shape,
     }, async (params) => {
       return this.messagingTools.sendDm(SendDmParamsSchema.parse(params));
+    });
+
+    this.server.registerTool("send_channel_message", {
+      title: "Send Channel Message",
+      description:
+        "Send a message to a Slack channel. Accepts channel ID or #channel-name. Supports thread replies and markdown link conversion.",
+      inputSchema: SendChannelMessageParamsSchema.shape,
+    }, async (params) => {
+      return this.messagingTools.sendChannelMessage(SendChannelMessageParamsSchema.parse(params));
     });
 
     this.server.registerTool("get_dm_history", {
