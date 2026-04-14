@@ -96,7 +96,8 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0f1117;color:#e1
 .card-body{padding:0 16px 16px;display:none}
 .card-body.open{display:block}
 .badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:.75rem;font-weight:600}
-.connected,.idle{background:#238636;color:#fff}
+.connected{background:#238636;color:#fff}
+.idle{background:#30363d;color:#c9d1d9}
 .error{background:#da3633;color:#fff}
 .connecting,.activating{background:#d29922;color:#000}
 .tools{margin-top:8px}
