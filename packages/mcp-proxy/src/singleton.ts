@@ -14,7 +14,7 @@ function getLockPath(): string {
   return join(dir, LOCK_FILENAME);
 }
 
-function isProcessAlive(pid: number): boolean {
+export function isProcessAlive(pid: number): boolean {
   try {
     process.kill(pid, 0);
     return true;
@@ -65,6 +65,21 @@ export function readLock(): LockInfo | null {
     return null;
   } catch {
     return null;
+  }
+}
+
+export function cleanStaleLock(): boolean {
+  const existing = readLock();
+  if (!existing) return false;
+  if (isProcessAlive(existing.pid)) return false;
+
+  const lockPath = getLockPath();
+  try {
+    unlinkSync(lockPath);
+    console.error(`[singleton] Cleaned stale lock (pid ${existing.pid} dead)`);
+    return true;
+  } catch {
+    return false;
   }
 }
 
