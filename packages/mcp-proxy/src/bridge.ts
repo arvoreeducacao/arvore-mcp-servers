@@ -9,6 +9,7 @@ import {
   SchemaParamsSchema,
   type McpToolResult,
 } from "./types.js";
+import { readLock, isProcessAlive } from "./singleton.js";
 
 export class BridgeServer {
   private readonly server: McpServer;
@@ -112,6 +113,12 @@ export class BridgeServer {
     return this.clientPromise;
   }
 
+  private isPrimaryAlive(): boolean {
+    const lock = readLock();
+    if (!lock) return false;
+    return isProcessAlive(lock.pid);
+  }
+
   private async forward(
     toolName: string,
     args: Record<string, unknown>,
@@ -135,6 +142,12 @@ export class BridgeServer {
       console.error(`[bridge] Forward failed: ${msg}`);
 
       this.client = null;
+      this.clientPromise = null;
+
+      const primaryAlive = this.isPrimaryAlive();
+      const hint = primaryAlive
+        ? "Primary is alive but unreachable. Retrying may help."
+        : "Primary process is dead. Please restart the MCP proxy — the next instance will auto-promote to primary.";
 
       return {
         content: [
@@ -142,6 +155,8 @@ export class BridgeServer {
             type: "text",
             text: JSON.stringify({
               error: `Bridge forward failed: ${msg}`,
+              primaryAlive,
+              hint,
             }),
           },
         ],
