@@ -4,6 +4,10 @@ import type {
   SendDmParams,
   GetDmHistoryParams,
   SendChannelMessageParams,
+  EditMessageParams,
+  DeleteMessageParams,
+  AddReactionParams,
+  RemoveReactionParams,
   McpToolResult,
   SlackMessage,
 } from "../types.js";
@@ -130,6 +134,92 @@ export class MessagingTools {
         sent: true,
         channel: res.channel,
         ts: res.ts,
+      });
+    } catch (error) {
+      return this.formatError(error);
+    }
+  }
+
+  async editMessage(params: EditMessageParams): Promise<McpToolResult> {
+    try {
+      const mrkdwn = this.toMrkdwn(params.text);
+      const blocks = this.buildBlocks(mrkdwn);
+
+      const res = await this.slack.request<{
+        ok: boolean;
+        channel: string;
+        ts: string;
+        text: string;
+      }>("chat.update", {
+        channel: params.channel,
+        ts: params.ts,
+        text: mrkdwn,
+        blocks: JSON.stringify(blocks),
+      });
+
+      return this.ok({
+        edited: true,
+        channel: res.channel,
+        ts: res.ts,
+      });
+    } catch (error) {
+      return this.formatError(error);
+    }
+  }
+
+  async deleteMessage(params: DeleteMessageParams): Promise<McpToolResult> {
+    try {
+      const res = await this.slack.request<{
+        ok: boolean;
+        channel: string;
+        ts: string;
+      }>("chat.delete", {
+        channel: params.channel,
+        ts: params.ts,
+      });
+
+      return this.ok({
+        deleted: true,
+        channel: res.channel,
+        ts: res.ts,
+      });
+    } catch (error) {
+      return this.formatError(error);
+    }
+  }
+
+  async addReaction(params: AddReactionParams): Promise<McpToolResult> {
+    try {
+      await this.slack.request<{ ok: boolean }>("reactions.add", {
+        channel: params.channel,
+        timestamp: params.ts,
+        name: params.emoji,
+      });
+
+      return this.ok({
+        reacted: true,
+        channel: params.channel,
+        ts: params.ts,
+        emoji: params.emoji,
+      });
+    } catch (error) {
+      return this.formatError(error);
+    }
+  }
+
+  async removeReaction(params: RemoveReactionParams): Promise<McpToolResult> {
+    try {
+      await this.slack.request<{ ok: boolean }>("reactions.remove", {
+        channel: params.channel,
+        timestamp: params.ts,
+        name: params.emoji,
+      });
+
+      return this.ok({
+        removed: true,
+        channel: params.channel,
+        ts: params.ts,
+        emoji: params.emoji,
       });
     } catch (error) {
       return this.formatError(error);

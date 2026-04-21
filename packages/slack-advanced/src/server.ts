@@ -22,6 +22,10 @@ import {
   SendChannelMessageParamsSchema,
   SendAudioParamsSchema,
   SendImageParamsSchema,
+  EditMessageParamsSchema,
+  DeleteMessageParamsSchema,
+  AddReactionParamsSchema,
+  RemoveReactionParamsSchema,
 } from "./types.js";
 
 export class SlackAdvancedMCPServer {
@@ -177,6 +181,42 @@ export class SlackAdvancedMCPServer {
       inputSchema: SendImageParamsSchema.shape,
     }, async (params) => {
       return this.uploadTools.sendImage(SendImageParamsSchema.parse(params));
+    });
+
+    this.server.registerTool("edit_message", {
+      title: "Edit Message",
+      description:
+        "Edit a message that was previously sent by the authenticated user. Requires the channel ID and message timestamp (ts). Only your own messages can be edited.",
+      inputSchema: EditMessageParamsSchema.shape,
+    }, async (params) => {
+      return this.messagingTools.editMessage(EditMessageParamsSchema.parse(params));
+    });
+
+    this.server.registerTool("delete_message", {
+      title: "Delete Message",
+      description:
+        "Delete a message from a channel or DM. You can delete your own messages, or any message in channels where the token has admin permissions.",
+      inputSchema: DeleteMessageParamsSchema.shape,
+    }, async (params) => {
+      return this.messagingTools.deleteMessage(DeleteMessageParamsSchema.parse(params));
+    });
+
+    this.server.registerTool("add_reaction", {
+      title: "Add Reaction",
+      description:
+        "Add an emoji reaction to a message. Use emoji names without colons (e.g. thumbsup, heart, eyes, white_check_mark, rocket).",
+      inputSchema: AddReactionParamsSchema.shape,
+    }, async (params) => {
+      return this.messagingTools.addReaction(AddReactionParamsSchema.parse(params));
+    });
+
+    this.server.registerTool("remove_reaction", {
+      title: "Remove Reaction",
+      description:
+        "Remove an emoji reaction from a message. Only removes reactions added by the authenticated user.",
+      inputSchema: RemoveReactionParamsSchema.shape,
+    }, async (params) => {
+      return this.messagingTools.removeReaction(RemoveReactionParamsSchema.parse(params));
     });
   }
 
