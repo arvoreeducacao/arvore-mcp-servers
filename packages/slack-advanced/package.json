@@ -1,6 +1,6 @@
 {
   "name": "@arvoretech/slack-advanced-mcp",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Advanced Slack MCP Server with semantic user search, smart DMs, style analysis, thread extraction, audio transcription, and image analysis",
   "main": "dist/index.js",
   "type": "module",

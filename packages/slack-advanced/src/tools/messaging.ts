@@ -43,6 +43,8 @@ export class MessagingTools {
         channel: channelId,
         text: mrkdwn,
         blocks: JSON.stringify(blocks),
+        unfurl_links: false,
+        unfurl_media: false,
       };
 
       if (params.thread_ts) {
@@ -117,6 +119,8 @@ export class MessagingTools {
         channel: channelId,
         text: mrkdwn,
         blocks: JSON.stringify(blocks),
+        unfurl_links: false,
+        unfurl_media: false,
       };
 
       if (params.thread_ts) {
