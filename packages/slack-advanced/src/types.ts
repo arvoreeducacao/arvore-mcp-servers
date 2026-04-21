@@ -221,6 +221,62 @@ export const SendImageParamsSchema = z.object({
     .describe("Thread timestamp to reply in a thread"),
 });
 
+export const EditMessageParamsSchema = z.object({
+  channel: z
+    .string()
+    .min(1, "Channel is required")
+    .describe("Channel ID where the message was posted"),
+  ts: z
+    .string()
+    .min(1, "Message timestamp is required")
+    .describe("Timestamp of the message to edit (e.g. 1234567890.123456)"),
+  text: z
+    .string()
+    .min(1, "New message text is required")
+    .describe("New message content (supports Slack mrkdwn)"),
+});
+
+export const DeleteMessageParamsSchema = z.object({
+  channel: z
+    .string()
+    .min(1, "Channel is required")
+    .describe("Channel ID where the message was posted"),
+  ts: z
+    .string()
+    .min(1, "Message timestamp is required")
+    .describe("Timestamp of the message to delete (e.g. 1234567890.123456)"),
+});
+
+export const AddReactionParamsSchema = z.object({
+  channel: z
+    .string()
+    .min(1, "Channel is required")
+    .describe("Channel ID where the message was posted"),
+  ts: z
+    .string()
+    .min(1, "Message timestamp is required")
+    .describe("Timestamp of the message to react to (e.g. 1234567890.123456)"),
+  emoji: z
+    .string()
+    .min(1, "Emoji name is required")
+    .describe("Emoji name without colons (e.g. thumbsup, heart, eyes, white_check_mark)"),
+});
+
+export const RemoveReactionParamsSchema = z.object({
+  channel: z
+    .string()
+    .min(1, "Channel is required")
+    .describe("Channel ID where the message was posted"),
+  ts: z
+    .string()
+    .min(1, "Message timestamp is required")
+    .describe("Timestamp of the message to remove reaction from"),
+  emoji: z
+    .string()
+    .min(1, "Emoji name is required")
+    .describe("Emoji name without colons (e.g. thumbsup, heart, eyes)"),
+});
+
 export type SearchUsersParams = z.infer<typeof SearchUsersParamsSchema>;
 export type GetUserProfileParams = z.infer<typeof GetUserProfileParamsSchema>;
 export type SendDmParams = z.infer<typeof SendDmParamsSchema>;
@@ -233,6 +289,10 @@ export type GetFileInfoParams = z.infer<typeof GetFileInfoParamsSchema>;
 export type SendChannelMessageParams = z.infer<typeof SendChannelMessageParamsSchema>;
 export type SendAudioParams = z.infer<typeof SendAudioParamsSchema>;
 export type SendImageParams = z.infer<typeof SendImageParamsSchema>;
+export type EditMessageParams = z.infer<typeof EditMessageParamsSchema>;
+export type DeleteMessageParams = z.infer<typeof DeleteMessageParamsSchema>;
+export type AddReactionParams = z.infer<typeof AddReactionParamsSchema>;
+export type RemoveReactionParams = z.infer<typeof RemoveReactionParamsSchema>;
 
 export type McpTextContent = {
   type: "text";
