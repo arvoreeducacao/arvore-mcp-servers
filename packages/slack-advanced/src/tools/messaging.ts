@@ -14,7 +14,7 @@ import type {
 import { SlackAdvancedMCPError } from "../types.js";
 
 export class MessagingTools {
-  private readonly ATTRIBUTION_TEXT = "Enviado pelo Árvore Slack Advanced MCP";
+  private readonly ATTRIBUTION_TEXT = "Mensagem gerada e enviada por um agente de IA";
 
   constructor(private readonly slack: SlackClient) {}
 
@@ -24,11 +24,11 @@ export class MessagingTools {
 
   private buildBlocks(text: string): Array<Record<string, unknown>> {
     return [
-      { type: "section", block_id: "msg", text: { type: "mrkdwn", text } },
       {
         type: "context",
         elements: [{ type: "mrkdwn", text: this.ATTRIBUTION_TEXT }],
       },
+      { type: "section", block_id: "msg", text: { type: "mrkdwn", text } },
     ];
   }
 
