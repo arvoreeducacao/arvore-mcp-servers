@@ -332,6 +332,26 @@ export class SlackClient {
     };
   }
 
+  async getUserInfo(userId: string): Promise<Record<string, unknown>> {
+    const res = await this.request<{
+      ok: boolean;
+      user: Record<string, unknown>;
+    }>("users.info", { user: userId, include_locale: true });
+    return res.user;
+  }
+
+  async getUserPresence(userId: string): Promise<string> {
+    try {
+      const res = await this.request<{
+        ok: boolean;
+        presence: string;
+      }>("users.getPresence", { user: userId });
+      return res.presence;
+    } catch {
+      return "unknown";
+    }
+  }
+
   parseThreadLink(url: string): { channelId: string; threadTs: string } | null {
     const match = url.match(/archives\/([A-Z0-9]+)\/p(\d+)/);
     if (!match) return null;
