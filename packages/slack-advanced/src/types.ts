@@ -128,6 +128,23 @@ export const GetFileInfoParamsSchema = z.object({
     .describe("Slack file ID"),
 });
 
+export const DownloadFileParamsSchema = z.object({
+  file_id: z
+    .string()
+    .min(1, "File ID is required")
+    .describe("Slack file ID to download"),
+  file_url: z
+    .string()
+    .optional()
+    .describe("Slack file URL (url_private). If provided, skips files.info lookup"),
+  max_size_mb: z
+    .number()
+    .positive()
+    .optional()
+    .default(10)
+    .describe("Maximum file size in MB to download (default 10MB)"),
+});
+
 export const SendChannelMessageParamsSchema = z.object({
   channel: z
     .string()
@@ -286,6 +303,7 @@ export type GetThreadFromLinkParams = z.infer<typeof GetThreadFromLinkParamsSche
 export type TranscribeAudioParams = z.infer<typeof TranscribeAudioParamsSchema>;
 export type AnalyzeImageParams = z.infer<typeof AnalyzeImageParamsSchema>;
 export type GetFileInfoParams = z.infer<typeof GetFileInfoParamsSchema>;
+export type DownloadFileParams = z.infer<typeof DownloadFileParamsSchema>;
 export type SendChannelMessageParams = z.infer<typeof SendChannelMessageParamsSchema>;
 export type SendAudioParams = z.infer<typeof SendAudioParamsSchema>;
 export type SendImageParams = z.infer<typeof SendImageParamsSchema>;

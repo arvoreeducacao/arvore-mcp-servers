@@ -2,6 +2,7 @@ import { SlackClient } from "../slack-client.js";
 import type {
   AnalyzeImageParams,
   GetFileInfoParams,
+  DownloadFileParams,
   McpToolResult,
   McpTextContent,
   McpImageContent,
@@ -76,6 +77,69 @@ export class ImageTools {
     } catch (error) {
       return this.formatError(error);
     }
+  }
+
+  async downloadFile(params: DownloadFileParams): Promise<McpToolResult> {
+    try {
+      let fileUrl: string;
+      let filename: string;
+      let mimetype: string;
+      let fileSize: number;
+
+      const fileInfo = await this.slack.getFileInfo(params.file_id);
+      fileUrl = params.file_url ?? fileInfo.url_private;
+      filename = fileInfo.name;
+      mimetype = fileInfo.mimetype;
+      fileSize = fileInfo.size;
+
+      const maxBytes = (params.max_size_mb ?? 10) * 1024 * 1024;
+      if (fileSize > maxBytes) {
+        return this.ok({
+          error: `File too large: ${(fileSize / 1024 / 1024).toFixed(1)}MB exceeds limit of ${params.max_size_mb}MB`,
+          file: { id: params.file_id, name: filename, size: fileSize, mimetype },
+        });
+      }
+
+      const buffer = await this.slack.downloadFile(fileUrl);
+      const isText = this.isTextMime(mimetype) || this.isTextFiletype(filename);
+
+      if (isText) {
+        return this.ok({
+          file: { id: params.file_id, name: filename, size: buffer.length, mimetype },
+          encoding: "utf-8",
+          content: buffer.toString("utf-8"),
+        });
+      }
+
+      return this.ok({
+        file: { id: params.file_id, name: filename, size: buffer.length, mimetype },
+        encoding: "base64",
+        content: buffer.toString("base64"),
+      });
+    } catch (error) {
+      return this.formatError(error);
+    }
+  }
+
+  private isTextMime(mimetype: string): boolean {
+    return mimetype.startsWith("text/") ||
+      mimetype === "application/json" ||
+      mimetype === "application/xml" ||
+      mimetype === "application/javascript" ||
+      mimetype === "application/typescript" ||
+      mimetype === "application/x-yaml" ||
+      mimetype === "application/x-sh";
+  }
+
+  private isTextFiletype(filename: string): boolean {
+    const ext = filename.split(".").pop()?.toLowerCase() ?? "";
+    const textExts = new Set([
+      "html", "htm", "css", "js", "ts", "jsx", "tsx", "json", "xml",
+      "yaml", "yml", "md", "txt", "csv", "svg", "sh", "bash", "py",
+      "rb", "ex", "exs", "erl", "go", "rs", "toml", "ini", "cfg",
+      "env", "sql", "graphql", "gql",
+    ]);
+    return textExts.has(ext);
   }
 
   private guessMimeType(filename: string): string {

@@ -19,6 +19,7 @@ import {
   TranscribeAudioParamsSchema,
   AnalyzeImageParamsSchema,
   GetFileInfoParamsSchema,
+  DownloadFileParamsSchema,
   SendChannelMessageParamsSchema,
   SendAudioParamsSchema,
   SendImageParamsSchema,
@@ -163,6 +164,15 @@ export class SlackAdvancedMCPServer {
       inputSchema: GetFileInfoParamsSchema.shape,
     }, async (params) => {
       return this.imageTools.getFileInfo(GetFileInfoParamsSchema.parse(params));
+    });
+
+    this.server.registerTool("download_file", {
+      title: "Download File",
+      description:
+        "Download a file shared in Slack and return its content. Text-based files (HTML, JSON, CSV, code, etc.) are returned as UTF-8 text. Binary files are returned as base64. Use file IDs from get_dm_history or get_file_info.",
+      inputSchema: DownloadFileParamsSchema.shape,
+    }, async (params) => {
+      return this.imageTools.downloadFile(DownloadFileParamsSchema.parse(params));
     });
 
     this.server.registerTool("send_audio", {
