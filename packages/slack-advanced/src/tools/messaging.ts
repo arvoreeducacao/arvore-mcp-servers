@@ -98,6 +98,13 @@ export class MessagingTools {
           thread_ts: m.thread_ts,
           reply_count: m.reply_count,
           has_files: (m.files?.length ?? 0) > 0,
+          files: m.files?.map((f) => ({
+            id: f.id,
+            name: f.name,
+            mimetype: f.mimetype,
+            filetype: f.filetype,
+            size: f.size,
+          })),
         })),
         has_more: res.has_more,
         next_cursor: res.response_metadata?.next_cursor || null,
