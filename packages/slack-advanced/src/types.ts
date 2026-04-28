@@ -344,8 +344,16 @@ export const RemoveReactionParamsSchema = z.object({
     .describe("Emoji name without colons (e.g. thumbsup, heart, eyes)"),
 });
 
+export const GetUserInfoParamsSchema = z.object({
+  user: z
+    .string()
+    .min(1, "User identifier is required")
+    .describe("User ID, email, display name, or real name to look up"),
+});
+
 export type SearchUsersParams = z.infer<typeof SearchUsersParamsSchema>;
 export type GetUserProfileParams = z.infer<typeof GetUserProfileParamsSchema>;
+export type GetUserInfoParams = z.infer<typeof GetUserInfoParamsSchema>;
 export type MessageMetadata = z.infer<typeof MessageMetadataSchema>;
 export type SendDmParams = z.infer<typeof SendDmParamsSchema>;
 export type GetDmHistoryParams = z.infer<typeof GetDmHistoryParamsSchema>;

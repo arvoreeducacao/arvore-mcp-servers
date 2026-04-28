@@ -12,6 +12,7 @@ import { UploadTools } from "./tools/uploads.js";
 import {
   SearchUsersParamsSchema,
   GetUserProfileParamsSchema,
+  GetUserInfoParamsSchema,
   SendDmParamsSchema,
   GetDmHistoryParamsSchema,
   AnalyzeWritingStyleParamsSchema,
@@ -93,6 +94,15 @@ export class SlackAdvancedMCPServer {
       inputSchema: GetUserProfileParamsSchema.shape,
     }, async (params) => {
       return this.userTools.getUserProfile(GetUserProfileParamsSchema.parse(params));
+    });
+
+    this.server.registerTool("get_user_info", {
+      title: "Get User Info",
+      description:
+        "Get comprehensive information about a Slack user including presence, admin status, timezone details, locale, phone, and all profile fields. Resolves user by name, email, or ID. Uses the Slack users.info API for real-time data.",
+      inputSchema: GetUserInfoParamsSchema.shape,
+    }, async (params) => {
+      return this.userTools.getUserInfo(GetUserInfoParamsSchema.parse(params));
     });
 
     this.server.registerTool("send_dm", {
