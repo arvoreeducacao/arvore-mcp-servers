@@ -291,6 +291,21 @@ Control Arc Browser on macOS via a hybrid AppleScript + Chrome DevTools Protocol
 - JavaScript execution (AppleScript for quick queries, CDP for async/await)
 - Cookie inspection and page content extraction
 
+### [@arvoretech/posthog-mcp](./packages/posthog)
+
+PostHog analytics, feature flags, experiments, and more. Works with both PostHog Cloud and self-hosted instances.
+
+**Features:**
+
+- HogQL queries and structured queries (Trends, Funnels, Retention, Lifecycle, Paths, Stickiness)
+- Feature flags: create, update, list, delete with rollout control
+- A/B test experiments with variants and metrics
+- Dashboards and saved insights management
+- Event and property definitions exploration
+- Persons search and cohort management
+- Surveys, early access features, and annotations
+- Cross-entity search
+
 ### [@arvoretech/slack-advanced-mcp](./packages/slack-advanced)
 
 Advanced Slack integration using user tokens -- messages sent as the authenticated user.
@@ -333,6 +348,7 @@ npm install -g @arvoretech/agent-teams-chat-mcp
 npm install -g @arvoretech/metabase-mcp
 npm install -g @arvoretech/mgc-mcp
 npm install -g @arvoretech/kanban-mcp
+npm install -g @arvoretech/posthog-mcp
 npm install -g @arvoretech/slack-advanced-mcp
 ```
 
@@ -506,6 +522,14 @@ Add to your Claude Desktop configuration file:
         "KANBAN_PATH": "./kanban",
         "KANBAN_UI": "true",
         "KANBAN_PORT": "4799"
+      }
+    },
+    "posthog": {
+      "command": "npx",
+      "args": ["-y", "@arvoretech/posthog-mcp"],
+      "env": {
+        "POSTHOG_BASE_URL": "https://posthog.example.com",
+        "POSTHOG_API_KEY": "phx_your_personal_api_key"
       }
     },
     "slack-advanced": {
