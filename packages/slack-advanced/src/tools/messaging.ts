@@ -51,6 +51,10 @@ export class MessagingTools {
         msgParams.thread_ts = params.thread_ts;
       }
 
+      if (params.metadata) {
+        msgParams.metadata = JSON.stringify(params.metadata);
+      }
+
       const res = await this.slack.request<{
         ok: boolean;
         channel: string;
@@ -132,6 +136,10 @@ export class MessagingTools {
 
       if (params.thread_ts) {
         msgParams.thread_ts = params.thread_ts;
+      }
+
+      if (params.metadata) {
+        msgParams.metadata = JSON.stringify(params.metadata);
       }
 
       const res = await this.slack.request<{

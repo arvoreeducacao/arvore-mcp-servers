@@ -98,7 +98,7 @@ export class SlackAdvancedMCPServer {
     this.server.registerTool("send_dm", {
       title: "Send DM",
       description:
-        "Send a direct message to a user. Resolves user by name, email, or ID automatically. Opens DM channel if needed. Messages are sent as the authenticated user.",
+        "Send a direct message to a user. Resolves user by name, email, or ID automatically. Opens DM channel if needed. Messages are sent as the authenticated user. Supports optional message metadata for app-to-app communication.",
       inputSchema: SendDmParamsSchema.shape,
     }, async (params) => {
       return this.messagingTools.sendDm(SendDmParamsSchema.parse(params));
@@ -107,7 +107,7 @@ export class SlackAdvancedMCPServer {
     this.server.registerTool("send_channel_message", {
       title: "Send Channel Message",
       description:
-        "Send a message to a Slack channel. Accepts channel ID or #channel-name. Supports thread replies and markdown link conversion.",
+        "Send a message to a Slack channel. Accepts channel ID or #channel-name. Supports thread replies, markdown link conversion, and optional message metadata for app-to-app communication.",
       inputSchema: SendChannelMessageParamsSchema.shape,
     }, async (params) => {
       return this.messagingTools.sendChannelMessage(SendChannelMessageParamsSchema.parse(params));
