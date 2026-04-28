@@ -1,0 +1,42 @@
+{
+  "name": "@arvoretech/posthog-mcp",
+  "version": "1.0.0",
+  "description": "PostHog MCP Server for analytics, feature flags, experiments, error tracking and more (self-hosted compatible)",
+  "main": "dist/index.js",
+  "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
+  "bin": {
+    "posthog-mcp": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix"
+  },
+  "keywords": [
+    "mcp",
+    "posthog",
+    "analytics",
+    "feature-flags",
+    "experiments",
+    "error-tracking",
+    "llm",
+    "ai",
+    "arvore"
+  ],
+  "author": "Arvore",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/arvoreeducacao/arvore-mcp-servers.git",
+    "directory": "packages/posthog"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "~1.22.0",
+    "zod": "^3.22.4"
+  }
+}
