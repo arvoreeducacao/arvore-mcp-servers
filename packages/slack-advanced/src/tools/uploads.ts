@@ -4,6 +4,7 @@ import { ElevenLabsSTTClient } from "../elevenlabs-client.js";
 import type {
   SendAudioParams,
   SendImageParams,
+  SendFileParams,
   McpToolResult,
 } from "../types.js";
 import { SlackAdvancedMCPError } from "../types.js";
@@ -28,6 +29,54 @@ export class UploadTools {
   async sendImage(params: SendImageParams): Promise<McpToolResult> {
     try {
       return this.uploadAndSend(params, "image");
+    } catch (error) {
+      return this.formatError(error);
+    }
+  }
+
+  async sendFile(params: SendFileParams): Promise<McpToolResult> {
+    try {
+      if (!params.file_path && !params.file_base64 && !params.content) {
+        return this.ok({ error: "Either file_path, file_base64, or content is required" });
+      }
+
+      let fileBuffer: Buffer;
+
+      if (params.content) {
+        fileBuffer = Buffer.from(params.content, "utf-8");
+      } else if (params.file_base64) {
+        fileBuffer = Buffer.from(params.file_base64, "base64");
+      } else {
+        try {
+          fileBuffer = readFileSync(params.file_path!);
+        } catch (err) {
+          return this.ok({
+            error: `Failed to read file: ${err instanceof Error ? err.message : String(err)}`,
+          });
+        }
+      }
+
+      const channelId = await this.resolveTarget(params.target, params.target_type);
+
+      const result = await this.slack.uploadFile({
+        channelId,
+        fileBuffer,
+        filename: params.filename,
+        initialComment: params.message,
+        threadTs: params.thread_ts,
+      });
+
+      return this.ok({
+        sent: true,
+        type: "file",
+        channel: channelId,
+        target: params.target,
+        target_type: params.target_type,
+        file_id: result.fileId,
+        permalink: result.permalink,
+        filename: params.filename,
+        size_bytes: fileBuffer.length,
+      });
     } catch (error) {
       return this.formatError(error);
     }

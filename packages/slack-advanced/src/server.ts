@@ -23,6 +23,7 @@ import {
   SendChannelMessageParamsSchema,
   SendAudioParamsSchema,
   SendImageParamsSchema,
+  SendFileParamsSchema,
   EditMessageParamsSchema,
   DeleteMessageParamsSchema,
   AddReactionParamsSchema,
@@ -191,6 +192,15 @@ export class SlackAdvancedMCPServer {
       inputSchema: SendImageParamsSchema.shape,
     }, async (params) => {
       return this.uploadTools.sendImage(SendImageParamsSchema.parse(params));
+    });
+
+    this.server.registerTool("send_file", {
+      title: "Send File",
+      description:
+        "Upload and send any file to a Slack user (DM) or channel. Accepts a file path on disk, base64-encoded content, or raw text content. Works with any file type (PDF, CSV, HTML, ZIP, etc.). Supports thread replies.",
+      inputSchema: SendFileParamsSchema.shape,
+    }, async (params) => {
+      return this.uploadTools.sendFile(SendFileParamsSchema.parse(params));
     });
 
     this.server.registerTool("edit_message", {

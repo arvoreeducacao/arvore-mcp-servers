@@ -238,6 +238,40 @@ export const SendImageParamsSchema = z.object({
     .describe("Thread timestamp to reply in a thread"),
 });
 
+export const SendFileParamsSchema = z.object({
+  target: z
+    .string()
+    .min(1, "Target is required")
+    .describe("User (name, email, or ID) or channel (ID or #channel-name) to send the file to"),
+  target_type: z
+    .enum(["user", "channel"])
+    .describe("Whether the target is a user (DM) or a channel"),
+  file_path: z
+    .string()
+    .optional()
+    .describe("Absolute path to the file on disk. Either file_path, file_base64, or content is required"),
+  file_base64: z
+    .string()
+    .optional()
+    .describe("Base64-encoded file content. Either file_path, file_base64, or content is required"),
+  content: z
+    .string()
+    .optional()
+    .describe("Raw text content to send as a file (for text/code/HTML files). Either file_path, file_base64, or content is required"),
+  filename: z
+    .string()
+    .min(1, "Filename is required")
+    .describe("Filename with extension (e.g. report.pdf, data.csv, page.html)"),
+  message: z
+    .string()
+    .optional()
+    .describe("Optional text message to accompany the file"),
+  thread_ts: z
+    .string()
+    .optional()
+    .describe("Thread timestamp to reply in a thread"),
+});
+
 export const EditMessageParamsSchema = z.object({
   channel: z
     .string()
@@ -304,6 +338,7 @@ export type TranscribeAudioParams = z.infer<typeof TranscribeAudioParamsSchema>;
 export type AnalyzeImageParams = z.infer<typeof AnalyzeImageParamsSchema>;
 export type GetFileInfoParams = z.infer<typeof GetFileInfoParamsSchema>;
 export type DownloadFileParams = z.infer<typeof DownloadFileParamsSchema>;
+export type SendFileParams = z.infer<typeof SendFileParamsSchema>;
 export type SendChannelMessageParams = z.infer<typeof SendChannelMessageParamsSchema>;
 export type SendAudioParams = z.infer<typeof SendAudioParamsSchema>;
 export type SendImageParams = z.infer<typeof SendImageParamsSchema>;
