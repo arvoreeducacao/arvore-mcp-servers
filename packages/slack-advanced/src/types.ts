@@ -22,6 +22,16 @@ export const GetUserProfileParamsSchema = z.object({
     .describe("Slack user ID (e.g. U01ABC123)"),
 });
 
+export const MessageMetadataSchema = z.object({
+  event_type: z
+    .string()
+    .min(1, "Event type is required")
+    .describe("A unique identifier for the metadata event (e.g. 'task_created', 'deploy_completed')"),
+  event_payload: z
+    .record(z.unknown())
+    .describe("Structured key-value payload for the event. Other apps can read this metadata to trigger automations"),
+});
+
 export const SendDmParamsSchema = z.object({
   user: z
     .string()
@@ -35,6 +45,9 @@ export const SendDmParamsSchema = z.object({
     .string()
     .optional()
     .describe("Thread timestamp to reply in a thread"),
+  metadata: MessageMetadataSchema
+    .optional()
+    .describe("Structured metadata to attach to the message. Used for app-to-app communication via Slack message metadata"),
 });
 
 export const GetDmHistoryParamsSchema = z.object({
@@ -162,6 +175,9 @@ export const SendChannelMessageParamsSchema = z.object({
     .enum(["text/plain", "text/markdown"])
     .optional()
     .describe("Content type for link formatting. Use text/markdown for [text](url) links"),
+  metadata: MessageMetadataSchema
+    .optional()
+    .describe("Structured metadata to attach to the message. Used for app-to-app communication via Slack message metadata"),
 });
 
 export const SendAudioParamsSchema = z.object({
@@ -330,6 +346,7 @@ export const RemoveReactionParamsSchema = z.object({
 
 export type SearchUsersParams = z.infer<typeof SearchUsersParamsSchema>;
 export type GetUserProfileParams = z.infer<typeof GetUserProfileParamsSchema>;
+export type MessageMetadata = z.infer<typeof MessageMetadataSchema>;
 export type SendDmParams = z.infer<typeof SendDmParamsSchema>;
 export type GetDmHistoryParams = z.infer<typeof GetDmHistoryParamsSchema>;
 export type AnalyzeWritingStyleParams = z.infer<typeof AnalyzeWritingStyleParamsSchema>;
