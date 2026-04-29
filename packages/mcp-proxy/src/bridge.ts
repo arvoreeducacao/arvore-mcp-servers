@@ -2,7 +2,6 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import {
   CallParamsSchema,
   SearchParamsSchema,
@@ -11,13 +10,19 @@ import {
 } from "./types.js";
 import { readLock, isProcessAlive } from "./singleton.js";
 
+const MAX_RETRIES = 3;
+const RETRY_BASE_DELAY_MS = 500;
+const HEALTH_CHECK_TIMEOUT_MS = 3000;
+
 export class BridgeServer {
   private readonly server: McpServer;
   private client: Client | null = null;
   private clientPromise: Promise<Client> | null = null;
   private readonly primaryUrl: string;
+  private readonly primaryPort: number;
 
   constructor(port: number) {
+    this.primaryPort = port;
     this.primaryUrl = `http://127.0.0.1:${port}/mcp`;
     this.server = new McpServer({
       name: "mcp-proxy-bridge",
@@ -84,23 +89,13 @@ export class BridgeServer {
 
     this.clientPromise = (async () => {
       const url = new URL(this.primaryUrl);
-      let client = new Client({
+      const client = new Client({
         name: "mcp-proxy-bridge-client",
         version: "1.0.0",
       });
 
-      try {
-        const transport = new StreamableHTTPClientTransport(url);
-        await client.connect(transport);
-      } catch {
-        console.error("[bridge] StreamableHTTP failed, trying SSE...");
-        client = new Client({
-          name: "mcp-proxy-bridge-client",
-          version: "1.0.0",
-        });
-        const sseTransport = new SSEClientTransport(url);
-        await client.connect(sseTransport);
-      }
+      const transport = new StreamableHTTPClientTransport(url);
+      await client.connect(transport);
 
       console.error(`[bridge] Connected to primary at ${this.primaryUrl}`);
       this.client = client;
@@ -113,55 +108,105 @@ export class BridgeServer {
     return this.clientPromise;
   }
 
+  private resetClient(): void {
+    this.client = null;
+    this.clientPromise = null;
+  }
+
   private isPrimaryAlive(): boolean {
     const lock = readLock();
     if (!lock) return false;
     return isProcessAlive(lock.pid);
   }
 
+  private async isPrimaryReachable(): Promise<boolean> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), HEALTH_CHECK_TIMEOUT_MS);
+    try {
+      const res = await fetch(`http://127.0.0.1:${this.primaryPort}/mcp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", method: "ping", id: 0 }),
+        signal: controller.signal,
+      });
+      return res.status !== 404;
+    } catch {
+      return false;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
   private async forward(
     toolName: string,
     args: Record<string, unknown>,
   ): Promise<McpToolResult> {
-    try {
-      const client = await this.ensureClient();
-      const result = await client.callTool({
-        name: toolName,
-        arguments: args,
-      });
+    let lastError: string = "Unknown error";
 
-      if (result.content && Array.isArray(result.content)) {
-        return { content: result.content as McpToolResult["content"] };
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      try {
+        const client = await this.ensureClient();
+        const result = await client.callTool({
+          name: toolName,
+          arguments: args,
+        });
+
+        if (result.content && Array.isArray(result.content)) {
+          return { content: result.content as McpToolResult["content"] };
+        }
+
+        return {
+          content: [{ type: "text", text: JSON.stringify(result) }],
+        };
+      } catch (error) {
+        lastError = error instanceof Error ? error.message : String(error);
+        console.error(
+          `[bridge] Forward attempt ${attempt + 1}/${MAX_RETRIES} failed: ${lastError}`,
+        );
+
+        this.resetClient();
+
+        if (attempt < MAX_RETRIES - 1) {
+          const primaryAlive = this.isPrimaryAlive();
+          if (!primaryAlive) {
+            console.error("[bridge] Primary process is dead, skipping retries");
+            break;
+          }
+
+          const reachable = await this.isPrimaryReachable();
+          if (!reachable) {
+            console.error("[bridge] Primary not reachable, skipping retries");
+            break;
+          }
+
+          const delay = RETRY_BASE_DELAY_MS * Math.pow(2, attempt);
+          console.error(`[bridge] Retrying in ${delay}ms...`);
+          await this.sleep(delay);
+        }
       }
-
-      return {
-        content: [{ type: "text", text: JSON.stringify(result) }],
-      };
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      console.error(`[bridge] Forward failed: ${msg}`);
-
-      this.client = null;
-      this.clientPromise = null;
-
-      const primaryAlive = this.isPrimaryAlive();
-      const hint = primaryAlive
-        ? "Primary is alive but unreachable. Retrying may help."
-        : "Primary process is dead. Please restart the MCP proxy — the next instance will auto-promote to primary.";
-
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify({
-              error: `Bridge forward failed: ${msg}`,
-              primaryAlive,
-              hint,
-            }),
-          },
-        ],
-      };
     }
+
+    const primaryAlive = this.isPrimaryAlive();
+    const hint = primaryAlive
+      ? "Primary is alive but all retry attempts failed. The primary HTTP transport may be unhealthy — consider restarting the MCP proxy."
+      : "Primary process is dead. Please restart the MCP proxy — the next instance will auto-promote to primary.";
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({
+            error: `Bridge forward failed after ${MAX_RETRIES} attempts: ${lastError}`,
+            primaryAlive,
+            hint,
+          }),
+        },
+      ],
+    };
   }
 
   async start(): Promise<void> {
@@ -174,8 +219,8 @@ export class BridgeServer {
     try {
       if (this.client) {
         await this.client.close();
-      this.client = null;
-      this.clientPromise = null;
+        this.client = null;
+        this.clientPromise = null;
       }
     } catch (error) {
       console.error(

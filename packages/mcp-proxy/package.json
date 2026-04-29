@@ -1,6 +1,6 @@
 {
   "name": "@arvoretech/mcp-proxy",
-  "version": "1.13.0",
+  "version": "1.14.0",
   "description": "MCP Proxy Gateway - Intelligent proxy that reduces token usage by exposing only mcp_search and mcp_call",
   "main": "dist/index.js",
   "type": "module",
