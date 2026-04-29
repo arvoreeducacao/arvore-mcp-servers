@@ -318,15 +318,22 @@ export class McpConnectorManager {
       });
       await client.connect(transport);
       this.upstreams.set(config.name, { config, client });
-    } catch {
+    } catch (streamableErr) {
+      const sseUrl = new URL(config.url);
+      const hasSsePath = sseUrl.pathname.endsWith("/sse") || sseUrl.pathname.endsWith("/events");
+
+      if (!hasSsePath) {
+        throw streamableErr;
+      }
+
       console.error(
-        `[connector] StreamableHTTP failed for ${config.name}, trying SSE...`,
+        `[connector] StreamableHTTP failed for ${config.name}, trying SSE (URL has SSE path)...`,
       );
       const sseClient = new Client({
         name: `mcp-proxy-${config.name}`,
         version: "1.0.0",
       });
-      const sseTransport = new SSEClientTransport(baseUrl, { requestInit });
+      const sseTransport = new SSEClientTransport(sseUrl, { requestInit });
       await sseClient.connect(sseTransport);
       this.upstreams.set(config.name, { config, client: sseClient });
     }
