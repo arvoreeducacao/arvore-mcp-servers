@@ -29,6 +29,7 @@ export class ThreadTools {
         latest: threadTs,
         inclusive: true,
         limit: 1,
+        include_all_metadata: true,
       });
 
       const parentMessage = parentRes.messages?.[0];
@@ -37,6 +38,7 @@ export class ThreadTools {
         channel: channelId,
         ts: threadTs,
         limit: params.limit,
+        include_all_metadata: true,
       };
 
       const repliesRes = await this.slack.request<{
@@ -70,6 +72,7 @@ export class ThreadTools {
           mimetype: f.mimetype,
           size: f.size,
         })),
+        ...(m.metadata && { metadata: m.metadata }),
       }));
 
       return this.ok({

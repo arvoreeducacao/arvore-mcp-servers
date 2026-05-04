@@ -422,6 +422,10 @@ export interface SlackMessage {
   thread_ts?: string;
   reply_count?: number;
   files?: SlackFile[];
+  metadata?: {
+    event_type: string;
+    event_payload: Record<string, unknown>;
+  };
 }
 
 export interface SlackFile {
