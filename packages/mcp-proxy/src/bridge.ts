@@ -8,7 +8,7 @@ import {
   SchemaParamsSchema,
   type McpToolResult,
 } from "./types.js";
-import { readLock, isProcessAlive } from "./singleton.js";
+import { readLock, isProcessAlive, cleanStaleLock } from "./singleton.js";
 
 const MAX_RETRIES = 3;
 const RETRY_BASE_DELAY_MS = 500;
@@ -119,6 +119,20 @@ export class BridgeServer {
     return isProcessAlive(lock.pid);
   }
 
+  private killUnhealthyPrimary(): void {
+    const lock = readLock();
+    if (!lock) return;
+
+    try {
+      process.kill(lock.pid, "SIGTERM");
+      console.error(`[bridge] Sent SIGTERM to unhealthy primary (pid ${lock.pid})`);
+    } catch {
+      console.error(`[bridge] Failed to kill primary (pid ${lock.pid}), may already be dead`);
+    }
+
+    cleanStaleLock();
+  }
+
   private async isPrimaryReachable(): Promise<boolean> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), HEALTH_CHECK_TIMEOUT_MS);
@@ -191,9 +205,14 @@ export class BridgeServer {
     }
 
     const primaryAlive = this.isPrimaryAlive();
-    const hint = primaryAlive
-      ? "Primary is alive but all retry attempts failed. The primary HTTP transport may be unhealthy — consider restarting the MCP proxy."
-      : "Primary process is dead. Please restart the MCP proxy — the next instance will auto-promote to primary.";
+
+    if (primaryAlive) {
+      const reachable = await this.isPrimaryReachable();
+      if (!reachable) {
+        console.error("[bridge] Primary is alive but HTTP transport is dead — killing unhealthy primary");
+        this.killUnhealthyPrimary();
+      }
+    }
 
     return {
       content: [
@@ -201,8 +220,8 @@ export class BridgeServer {
           type: "text",
           text: JSON.stringify({
             error: `Bridge forward failed after ${MAX_RETRIES} attempts: ${lastError}`,
-            primaryAlive,
-            hint,
+            recovered: false,
+            hint: "The MCP proxy primary was unhealthy and has been killed. Please retry — the next call will auto-promote a new primary.",
           }),
         },
       ],
