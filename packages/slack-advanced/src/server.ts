@@ -15,6 +15,7 @@ import {
   GetUserInfoParamsSchema,
   SendDmParamsSchema,
   GetDmHistoryParamsSchema,
+  ListChannelMessagesParamsSchema,
   AnalyzeWritingStyleParamsSchema,
   GetThreadFromLinkParamsSchema,
   TranscribeAudioParamsSchema,
@@ -130,6 +131,15 @@ export class SlackAdvancedMCPServer {
       inputSchema: GetDmHistoryParamsSchema.shape,
     }, async (params) => {
       return this.messagingTools.getDmHistory(GetDmHistoryParamsSchema.parse(params));
+    });
+
+    this.server.registerTool("list_channel_messages", {
+      title: "List Channel Messages",
+      description:
+        "List recent messages from a Slack channel. Accepts channel ID or #channel-name. Supports pagination via cursor and time-range filtering via oldest/latest timestamps. Resolves user names for each message author.",
+      inputSchema: ListChannelMessagesParamsSchema.shape,
+    }, async (params) => {
+      return this.messagingTools.listChannelMessages(ListChannelMessagesParamsSchema.parse(params));
     });
 
     this.server.registerTool("analyze_writing_style", {

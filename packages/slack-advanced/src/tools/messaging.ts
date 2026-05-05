@@ -3,6 +3,7 @@ import { SlackClient } from "../slack-client.js";
 import type {
   SendDmParams,
   GetDmHistoryParams,
+  ListChannelMessagesParams,
   SendChannelMessageParams,
   EditMessageParams,
   DeleteMessageParams,
@@ -114,6 +115,69 @@ export class MessagingTools {
         next_cursor: res.response_metadata?.next_cursor || null,
         channel_id: channelId,
         with_user_id: userId,
+      });
+    } catch (error) {
+      return this.formatError(error);
+    }
+  }
+
+  async listChannelMessages(params: ListChannelMessagesParams): Promise<McpToolResult> {
+    try {
+      const channelId = await this.slack.resolveChannelId(params.channel);
+
+      const historyParams: Record<string, unknown> = {
+        channel: channelId,
+        limit: params.limit,
+        include_all_metadata: true,
+      };
+
+      if (params.cursor) historyParams.cursor = params.cursor;
+      if (params.oldest) historyParams.oldest = params.oldest;
+      if (params.latest) historyParams.latest = params.latest;
+      if (params.inclusive) historyParams.inclusive = params.inclusive;
+
+      const res = await this.slack.request<{
+        ok: boolean;
+        messages: SlackMessage[];
+        has_more: boolean;
+        response_metadata?: { next_cursor?: string };
+      }>("conversations.history", historyParams);
+
+      const userIds = new Set<string>();
+      for (const m of res.messages) {
+        if (m.user) userIds.add(m.user);
+      }
+
+      const userNames = new Map<string, string>();
+      if (userIds.size > 0) {
+        const allUsers = await this.slack.getAllUsers();
+        for (const uid of userIds) {
+          const u = allUsers.find((usr) => usr.id === uid);
+          if (u) userNames.set(uid, u.real_name || u.display_name || u.name);
+        }
+      }
+
+      return this.ok({
+        channel_id: channelId,
+        messages: res.messages.map((m) => ({
+          user_id: m.user,
+          user_name: m.user ? userNames.get(m.user) ?? m.user : null,
+          text: m.text,
+          ts: m.ts,
+          thread_ts: m.thread_ts,
+          reply_count: m.reply_count,
+          has_files: (m.files?.length ?? 0) > 0,
+          files: m.files?.map((f) => ({
+            id: f.id,
+            name: f.name,
+            mimetype: f.mimetype,
+            filetype: f.filetype,
+            size: f.size,
+          })),
+          ...(m.metadata && { metadata: m.metadata }),
+        })),
+        has_more: res.has_more,
+        next_cursor: res.response_metadata?.next_cursor || null,
       });
     } catch (error) {
       return this.formatError(error);
