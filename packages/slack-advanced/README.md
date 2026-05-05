@@ -42,6 +42,7 @@ Advanced Slack MCP Server -- sends messages as the authenticated user, with fuzz
 | `get_user_profile` | Full user profile (title, status, timezone, avatar) |
 | `send_dm` | Send DM resolving user by name/email/ID. Messages sent as you |
 | `get_dm_history` | DM history with a user, with pagination |
+| `list_channel_messages` | Recent messages from a channel (by ID or #name), with cursor and time-range filters |
 | `analyze_writing_style` | Writing style metrics (emoji usage, formality, vocabulary, etc.) |
 | `get_thread_from_link` | Extract messages from a Slack thread URL |
 | `transcribe_audio` | Transcribe audio files shared in Slack (ElevenLabs STT) |

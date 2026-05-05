@@ -69,6 +69,38 @@ export const GetDmHistoryParamsSchema = z.object({
     .describe("Pagination cursor from previous response"),
 });
 
+export const ListChannelMessagesParamsSchema = z.object({
+  channel: z
+    .string()
+    .min(1, "Channel is required")
+    .describe("Channel ID (e.g. C01EXAMPLE) or channel name (e.g. #general)"),
+  limit: z
+    .number()
+    .int()
+    .positive()
+    .max(200)
+    .optional()
+    .default(20)
+    .describe("Number of messages to retrieve"),
+  cursor: z
+    .string()
+    .optional()
+    .describe("Pagination cursor from previous response"),
+  oldest: z
+    .string()
+    .optional()
+    .describe("Only messages after this Unix timestamp (e.g. 1234567890.123456)"),
+  latest: z
+    .string()
+    .optional()
+    .describe("Only messages before this Unix timestamp (e.g. 1234567890.123456)"),
+  inclusive: z
+    .boolean()
+    .optional()
+    .default(false)
+    .describe("Include messages with oldest/latest timestamps in results"),
+});
+
 export const AnalyzeWritingStyleParamsSchema = z.object({
   user: z
     .string()
@@ -357,6 +389,7 @@ export type GetUserInfoParams = z.infer<typeof GetUserInfoParamsSchema>;
 export type MessageMetadata = z.infer<typeof MessageMetadataSchema>;
 export type SendDmParams = z.infer<typeof SendDmParamsSchema>;
 export type GetDmHistoryParams = z.infer<typeof GetDmHistoryParamsSchema>;
+export type ListChannelMessagesParams = z.infer<typeof ListChannelMessagesParamsSchema>;
 export type AnalyzeWritingStyleParams = z.infer<typeof AnalyzeWritingStyleParamsSchema>;
 export type GetThreadFromLinkParams = z.infer<typeof GetThreadFromLinkParamsSchema>;
 export type TranscribeAudioParams = z.infer<typeof TranscribeAudioParamsSchema>;
