@@ -188,6 +188,10 @@ export const DownloadFileParamsSchema = z.object({
     .optional()
     .default(10)
     .describe("Maximum file size in MB to download (default 10MB)"),
+  output_path: z
+    .string()
+    .optional()
+    .describe("Absolute path on disk to write the file to. When provided, the file is written locally and the tool returns the path/size instead of the full content (useful for large files or avoiding context bloat)"),
 });
 
 export const SendChannelMessageParamsSchema = z.object({

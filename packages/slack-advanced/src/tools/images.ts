@@ -1,3 +1,5 @@
+import { writeFileSync, mkdirSync } from "node:fs";
+import { dirname, isAbsolute } from "node:path";
 import { SlackClient } from "../slack-client.js";
 import type {
   AnalyzeImageParams,
@@ -102,6 +104,29 @@ export class ImageTools {
 
       const buffer = await this.slack.downloadFile(fileUrl);
       const isText = this.isTextMime(mimetype) || this.isTextFiletype(filename);
+
+      if (params.output_path) {
+        if (!isAbsolute(params.output_path)) {
+          return this.ok({
+            error: `output_path must be an absolute path, got: ${params.output_path}`,
+          });
+        }
+
+        try {
+          mkdirSync(dirname(params.output_path), { recursive: true });
+          writeFileSync(params.output_path, buffer);
+        } catch (err) {
+          return this.ok({
+            error: `Failed to write file: ${err instanceof Error ? err.message : String(err)}`,
+          });
+        }
+
+        return this.ok({
+          file: { id: params.file_id, name: filename, size: buffer.length, mimetype },
+          written_to: params.output_path,
+          encoding: isText ? "utf-8" : "binary",
+        });
+      }
 
       if (isText) {
         return this.ok({

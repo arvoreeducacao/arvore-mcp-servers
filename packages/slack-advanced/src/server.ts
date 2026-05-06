@@ -190,7 +190,7 @@ export class SlackAdvancedMCPServer {
     this.server.registerTool("download_file", {
       title: "Download File",
       description:
-        "Download a file shared in Slack and return its content. Text-based files (HTML, JSON, CSV, code, etc.) are returned as UTF-8 text. Binary files are returned as base64. Use file IDs from get_dm_history or get_file_info.",
+        "Download a file shared in Slack and return its content. Text-based files (HTML, JSON, CSV, code, etc.) are returned as UTF-8 text. Binary files are returned as base64. Use file IDs from get_dm_history or get_file_info. Pass output_path (absolute) to write the file to disk instead of returning its content inline — recommended for large files.",
       inputSchema: DownloadFileParamsSchema.shape,
     }, async (params) => {
       return this.imageTools.downloadFile(DownloadFileParamsSchema.parse(params));
