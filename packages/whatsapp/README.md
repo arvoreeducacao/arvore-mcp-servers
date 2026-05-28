@@ -108,7 +108,7 @@ pnpm --filter @arvoretech/whatsapp-mcp dev
 
 ## Notes & gotchas
 
-- **Single connection only.** This is intentional. For multi-account routing (one socket per SDR with K8s locking), use `sdr-engine` instead.
+- **Single connection only.** This MCP drives one WhatsApp account at a time and is intended for personal/agent use cases.
 - **Auth dir is per-machine.** Don't ship `~/.arvore-mcp/whatsapp/` — it contains your WhatsApp identity keys.
 - **Phone must stay online** occasionally for the multi-device session to stay healthy.
 - **Brazilian 9-digit gotcha:** Baileys sometimes returns a JID without the 9 even when you sent with it. The server uses `onWhatsApp` to resolve to the canonical JID before sending and before storing.
@@ -118,4 +118,4 @@ pnpm --filter @arvoretech/whatsapp-mcp dev
 
 ## Related
 
-- `sdr-engine` — production-grade multi-tenant WhatsApp service used by the SDR Agent. Use this MCP for personal/agent use cases instead.
+- Drives one WhatsApp account from your local agent. For higher-volume server-side use cases, build a dedicated service.
