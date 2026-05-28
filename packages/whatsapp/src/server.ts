@@ -65,7 +65,7 @@ export class WhatsAppMcpServer {
       },
       async (params) => {
         const args = ConnectParamsSchema.parse(params);
-        const status = await this.client.connect();
+        await this.client.connect();
         if (args.waitForOpen) {
           await this.client.waitForOpen(args.timeoutMs);
         }
