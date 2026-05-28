@@ -331,7 +331,7 @@ Drive a single WhatsApp account from your AI agent using [Baileys](https://githu
 - Local SQLite store for chats, messages, and contacts so the agent can recall past conversations
 - Brazilian phone number normalization with WhatsApp-side validation
 - Set typing presence, mark messages as read, react, edit, and delete
-- Single connection — for multi-tenant use cases use `sdr-engine` instead
+- Single connection — pair one WhatsApp account from your local agent
 
 ## 🚀 Quick Start
 
