@@ -320,6 +320,19 @@ Advanced Slack integration using user tokens -- messages sent as the authenticat
 - Image download and base64 return for model analysis
 - Rate limit retry with backoff
 
+### [@arvoretech/whatsapp-mcp](./packages/whatsapp)
+
+Drive a single WhatsApp account from your AI agent using [Baileys](https://github.com/WhiskeySockets/Baileys).
+
+**Features:**
+
+- Pair via QR code (ASCII in terminal, PNG file, or base64 data URL)
+- Send and receive text, images, audio (PTT or normal), video, and documents
+- Local SQLite store for chats, messages, and contacts so the agent can recall past conversations
+- Brazilian phone number normalization with WhatsApp-side validation
+- Set typing presence, mark messages as read, react, edit, and delete
+- Single connection — for multi-tenant use cases use `sdr-engine` instead
+
 ## 🚀 Quick Start
 
 ### Installation
@@ -350,6 +363,7 @@ npm install -g @arvoretech/mgc-mcp
 npm install -g @arvoretech/kanban-mcp
 npm install -g @arvoretech/posthog-mcp
 npm install -g @arvoretech/slack-advanced-mcp
+npm install -g @arvoretech/whatsapp-mcp
 ```
 
 Or using pnpm:
@@ -538,6 +552,13 @@ Add to your Claude Desktop configuration file:
       "env": {
         "SLACK_USER_TOKEN": "xoxp-your-user-token",
         "ELEVENLABS_API_KEY": "sk_your-elevenlabs-key"
+      }
+    },
+    "whatsapp": {
+      "command": "npx",
+      "args": ["-y", "@arvoretech/whatsapp-mcp"],
+      "env": {
+        "WHATSAPP_LOG_LEVEL": "warn"
       }
     }
   }
