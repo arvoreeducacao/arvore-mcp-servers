@@ -112,6 +112,21 @@ Google Chat integration for managing spaces, members, and messages.
 - Service account JWT auth (no external dependencies)
 - Domain-wide delegation for full user-level access
 
+### [@arvoretech/gmail-mcp](./packages/gmail)
+
+Gmail integration — read, send, and manage messages with OAuth user flow.
+
+**Features:**
+
+- Search messages with full Gmail query syntax (`from:`, `is:unread`, `newer_than:`, etc.)
+- Read messages and full threads with parsed headers and body
+- Create drafts (always available, even with sending disabled)
+- Send mail and reply with proper threading (`In-Reply-To`, `References`, `threadId`)
+- Modify labels (mark read, archive, star, trash)
+- OAuth Desktop client flow with browser-based login
+- Encrypted token storage (AES-256-GCM + macOS keychain)
+- Send-mode opt-in via `GMAIL_MCP_ALLOW_SEND` to prevent accidental sends
+
 ### [@arvoretech/memory-mcp](./packages/memory)
 
 Team memory — persistent knowledge base with semantic search for AI-assisted development.
@@ -349,6 +364,7 @@ npm install -g @arvoretech/npm-registry-mcp
 npm install -g @arvoretech/launchdarkly-mcp
 npm install -g @arvoretech/tempmail-mcp
 npm install -g @arvoretech/google-chat-mcp
+npm install -g @arvoretech/gmail-mcp
 npm install -g @arvoretech/memory-mcp
 npm install -g @arvoretech/runtime-lens-mcp
 npm install -g @arvoretech/meet-transcriptions-mcp
@@ -458,6 +474,15 @@ Add to your Claude Desktop configuration file:
       "env": {
         "GOOGLE_CHAT_CREDENTIALS_PATH": "/path/to/service-account.json",
         "GOOGLE_CHAT_USER_EMAIL": "user@yourdomain.com"
+      }
+    },
+    "gmail": {
+      "command": "npx",
+      "args": ["-y", "@arvoretech/gmail-mcp"],
+      "env": {
+        "GMAIL_MCP_CLIENT_ID": "your-oauth-client-id",
+        "GMAIL_MCP_CLIENT_SECRET": "your-oauth-client-secret",
+        "GMAIL_MCP_ALLOW_SEND": "false"
       }
     },
     "team-memory": {
