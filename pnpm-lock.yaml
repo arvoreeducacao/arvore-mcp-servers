@@ -196,6 +196,15 @@ importers:
         specifier: ^3.22.4
         version: 3.25.76
 
+  packages/db-diagram:
+    dependencies:
+      '@modelcontextprotocol/sdk':
+        specifier: ~1.22.0
+        version: 1.22.0
+      zod:
+        specifier: ^3.22.4
+        version: 3.25.76
+
   packages/gmail:
     dependencies:
       '@modelcontextprotocol/sdk':
