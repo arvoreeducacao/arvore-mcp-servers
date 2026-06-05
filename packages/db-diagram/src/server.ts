@@ -66,7 +66,7 @@ export class DbDiagramMCPServer {
         const { ddl, entryTable, depth } = params as GenerateDomainMapParams;
         let schema = parseDDL(ddl);
         schema = extractInlineForeignKeys(ddl, schema);
-        const diagram = generateDomainMap(schema, entryTable, depth ?? 3);
+        const diagram = generateDomainMap(schema, entryTable, depth);
         return { content: [{ type: "text", text: diagram }] };
       }
     );

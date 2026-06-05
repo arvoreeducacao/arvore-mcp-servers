@@ -117,19 +117,13 @@ function parseColumn(line: string): Column | null {
 
   const upperLine = line.toUpperCase();
   const nullable = !upperLine.includes("NOT NULL");
-  const primaryKey =
-    upperLine.includes("PRIMARY KEY") ||
-    (upperLine.includes("SERIAL") && !upperLine.includes("BIGSERIAL"));
+  const primaryKey = upperLine.includes("PRIMARY KEY");
   const unique =
     upperLine.includes("UNIQUE") || upperLine.includes("PRIMARY KEY");
 
   let defaultValue: string | undefined;
   const defaultMatch = line.match(/DEFAULT\s+([^,\s]+)/i);
   if (defaultMatch) defaultValue = defaultMatch[1].replace(/['"]/g, "");
-
-  const inlineFkMatch = line.match(
-    /REFERENCES\s+[`"']?(\w+)[`"']?\s*\(([^)]+)\)/i
-  );
 
   return {
     name,
@@ -138,8 +132,7 @@ function parseColumn(line: string): Column | null {
     primaryKey,
     unique,
     defaultValue,
-    ...(inlineFkMatch ? { _inlineRef: inlineFkMatch } : {}),
-  } as Column;
+  };
 }
 
 export function extractInlineForeignKeys(ddl: string, schema: Schema): Schema {

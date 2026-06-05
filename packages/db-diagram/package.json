@@ -1,6 +1,6 @@
 {
   "name": "@arvoretech/db-diagram-mcp",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "MCP Server that generates Mermaid ER diagrams from SQL DDL",
   "main": "dist/index.js",
   "type": "module",

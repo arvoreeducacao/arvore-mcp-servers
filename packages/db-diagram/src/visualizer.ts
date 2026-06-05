@@ -1,5 +1,5 @@
 import { createServer, Server } from "node:http";
-import { exec } from "node:child_process";
+import { execFile } from "node:child_process";
 import { platform } from "node:os";
 
 export function visualize(mermaidCode: string): Promise<string> {
@@ -32,14 +32,22 @@ export function visualize(mermaidCode: string): Promise<string> {
 }
 
 function openBrowser(url: string): void {
-  const cmd =
-    platform() === "darwin"
-      ? `open "${url}"`
-      : platform() === "win32"
-        ? `start "${url}"`
-        : `xdg-open "${url}"`;
+  const os = platform();
+  let command: string;
+  let args: string[];
 
-  exec(cmd, () => {});
+  if (os === "darwin") {
+    command = "open";
+    args = [url];
+  } else if (os === "win32") {
+    command = "cmd.exe";
+    args = ["/c", "start", '""', url];
+  } else {
+    command = "xdg-open";
+    args = [url];
+  }
+
+  execFile(command, args, () => {});
 }
 
 function buildHtml(mermaidCode: string): string {
