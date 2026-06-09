@@ -1,0 +1,43 @@
+{
+  "name": "@arvoretech/gupy-mcp",
+  "version": "1.0.0",
+  "description": "Gupy ATS MCP Server",
+  "main": "dist/index.js",
+  "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
+  "bin": {
+    "gupy-mcp": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:cov": "vitest run --coverage",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix"
+  },
+  "keywords": [
+    "mcp",
+    "gupy",
+    "ats",
+    "recruitment",
+    "hiring",
+    "llm",
+    "ai",
+    "arvore"
+  ],
+  "author": "Arvore",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/arvoreeducacao/arvore-mcp-servers.git",
+    "directory": "packages/gupy"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "~1.22.0",
+    "zod": "^3.22.4"
+  }
+}
