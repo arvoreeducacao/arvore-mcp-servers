@@ -66,7 +66,9 @@ export class MemoryMCPServer {
         title: "Add Team Memory",
         description:
           "Create a new team memory entry. Use to capture decisions, conventions, incidents, domain knowledge, or gotchas " +
-          "discovered during development. Categories: decisions, conventions, incidents, domain, gotchas.",
+          "discovered during development. Categories: decisions, conventions, incidents, domain, gotchas. " +
+          "Before creating, checks for a highly similar existing memory; if found, returns it instead of duplicating " +
+          "(pass force: true to create anyway).",
         inputSchema: AddMemoryParamsSchema.shape,
       },
       async (params) => {

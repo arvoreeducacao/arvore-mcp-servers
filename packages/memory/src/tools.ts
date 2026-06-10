@@ -89,7 +89,42 @@ export class MemoryMCPTools {
 
   async addMemory(params: AddMemoryParams): Promise<McpToolResult> {
     try {
-      const entry = await this.store.add(params);
+      if (!params.force) {
+        const similar = await this.store.findSimilar(params.content, params.title);
+        if (similar) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify(
+                  {
+                    created: false,
+                    reason: "similar_memory_exists",
+                    message:
+                      "A highly similar memory already exists. Consider updating it instead of creating a duplicate. To create anyway, call add_memory again with force: true.",
+                    similar: {
+                      id: similar.id,
+                      title: similar.title,
+                      category: similar.category,
+                      score: similar.score,
+                    },
+                  },
+                  null,
+                  2
+                ),
+              },
+            ],
+          };
+        }
+      }
+
+      const entry = await this.store.add({
+        title: params.title,
+        category: params.category,
+        content: params.content,
+        tags: params.tags,
+        author: params.author,
+      });
 
       return {
         content: [

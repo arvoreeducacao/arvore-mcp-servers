@@ -62,6 +62,7 @@ export const AddMemoryParamsSchema = z.object({
   content: z.string().min(1, "Content is required"),
   tags: z.array(z.string()).optional().default([]),
   author: z.string().optional(),
+  force: z.boolean().optional(),
 });
 
 export const ListMemoriesParamsSchema = z.object({
