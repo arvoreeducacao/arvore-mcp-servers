@@ -30,6 +30,9 @@ export default [
         Blob: "readonly",
         File: "readonly",
         setTimeout: "readonly",
+        clearTimeout: "readonly",
+        AbortSignal: "readonly",
+        AbortController: "readonly",
       },
     },
     plugins: {
