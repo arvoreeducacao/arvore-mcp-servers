@@ -5,10 +5,13 @@ import {
   GetJobParams,
   UpdateJobStatusParams,
   ListApplicationsParams,
+  ListApplicationExperiencesParams,
   MoveApplicationParams,
   CreateApplicationCommentParams,
   ListApplicationCommentsParams,
   TagApplicationParams,
+  ListApplicationTagsParams,
+  DeleteApplicationTagParams,
   SendCandidateMessageParams,
   ListCandidatesParams,
   ListWebhooksParams,
@@ -92,6 +95,7 @@ export class GupyMCPTools {
         offset: params.offset,
         currentStep: params.currentStep,
         status: params.status,
+        fields: params.fields,
       });
       const data = await this.client.request<unknown>(
         "GET",
@@ -100,6 +104,29 @@ export class GupyMCPTools {
         query
       );
       return this.ok(data);
+    } catch (error) {
+      return this.formatError(error);
+    }
+  }
+
+  async listApplicationExperiences(
+    params: ListApplicationExperiencesParams
+  ): Promise<McpToolResult> {
+    try {
+      const query = this.cleanQuery({
+        limit: params.limit,
+        offset: params.offset,
+        currentStep: params.currentStep,
+        status: params.status,
+        fields: "all",
+      });
+      const data = await this.client.request<unknown>(
+        "GET",
+        `/api/v1/jobs/${params.jobId}/applications`,
+        undefined,
+        query
+      );
+      return this.ok(this.extractExperiences(data));
     } catch (error) {
       return this.formatError(error);
     }
@@ -159,12 +186,71 @@ export class GupyMCPTools {
 
   async tagApplication(params: TagApplicationParams): Promise<McpToolResult> {
     try {
+      const results: Array<{ tag: string; status: "created" | "failed"; error?: string }> = [];
+
+      for (const tag of params.tags) {
+        try {
+          await this.client.request<unknown>(
+            "PUT",
+            `/api/v1/jobs/${params.jobId}/applications/${params.applicationId}/tags`,
+            { name: tag }
+          );
+          results.push({ tag, status: "created" });
+        } catch (error) {
+          results.push({
+            tag,
+            status: "failed",
+            error: error instanceof Error ? error.message : "Unknown error",
+          });
+        }
+      }
+
+      return this.ok({
+        applicationId: params.applicationId,
+        created: results.filter((result) => result.status === "created").length,
+        failed: results.filter((result) => result.status === "failed").length,
+        results,
+      });
+    } catch (error) {
+      return this.formatError(error);
+    }
+  }
+
+  async listApplicationTags(
+    params: ListApplicationTagsParams
+  ): Promise<McpToolResult> {
+    try {
+      const query = this.cleanQuery({
+        name: params.name,
+        perPage: params.perPage,
+        page: params.page,
+      });
       const data = await this.client.request<unknown>(
-        "PUT",
+        "GET",
         `/api/v1/jobs/${params.jobId}/applications/${params.applicationId}/tags`,
-        { tags: params.tags }
+        undefined,
+        query
       );
       return this.ok(data);
+    } catch (error) {
+      return this.formatError(error);
+    }
+  }
+
+  async deleteApplicationTag(
+    params: DeleteApplicationTagParams
+  ): Promise<McpToolResult> {
+    try {
+      await this.client.request<unknown>(
+        "DELETE",
+        `/api/v1/jobs/${params.jobId}/applications/${params.applicationId}/tags`,
+        undefined,
+        { name: params.name }
+      );
+      return this.ok({
+        success: true,
+        message: `Tag "${params.name}" removed from application ${params.applicationId}.`,
+      });
     } catch (error) {
       return this.formatError(error);
     }
@@ -258,6 +344,91 @@ export class GupyMCPTools {
     } catch (error) {
       return this.formatError(error);
     }
+  }
+
+  private extractExperiences(data: unknown): unknown {
+    const root = data as Record<string, unknown> | null;
+    const list = Array.isArray(root?.data)
+      ? (root?.data as unknown[])
+      : Array.isArray(data)
+        ? (data as unknown[])
+        : [];
+
+    const applications = list.map((item) => {
+      const application = item as Record<string, unknown>;
+      const candidate =
+        (application.candidate as Record<string, unknown> | undefined) ?? {};
+      const rawExperiences = Array.isArray(candidate.workExperience)
+        ? (candidate.workExperience as Record<string, unknown>[])
+        : [];
+
+      const workExperience = rawExperiences.map((experience) => ({
+        role: experience.role ?? null,
+        companyName: experience.companyName ?? null,
+        activitiesPerformed: experience.activitiesPerformed ?? null,
+        startMonth: experience.startMonth ?? null,
+        startYear: experience.startYear ?? null,
+        endMonth: experience.endMonth ?? null,
+        endYear: experience.endYear ?? null,
+      }));
+
+      const rawAdditionalQuestions = Array.isArray(
+        application.additionalQuestions
+      )
+        ? (application.additionalQuestions as Record<string, unknown>[])
+        : [];
+
+      const additionalQuestions = rawAdditionalQuestions.map((entry) => ({
+        question: entry.question ?? null,
+        answer: entry.answer ?? null,
+      }));
+
+      const rawAcademic = Array.isArray(candidate.academicQualification)
+        ? (candidate.academicQualification as Record<string, unknown>[])
+        : [];
+
+      const academicQualification = rawAcademic.map((entry) => ({
+        formation: entry.formation ?? null,
+        status: entry.status ?? null,
+        institution: entry.institution ?? null,
+        course: entry.course ?? null,
+        startMonth: entry.startMonth ?? null,
+        startYear: entry.startYear ?? null,
+        endMonth: entry.endMonth ?? null,
+        endYear: entry.endYear ?? null,
+      }));
+
+      const rawLanguages = Array.isArray(candidate.languages)
+        ? (candidate.languages as Record<string, unknown>[])
+        : [];
+
+      const languages = rawLanguages.map((entry) => ({
+        language: entry.language ?? null,
+        level: entry.level ?? null,
+      }));
+
+      return {
+        applicationId: application.id ?? null,
+        candidateName: candidate.name ?? null,
+        candidateEmail: candidate.email ?? null,
+        schooling: candidate.schooling ?? null,
+        schoolingStatus: candidate.schoolingStatus ?? null,
+        workExperience,
+        academicQualification,
+        languages,
+        additionalQuestions,
+      };
+    });
+
+    return {
+      summary: {
+        total: applications.length,
+        withExperience: applications.filter(
+          (application) => application.workExperience.length > 0
+        ).length,
+      },
+      applications,
+    };
   }
 
   private cleanQuery(

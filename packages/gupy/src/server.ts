@@ -8,10 +8,13 @@ import {
   GetJobParamsSchema,
   UpdateJobStatusParamsSchema,
   ListApplicationsParamsSchema,
+  ListApplicationExperiencesParamsSchema,
   MoveApplicationParamsSchema,
   CreateApplicationCommentParamsSchema,
   ListApplicationCommentsParamsSchema,
   TagApplicationParamsSchema,
+  ListApplicationTagsParamsSchema,
+  DeleteApplicationTagParamsSchema,
   SendCandidateMessageParamsSchema,
   ListCandidatesParamsSchema,
   ListWebhooksParamsSchema,
@@ -33,7 +36,7 @@ export class GupyMCPServer {
 
     this.server = new McpServer({
       name: "gupy-mcp-server",
-      version: "1.0.0",
+      version: "1.2.0",
     });
 
     const client = new GupyClient(apiToken, baseUrl);
@@ -100,12 +103,27 @@ export class GupyMCPServer {
       {
         title: "List Applications",
         description:
-          "List candidate applications for a specific job, with optional step/status filters",
+          "List candidate applications for a specific job, with optional step/status filters. Use fields='all' to include candidate details such as work experience, education and languages.",
         inputSchema: ListApplicationsParamsSchema.shape,
       },
       async (params) => {
         return this.tools.listApplications(
           ListApplicationsParamsSchema.parse(params)
+        );
+      }
+    );
+
+    this.server.registerTool(
+      "list_application_experiences",
+      {
+        title: "List Application Professional Experiences",
+        description:
+          "List the professional (work) experiences of candidates who applied to a specific job. Returns each candidate's name, email, schooling, work experiences (role, company, activities, period), academic qualifications (course, institution, period), languages (idiom + level) and additionalQuestions (custom registration questions/answers). Internally queries the applications endpoint with fields=all.",
+        inputSchema: ListApplicationExperiencesParamsSchema.shape,
+      },
+      async (params) => {
+        return this.tools.listApplicationExperiences(
+          ListApplicationExperiencesParamsSchema.parse(params)
         );
       }
     );
@@ -158,12 +176,43 @@ export class GupyMCPServer {
       "tag_application",
       {
         title: "Tag Application",
-        description: "Add tags to a candidate application",
+        description:
+          "Add one or more tags to a candidate application. Each tag is created by name (max 120 chars) via a separate PUT call, as required by the Gupy API. There is no global tag catalog: a tag exists once applied by name. Returns a per-tag result with created/failed counts.",
         inputSchema: TagApplicationParamsSchema.shape,
       },
       async (params) => {
         return this.tools.tagApplication(
           TagApplicationParamsSchema.parse(params)
+        );
+      }
+    );
+
+    this.server.registerTool(
+      "list_application_tags",
+      {
+        title: "List Application Tags",
+        description:
+          "List the tags already applied to a specific candidate application (optionally filtered by name). Note: the Gupy public API has no global tag catalog; tags can only be listed per application.",
+        inputSchema: ListApplicationTagsParamsSchema.shape,
+      },
+      async (params) => {
+        return this.tools.listApplicationTags(
+          ListApplicationTagsParamsSchema.parse(params)
+        );
+      }
+    );
+
+    this.server.registerTool(
+      "delete_application_tag",
+      {
+        title: "Delete Application Tag",
+        description:
+          "Remove a tag from a candidate application by its name (value). Useful to fix tags applied by mistake.",
+        inputSchema: DeleteApplicationTagParamsSchema.shape,
+      },
+      async (params) => {
+        return this.tools.deleteApplicationTag(
+          DeleteApplicationTagParamsSchema.parse(params)
         );
       }
     );

@@ -72,6 +72,25 @@ export const ListApplicationsParamsSchema = z.object({
     .string()
     .optional()
     .describe("Filter by application status"),
+  fields: z
+    .enum(["name", "id", "code", "all"])
+    .optional()
+    .describe(
+      "Controls which application fields are returned. Use 'all' to include candidate details such as workExperience, academicQualification and languages. Defaults to Gupy's standard response when omitted."
+    ),
+});
+
+export const ListApplicationExperiencesParamsSchema = z.object({
+  jobId: z.union([z.string(), z.number()]).describe("Job ID"),
+  ...Pagination,
+  currentStep: z
+    .string()
+    .optional()
+    .describe("Filter applications by current step name"),
+  status: z
+    .string()
+    .optional()
+    .describe("Filter by application status"),
 });
 
 export const MoveApplicationParamsSchema = z.object({
@@ -109,7 +128,44 @@ export const TagApplicationParamsSchema = z.object({
   applicationId: z
     .union([z.string(), z.number()])
     .describe("Application ID"),
-  tags: z.array(z.string()).min(1).describe("Tag values to add"),
+  tags: z
+    .array(z.string().min(1).max(120))
+    .min(1)
+    .describe(
+      "Tag names to add (each ≤120 chars). Each tag is sent in a separate PUT request, as the Gupy API accepts one tag per call."
+    ),
+});
+
+export const ListApplicationTagsParamsSchema = z.object({
+  jobId: z.union([z.string(), z.number()]).describe("Job ID"),
+  applicationId: z
+    .union([z.string(), z.number()])
+    .describe("Application ID"),
+  name: z.string().optional().describe("Filter by tag name"),
+  perPage: z
+    .number()
+    .int()
+    .positive()
+    .max(100)
+    .optional()
+    .describe("Items per page (default 10)"),
+  page: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe("Page number (default 1)"),
+});
+
+export const DeleteApplicationTagParamsSchema = z.object({
+  jobId: z.union([z.string(), z.number()]).describe("Job ID"),
+  applicationId: z
+    .union([z.string(), z.number()])
+    .describe("Application ID"),
+  name: z
+    .string()
+    .min(1)
+    .describe("Tag name (value) to remove from the application"),
 });
 
 export const SendCandidateMessageParamsSchema = z.object({
@@ -161,6 +217,9 @@ export type UpdateJobStatusParams = z.infer<typeof UpdateJobStatusParamsSchema>;
 export type ListApplicationsParams = z.infer<
   typeof ListApplicationsParamsSchema
 >;
+export type ListApplicationExperiencesParams = z.infer<
+  typeof ListApplicationExperiencesParamsSchema
+>;
 export type MoveApplicationParams = z.infer<typeof MoveApplicationParamsSchema>;
 export type CreateApplicationCommentParams = z.infer<
   typeof CreateApplicationCommentParamsSchema
@@ -169,6 +228,12 @@ export type ListApplicationCommentsParams = z.infer<
   typeof ListApplicationCommentsParamsSchema
 >;
 export type TagApplicationParams = z.infer<typeof TagApplicationParamsSchema>;
+export type ListApplicationTagsParams = z.infer<
+  typeof ListApplicationTagsParamsSchema
+>;
+export type DeleteApplicationTagParams = z.infer<
+  typeof DeleteApplicationTagParamsSchema
+>;
 export type SendCandidateMessageParams = z.infer<
   typeof SendCandidateMessageParamsSchema
 >;
