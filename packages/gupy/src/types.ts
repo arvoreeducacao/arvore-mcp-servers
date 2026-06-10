@@ -136,6 +136,38 @@ export const TagApplicationParamsSchema = z.object({
     ),
 });
 
+export const ListApplicationTagsParamsSchema = z.object({
+  jobId: z.union([z.string(), z.number()]).describe("Job ID"),
+  applicationId: z
+    .union([z.string(), z.number()])
+    .describe("Application ID"),
+  name: z.string().optional().describe("Filter by tag name"),
+  perPage: z
+    .number()
+    .int()
+    .positive()
+    .max(100)
+    .optional()
+    .describe("Items per page (default 10)"),
+  page: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe("Page number (default 1)"),
+});
+
+export const DeleteApplicationTagParamsSchema = z.object({
+  jobId: z.union([z.string(), z.number()]).describe("Job ID"),
+  applicationId: z
+    .union([z.string(), z.number()])
+    .describe("Application ID"),
+  name: z
+    .string()
+    .min(1)
+    .describe("Tag name (value) to remove from the application"),
+});
+
 export const SendCandidateMessageParamsSchema = z.object({
   jobId: z.union([z.string(), z.number()]).describe("Job ID"),
   applicationId: z
@@ -196,6 +228,12 @@ export type ListApplicationCommentsParams = z.infer<
   typeof ListApplicationCommentsParamsSchema
 >;
 export type TagApplicationParams = z.infer<typeof TagApplicationParamsSchema>;
+export type ListApplicationTagsParams = z.infer<
+  typeof ListApplicationTagsParamsSchema
+>;
+export type DeleteApplicationTagParams = z.infer<
+  typeof DeleteApplicationTagParamsSchema
+>;
 export type SendCandidateMessageParams = z.infer<
   typeof SendCandidateMessageParamsSchema
 >;

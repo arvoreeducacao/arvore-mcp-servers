@@ -10,6 +10,8 @@ import {
   CreateApplicationCommentParams,
   ListApplicationCommentsParams,
   TagApplicationParams,
+  ListApplicationTagsParams,
+  DeleteApplicationTagParams,
   SendCandidateMessageParams,
   ListCandidatesParams,
   ListWebhooksParams,
@@ -208,6 +210,46 @@ export class GupyMCPTools {
         created: results.filter((result) => result.status === "created").length,
         failed: results.filter((result) => result.status === "failed").length,
         results,
+      });
+    } catch (error) {
+      return this.formatError(error);
+    }
+  }
+
+  async listApplicationTags(
+    params: ListApplicationTagsParams
+  ): Promise<McpToolResult> {
+    try {
+      const query = this.cleanQuery({
+        name: params.name,
+        perPage: params.perPage,
+        page: params.page,
+      });
+      const data = await this.client.request<unknown>(
+        "GET",
+        `/api/v1/jobs/${params.jobId}/applications/${params.applicationId}/tags`,
+        undefined,
+        query
+      );
+      return this.ok(data);
+    } catch (error) {
+      return this.formatError(error);
+    }
+  }
+
+  async deleteApplicationTag(
+    params: DeleteApplicationTagParams
+  ): Promise<McpToolResult> {
+    try {
+      await this.client.request<unknown>(
+        "DELETE",
+        `/api/v1/jobs/${params.jobId}/applications/${params.applicationId}/tags`,
+        undefined,
+        { name: params.name }
+      );
+      return this.ok({
+        success: true,
+        message: `Tag "${params.name}" removed from application ${params.applicationId}.`,
       });
     } catch (error) {
       return this.formatError(error);

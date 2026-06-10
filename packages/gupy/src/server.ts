@@ -13,6 +13,8 @@ import {
   CreateApplicationCommentParamsSchema,
   ListApplicationCommentsParamsSchema,
   TagApplicationParamsSchema,
+  ListApplicationTagsParamsSchema,
+  DeleteApplicationTagParamsSchema,
   SendCandidateMessageParamsSchema,
   ListCandidatesParamsSchema,
   ListWebhooksParamsSchema,
@@ -34,7 +36,7 @@ export class GupyMCPServer {
 
     this.server = new McpServer({
       name: "gupy-mcp-server",
-      version: "1.1.1",
+      version: "1.2.0",
     });
 
     const client = new GupyClient(apiToken, baseUrl);
@@ -181,6 +183,36 @@ export class GupyMCPServer {
       async (params) => {
         return this.tools.tagApplication(
           TagApplicationParamsSchema.parse(params)
+        );
+      }
+    );
+
+    this.server.registerTool(
+      "list_application_tags",
+      {
+        title: "List Application Tags",
+        description:
+          "List the tags already applied to a specific candidate application (optionally filtered by name). Note: the Gupy public API has no global tag catalog; tags can only be listed per application.",
+        inputSchema: ListApplicationTagsParamsSchema.shape,
+      },
+      async (params) => {
+        return this.tools.listApplicationTags(
+          ListApplicationTagsParamsSchema.parse(params)
+        );
+      }
+    );
+
+    this.server.registerTool(
+      "delete_application_tag",
+      {
+        title: "Delete Application Tag",
+        description:
+          "Remove a tag from a candidate application by its name (value). Useful to fix tags applied by mistake.",
+        inputSchema: DeleteApplicationTagParamsSchema.shape,
+      },
+      async (params) => {
+        return this.tools.deleteApplicationTag(
+          DeleteApplicationTagParamsSchema.parse(params)
         );
       }
     );
