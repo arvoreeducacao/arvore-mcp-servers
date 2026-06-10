@@ -342,16 +342,23 @@ export class MemoryStore {
     const MIN_RELEVANCE_SCORE = -0.2;
 
     return results
-      .map((row: Record<string, unknown>) => ({
-        id: row.id as string,
-        title: row.title as string,
-        category: row.category as MemoryCategory,
-        date: row.date as string,
-        tags: (row.tags as string).split(",").filter(Boolean),
-        status: row.status as MemoryStatus,
-        snippet: row.snippet as string,
-        score: round(1 - ((row._distance as number) || 0)),
-      }))
+      .map((row: Record<string, unknown>) => {
+        const date = row.date as string;
+        const baseScore = round(1 - ((row._distance as number) || 0));
+        const penalty = stalenessPenalty(date);
+        return {
+          id: row.id as string,
+          title: row.title as string,
+          category: row.category as MemoryCategory,
+          date,
+          tags: (row.tags as string).split(",").filter(Boolean),
+          status: row.status as MemoryStatus,
+          snippet: row.snippet as string,
+          score: round(baseScore - penalty),
+          needsReview: isStale(date),
+        };
+      })
+      .sort((a, b) => b.score - a.score)
       .filter((r) => r.score >= MIN_RELEVANCE_SCORE);
   }
 
@@ -406,6 +413,21 @@ export class MemoryStore {
   async get(id: string): Promise<MemoryEntry | null> {
     await this.ensureLoaded();
     return this.catalog.find((m) => m.id === id) || null;
+  }
+
+  async findSimilar(
+    content: string,
+    title: string,
+    opts?: { threshold?: number }
+  ): Promise<(MemoryCatalogEntry & { score: number }) | null> {
+    this.ensureLoaded();
+    const threshold = opts?.threshold ?? 0.85;
+    const query = `${title}
+${content}`;
+    const results = await this.search(query, { status: "active", limit: 1 });
+    if (results.length === 0) return null;
+    const top = results[0];
+    return top.score >= threshold ? top : null;
   }
 
   async add(params: {
@@ -529,4 +551,24 @@ export class MemoryStore {
 
 function round(n: number): number {
   return Math.round(n * 1000) / 1000;
+}
+
+const STALE_AFTER_DAYS = 180;
+const STALE_MAX_PENALTY = 0.15;
+
+export function ageInDays(dateStr: string): number {
+  const then = new Date(dateStr).getTime();
+  if (Number.isNaN(then)) return 0;
+  return Math.max(0, (Date.now() - then) / 86_400_000);
+}
+
+export function stalenessPenalty(dateStr: string): number {
+  const days = ageInDays(dateStr);
+  if (days <= STALE_AFTER_DAYS) return 0;
+  const over = days - STALE_AFTER_DAYS;
+  return Math.min(STALE_MAX_PENALTY, (over / STALE_AFTER_DAYS) * STALE_MAX_PENALTY);
+}
+
+export function isStale(dateStr: string): boolean {
+  return ageInDays(dateStr) > STALE_AFTER_DAYS;
 }

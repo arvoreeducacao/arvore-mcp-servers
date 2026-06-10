@@ -13,6 +13,7 @@ describe("MemoryMCPTools", () => {
     search: ReturnType<typeof vi.fn>;
     get: ReturnType<typeof vi.fn>;
     add: ReturnType<typeof vi.fn>;
+    findSimilar: ReturnType<typeof vi.fn>;
     list: ReturnType<typeof vi.fn>;
     remove: ReturnType<typeof vi.fn>;
     archive: ReturnType<typeof vi.fn>;
@@ -24,6 +25,7 @@ describe("MemoryMCPTools", () => {
       search: vi.fn(),
       get: vi.fn(),
       add: vi.fn(),
+      findSimilar: vi.fn().mockResolvedValue(null),
       list: vi.fn(),
       remove: vi.fn(),
       archive: vi.fn(),
@@ -154,6 +156,56 @@ describe("MemoryMCPTools", () => {
 
       const parsed = JSON.parse(result.content[0].text);
       expect(parsed.error).toContain("Memory Error");
+    });
+
+    it("should not create when a highly similar memory exists", async () => {
+      mockStore.findSimilar.mockResolvedValue({
+        id: "2024-06-01-jwt-auth",
+        title: "JWT Auth Strategy",
+        category: "decisions",
+        score: 0.92,
+      });
+
+      const result = await tools.addMemory({
+        title: "JWT authentication approach",
+        category: "decisions",
+        content: "We use JWT with refresh tokens.",
+        tags: [],
+      });
+
+      const parsed = JSON.parse(result.content[0].text);
+      expect(parsed.created).toBe(false);
+      expect(parsed.reason).toBe("similar_memory_exists");
+      expect(parsed.similar.id).toBe("2024-06-01-jwt-auth");
+      expect(mockStore.add).not.toHaveBeenCalled();
+    });
+
+    it("should create despite similar memory when force is true", async () => {
+      mockStore.findSimilar.mockResolvedValue({
+        id: "existing",
+        title: "Existing",
+        category: "decisions",
+        score: 0.95,
+      });
+      mockStore.add.mockResolvedValue({
+        id: "new-one",
+        path: "/memories/decisions/new-one.md",
+        title: "New One",
+        category: "decisions",
+      });
+
+      const result = await tools.addMemory({
+        title: "New One",
+        category: "decisions",
+        content: "content",
+        tags: [],
+        force: true,
+      });
+
+      const parsed = JSON.parse(result.content[0].text);
+      expect(parsed.created).toBe(true);
+      expect(mockStore.findSimilar).not.toHaveBeenCalled();
+      expect(mockStore.add).toHaveBeenCalled();
     });
   });
 
