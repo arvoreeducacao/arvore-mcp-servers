@@ -12,29 +12,41 @@ export HUBSPOT_ACCESS_TOKEN="pat-na1-xxxxxxxx"
 
 Suggested scopes: `crm.objects.contacts.*`, `crm.objects.companies.*`, `crm.objects.deals.*`, `tickets`, `crm.schemas.*`, `conversations.read`, `conversations.write`.
 
+## Read-only mode
+
+By default the server runs in **read-only mode** — only the 11 read tools are registered, write tools are not exposed. To enable the 7 write tools, set:
+
+```bash
+export HUBSPOT_READ_ONLY=false
+```
+
+Any value other than the literal string `false` (or unset) keeps read-only mode on.
+
 ## Tools
 
 ### CRM objects (generic by `objectType`)
 
 `objectType` accepts standard objects (`contacts`, `companies`, `deals`, `tickets`), activities (`notes`, `tasks`, `calls`, `emails`, `meetings`) or a custom `objectTypeId` (e.g. `2-12345`).
 
+> Write tools (marked ✏️) are only registered when `HUBSPOT_READ_ONLY=false`.
+
 | Tool | Description |
 |------|-------------|
 | `list_objects` | List records of an object type with pagination |
 | `get_object` | Get a record by ID or unique `idProperty` |
-| `create_object` | Create a record with properties and optional associations |
-| `update_object` | Update a record's properties |
-| `delete_object` | Archive (soft-delete) a record |
 | `search_objects` | Search with `filterGroups`, free-text `query`, sorting and pagination |
 | `batch_read_objects` | Read up to 100 records in one request |
+| ✏️ `create_object` | Create a record with properties and optional associations |
+| ✏️ `update_object` | Update a record's properties |
+| ✏️ `delete_object` | Archive (soft-delete) a record |
 
 ### Associations (v4)
 
 | Tool | Description |
 |------|-------------|
 | `list_associations` | List associated records of a target type for a source record |
-| `create_association` | Default (unlabeled) or labeled association between two records |
-| `delete_association` | Remove all associations between two records |
+| ✏️ `create_association` | Default (unlabeled) or labeled association between two records |
+| ✏️ `delete_association` | Remove all associations between two records |
 
 ### Metadata
 
@@ -51,8 +63,8 @@ Suggested scopes: `crm.objects.contacts.*`, `crm.objects.companies.*`, `crm.obje
 | `list_threads` | List threads, optionally filtered by inbox/status |
 | `get_thread` | Get a thread by ID |
 | `list_thread_messages` | Message history of a thread |
-| `send_thread_message` | Send an outbound message through an existing channel |
-| `update_thread` | Update thread status (OPEN/CLOSED) or archived flag |
+| ✏️ `send_thread_message` | Send an outbound message through an existing channel |
+| ✏️ `update_thread` | Update thread status (OPEN/CLOSED) or archived flag |
 
 ## Usage examples
 

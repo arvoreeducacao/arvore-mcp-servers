@@ -1,6 +1,6 @@
 {
   "name": "@arvoretech/hubspot-mcp",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "HubSpot CRM MCP Server",
   "main": "dist/index.js",
   "type": "module",
@@ -17,8 +17,13 @@
     "test": "vitest run",
     "test:cov": "vitest run --coverage",
     "lint": "eslint src/**/*.ts",
-    "lint:fix": "eslint src/**/*.ts --fix"
+    "lint:fix": "eslint src/**/*.ts --fix",
+    "prepublishOnly": "pnpm build"
   },
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "keywords": [
     "mcp",
     "hubspot",
