@@ -184,12 +184,31 @@ export class GupyMCPTools {
 
   async tagApplication(params: TagApplicationParams): Promise<McpToolResult> {
     try {
-      const data = await this.client.request<unknown>(
-        "PUT",
-        `/api/v1/jobs/${params.jobId}/applications/${params.applicationId}/tags`,
-        { tags: params.tags }
-      );
-      return this.ok(data);
+      const results: Array<{ tag: string; status: "created" | "failed"; error?: string }> = [];
+
+      for (const tag of params.tags) {
+        try {
+          await this.client.request<unknown>(
+            "PUT",
+            `/api/v1/jobs/${params.jobId}/applications/${params.applicationId}/tags`,
+            { name: tag }
+          );
+          results.push({ tag, status: "created" });
+        } catch (error) {
+          results.push({
+            tag,
+            status: "failed",
+            error: error instanceof Error ? error.message : "Unknown error",
+          });
+        }
+      }
+
+      return this.ok({
+        applicationId: params.applicationId,
+        created: results.filter((result) => result.status === "created").length,
+        failed: results.filter((result) => result.status === "failed").length,
+        results,
+      });
     } catch (error) {
       return this.formatError(error);
     }

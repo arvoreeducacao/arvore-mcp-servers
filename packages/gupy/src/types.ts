@@ -128,7 +128,12 @@ export const TagApplicationParamsSchema = z.object({
   applicationId: z
     .union([z.string(), z.number()])
     .describe("Application ID"),
-  tags: z.array(z.string()).min(1).describe("Tag values to add"),
+  tags: z
+    .array(z.string().min(1).max(120))
+    .min(1)
+    .describe(
+      "Tag names to add (each ≤120 chars). Each tag is sent in a separate PUT request, as the Gupy API accepts one tag per call."
+    ),
 });
 
 export const SendCandidateMessageParamsSchema = z.object({

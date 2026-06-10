@@ -34,7 +34,7 @@ export class GupyMCPServer {
 
     this.server = new McpServer({
       name: "gupy-mcp-server",
-      version: "1.1.0",
+      version: "1.1.1",
     });
 
     const client = new GupyClient(apiToken, baseUrl);
@@ -174,7 +174,8 @@ export class GupyMCPServer {
       "tag_application",
       {
         title: "Tag Application",
-        description: "Add tags to a candidate application",
+        description:
+          "Add one or more tags to a candidate application. Each tag is created by name (max 120 chars) via a separate PUT call, as required by the Gupy API. There is no global tag catalog: a tag exists once applied by name. Returns a per-tag result with created/failed counts.",
         inputSchema: TagApplicationParamsSchema.shape,
       },
       async (params) => {
