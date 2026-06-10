@@ -112,6 +112,21 @@ Google Chat integration for managing spaces, members, and messages.
 - Service account JWT auth (no external dependencies)
 - Domain-wide delegation for full user-level access
 
+### [@arvoretech/gmail-mcp](./packages/gmail)
+
+Gmail integration — read, send, and manage messages with OAuth user flow.
+
+**Features:**
+
+- Search messages with full Gmail query syntax (`from:`, `is:unread`, `newer_than:`, etc.)
+- Read messages and full threads with parsed headers and body
+- Create drafts (always available, even with sending disabled)
+- Send mail and reply with proper threading (`In-Reply-To`, `References`, `threadId`)
+- Modify labels (mark read, archive, star, trash)
+- OAuth Desktop client flow with browser-based login
+- Encrypted token storage (AES-256-GCM + macOS keychain)
+- Send-mode opt-in via `GMAIL_MCP_ALLOW_SEND` to prevent accidental sends
+
 ### [@arvoretech/memory-mcp](./packages/memory)
 
 Team memory — persistent knowledge base with semantic search for AI-assisted development.
@@ -291,6 +306,48 @@ Control Arc Browser on macOS via a hybrid AppleScript + Chrome DevTools Protocol
 - JavaScript execution (AppleScript for quick queries, CDP for async/await)
 - Cookie inspection and page content extraction
 
+### [@arvoretech/posthog-mcp](./packages/posthog)
+
+PostHog analytics, feature flags, experiments, and more. Works with both PostHog Cloud and self-hosted instances.
+
+**Features:**
+
+- HogQL queries and structured queries (Trends, Funnels, Retention, Lifecycle, Paths, Stickiness)
+- Feature flags: create, update, list, delete with rollout control
+- A/B test experiments with variants and metrics
+- Dashboards and saved insights management
+- Event and property definitions exploration
+- Persons search and cohort management
+- Surveys, early access features, and annotations
+- Cross-entity search
+
+### [@arvoretech/slack-advanced-mcp](./packages/slack-advanced)
+
+Advanced Slack integration using user tokens -- messages sent as the authenticated user.
+
+**Features:**
+
+- Fuzzy user search with disk cache (47k+ users load instantly)
+- Smart DM: resolve user by name/email/ID, auto-open DM channel
+- Writing style analysis (emoji usage, punctuation, vocabulary, formality)
+- Thread extraction from Slack URLs with participant resolution
+- Audio transcription via ElevenLabs STT
+- Image download and base64 return for model analysis
+- Rate limit retry with backoff
+
+### [@arvoretech/whatsapp-mcp](./packages/whatsapp)
+
+Drive a single WhatsApp account from your AI agent using [Baileys](https://github.com/WhiskeySockets/Baileys).
+
+**Features:**
+
+- Pair via QR code (ASCII in terminal, PNG file, or base64 data URL)
+- Send and receive text, images, audio (PTT or normal), video, and documents
+- Local SQLite store for chats, messages, and contacts so the agent can recall past conversations
+- Brazilian phone number normalization with WhatsApp-side validation
+- Set typing presence, mark messages as read, react, edit, and delete
+- Single connection — pair one WhatsApp account from your local agent
+
 ## 🚀 Quick Start
 
 ### Installation
@@ -307,6 +364,7 @@ npm install -g @arvoretech/npm-registry-mcp
 npm install -g @arvoretech/launchdarkly-mcp
 npm install -g @arvoretech/tempmail-mcp
 npm install -g @arvoretech/google-chat-mcp
+npm install -g @arvoretech/gmail-mcp
 npm install -g @arvoretech/memory-mcp
 npm install -g @arvoretech/runtime-lens-mcp
 npm install -g @arvoretech/meet-transcriptions-mcp
@@ -319,6 +377,9 @@ npm install -g @arvoretech/agent-teams-chat-mcp
 npm install -g @arvoretech/metabase-mcp
 npm install -g @arvoretech/mgc-mcp
 npm install -g @arvoretech/kanban-mcp
+npm install -g @arvoretech/posthog-mcp
+npm install -g @arvoretech/slack-advanced-mcp
+npm install -g @arvoretech/whatsapp-mcp
 ```
 
 Or using pnpm:
@@ -415,6 +476,15 @@ Add to your Claude Desktop configuration file:
         "GOOGLE_CHAT_USER_EMAIL": "user@yourdomain.com"
       }
     },
+    "gmail": {
+      "command": "npx",
+      "args": ["-y", "@arvoretech/gmail-mcp"],
+      "env": {
+        "GMAIL_MCP_CLIENT_ID": "your-oauth-client-id",
+        "GMAIL_MCP_CLIENT_SECRET": "your-oauth-client-secret",
+        "GMAIL_MCP_ALLOW_SEND": "false"
+      }
+    },
     "team-memory": {
       "command": "npx",
       "args": ["-y", "@arvoretech/memory-mcp"],
@@ -491,6 +561,29 @@ Add to your Claude Desktop configuration file:
         "KANBAN_PATH": "./kanban",
         "KANBAN_UI": "true",
         "KANBAN_PORT": "4799"
+      }
+    },
+    "posthog": {
+      "command": "npx",
+      "args": ["-y", "@arvoretech/posthog-mcp"],
+      "env": {
+        "POSTHOG_BASE_URL": "https://posthog.example.com",
+        "POSTHOG_API_KEY": "phx_your_personal_api_key"
+      }
+    },
+    "slack-advanced": {
+      "command": "npx",
+      "args": ["-y", "@arvoretech/slack-advanced-mcp"],
+      "env": {
+        "SLACK_USER_TOKEN": "xoxp-your-user-token",
+        "ELEVENLABS_API_KEY": "sk_your-elevenlabs-key"
+      }
+    },
+    "whatsapp": {
+      "command": "npx",
+      "args": ["-y", "@arvoretech/whatsapp-mcp"],
+      "env": {
+        "WHATSAPP_LOG_LEVEL": "warn"
       }
     }
   }

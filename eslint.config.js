@@ -31,6 +31,7 @@ export default [
         Request: "readonly",
         WebSocket: "readonly",
         AbortSignal: "readonly",
+        AbortController: "readonly",
         ErrorEvent: "readonly",
       },
     },

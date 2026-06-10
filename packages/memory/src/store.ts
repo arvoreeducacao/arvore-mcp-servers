@@ -1,5 +1,5 @@
 import { readFile, readdir, writeFile, mkdir, rm, stat } from "node:fs/promises";
-import { join, basename } from "node:path";
+import { join, basename, resolve, dirname } from "node:path";
 import { existsSync } from "node:fs";
 import { createHash } from "node:crypto";
 import * as lancedb from "@lancedb/lancedb";
@@ -14,6 +14,43 @@ import {
   VALID_CATEGORIES,
   MemoryMCPError,
 } from "./types.js";
+
+interface SteeringTarget {
+  dir: string;
+  buildContent: (body: string) => string;
+}
+
+function detectSteeringTargets(workspaceRoot: string): SteeringTarget[] {
+  const targets: SteeringTarget[] = [];
+
+  const kiroSteering = join(workspaceRoot, ".kiro", "steering");
+  if (existsSync(kiroSteering)) {
+    targets.push({
+      dir: kiroSteering,
+      buildContent: (body) =>
+        `---\ninclusion: always\nname: team-memories-index\n---\n\n${body}\n`,
+    });
+  }
+
+  const cursorRules = join(workspaceRoot, ".cursor", "rules");
+  if (existsSync(cursorRules)) {
+    targets.push({
+      dir: cursorRules,
+      buildContent: (body) =>
+        `---\ndescription: "Team memories index — active knowledge base"\nalwaysApply: true\n---\n\n${body}\n`,
+    });
+  }
+
+  const opencodeRules = join(workspaceRoot, ".opencode", "rules");
+  if (existsSync(opencodeRules)) {
+    targets.push({
+      dir: opencodeRules,
+      buildContent: (body) => `${body}\n`,
+    });
+  }
+
+  return targets;
+}
 
 function vectorRecord(entry: MemoryEntry, vector: number[], contentHash: string): Record<string, unknown> {
   return {
@@ -31,18 +68,35 @@ function vectorRecord(entry: MemoryEntry, vector: number[], contentHash: string)
 
 export class MemoryStore {
   private memoriesPath: string;
+  private workspaceRoot: string;
   private catalog: MemoryEntry[] = [];
   private embeddings: EmbeddingEngine;
   private db: lancedb.Connection | null = null;
   private table: lancedb.Table | null = null;
   private loaded = false;
+  private loadingPromise: Promise<void> | null = null;
 
   constructor(memoriesPath: string, embeddingModel?: string) {
     this.memoriesPath = memoriesPath;
+    this.workspaceRoot = this.resolveWorkspaceRoot(memoriesPath);
     this.embeddings = new EmbeddingEngine(embeddingModel);
   }
 
+  private resolveWorkspaceRoot(memoriesPath: string): string {
+    const abs = resolve(memoriesPath);
+    const parent = dirname(abs);
+    if (existsSync(join(parent, ".kiro")) || existsSync(join(parent, ".cursor")) || existsSync(join(parent, ".git"))) {
+      return parent;
+    }
+    return parent;
+  }
+
   async load(): Promise<void> {
+    this.loadingPromise = this.doLoad();
+    return this.loadingPromise;
+  }
+
+  private async doLoad(): Promise<void> {
     this.catalog = [];
 
     await this.embeddings.init();
@@ -87,6 +141,58 @@ export class MemoryStore {
     }
 
     this.loaded = true;
+
+    await this.syncSteeringIndex();
+  }
+
+  async syncSteeringIndex(): Promise<void> {
+    try {
+      const targets = detectSteeringTargets(this.workspaceRoot);
+      if (targets.length === 0) return;
+
+      const active = this.catalog.filter((m) => m.status === "active");
+      const grouped = new Map<string, MemoryEntry[]>();
+
+      for (const entry of active) {
+        const list = grouped.get(entry.category) || [];
+        list.push(entry);
+        grouped.set(entry.category, list);
+      }
+
+      const lines: string[] = [
+        "# Team Memories Index",
+        "",
+        `Total: ${active.length} active memories. Use \`get_memory(id)\` to read full content.`,
+        "",
+      ];
+
+      for (const category of VALID_CATEGORIES) {
+        const entries = grouped.get(category);
+        if (!entries || entries.length === 0) continue;
+
+        lines.push(`## ${category} (${entries.length})`);
+        lines.push("");
+
+        for (const entry of entries) {
+          const tags = entry.tags.length > 0 ? ` [${entry.tags.join(", ")}]` : "";
+          lines.push(`- **${entry.title}**${tags} → \`${entry.id}\``);
+        }
+
+        lines.push("");
+      }
+
+      const body = lines.join("\n");
+
+      for (const target of targets) {
+        const filePath = join(target.dir, "team-memories-index.md");
+        const content = target.buildContent(body);
+        await writeFile(filePath, content, "utf-8");
+      }
+
+      console.error(`Synced steering index (${active.length} memories, ${targets.length} target(s))`);
+    } catch (error) {
+      console.error(`Failed to sync steering index: ${error instanceof Error ? error.message : error}`);
+    }
   }
 
   private async syncVectorStore(): Promise<void> {
@@ -186,17 +292,20 @@ export class MemoryStore {
     }
   }
 
-  private ensureLoaded(): void {
-    if (!this.loaded) {
-      throw new MemoryMCPError("Store not loaded. Call load() first.", "NOT_LOADED");
+  private async ensureLoaded(): Promise<void> {
+    if (this.loaded) return;
+    if (this.loadingPromise) {
+      await this.loadingPromise;
+      return;
     }
+    throw new MemoryMCPError("Store not loaded. Call load() first.", "NOT_LOADED");
   }
 
   async search(
     query: string,
     opts?: { category?: MemoryCategory; status?: MemoryStatus; limit?: number }
   ): Promise<(MemoryCatalogEntry & { score: number })[]> {
-    this.ensureLoaded();
+    await this.ensureLoaded();
 
     const status = opts?.status || "active";
     const limit = opts?.limit || 10;
@@ -281,12 +390,12 @@ export class MemoryStore {
       .map((s) => ({ ...this.toCatalogEntry(s.entry), score: round(s.score) }));
   }
 
-  list(opts?: {
+  async list(opts?: {
     category?: MemoryCategory;
     status?: MemoryStatus;
     limit?: number;
-  }): MemoryCatalogEntry[] {
-    this.ensureLoaded();
+  }): Promise<MemoryCatalogEntry[]> {
+    await this.ensureLoaded();
 
     let filtered = [...this.catalog];
 
@@ -301,8 +410,8 @@ export class MemoryStore {
     return filtered.slice(0, limit).map((e) => this.toCatalogEntry(e));
   }
 
-  get(id: string): MemoryEntry | null {
-    this.ensureLoaded();
+  async get(id: string): Promise<MemoryEntry | null> {
+    await this.ensureLoaded();
     return this.catalog.find((m) => m.id === id) || null;
   }
 
@@ -377,11 +486,13 @@ ${content}`;
       }
     }
 
+    await this.syncSteeringIndex();
+
     return entry;
   }
 
   async archive(id: string): Promise<MemoryEntry> {
-    const entry = this.get(id);
+    const entry = await this.get(id);
     if (!entry) {
       throw new MemoryMCPError(`Memory "${id}" not found`, "NOT_FOUND");
     }
@@ -398,11 +509,13 @@ ${content}`;
       await this.table.update({ where: `id = '${id}'`, values: { status: "archived" } });
     }
 
+    await this.syncSteeringIndex();
+
     return entry;
   }
 
   async remove(id: string): Promise<void> {
-    const entry = this.get(id);
+    const entry = await this.get(id);
     if (!entry) {
       throw new MemoryMCPError(`Memory "${id}" not found`, "NOT_FOUND");
     }
@@ -413,6 +526,8 @@ ${content}`;
     if (this.table) {
       await this.table.delete(`id = '${id}'`);
     }
+
+    await this.syncSteeringIndex();
   }
 
   private toCatalogEntry(entry: MemoryEntry): MemoryCatalogEntry {
