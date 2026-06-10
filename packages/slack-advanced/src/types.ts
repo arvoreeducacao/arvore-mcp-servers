@@ -422,11 +422,47 @@ export const CreateGroupDmParamsSchema = z.object({
     .describe("Optional message to post in the group DM right after opening it (supports Slack mrkdwn)"),
 });
 
+export const WaitForReplyParamsSchema = z.object({
+  user: z
+    .string()
+    .min(1, "User identifier is required")
+    .describe("User whose reply to wait for. Can be a user ID, email, or display name. Only messages authored by this user are considered a reply"),
+  channel: z
+    .string()
+    .optional()
+    .describe("Channel ID or #channel-name to watch. If omitted, watches the 1:1 DM with the user. Required when watching a thread in a channel"),
+  thread_ts: z
+    .string()
+    .optional()
+    .describe("Thread timestamp to watch for replies in a specific thread. When set, only replies inside that thread are considered"),
+  since_ts: z
+    .string()
+    .optional()
+    .describe("Only consider messages strictly after this Unix timestamp (e.g. the ts returned by send_dm/send_channel_message). Defaults to the moment the tool starts"),
+  timeout_seconds: z
+    .number()
+    .int()
+    .positive()
+    .max(3600)
+    .optional()
+    .default(600)
+    .describe("Maximum time to wait for a reply before giving up. Defaults to 600 (10 minutes), max 3600"),
+  poll_interval_seconds: z
+    .number()
+    .int()
+    .positive()
+    .max(60)
+    .optional()
+    .default(5)
+    .describe("How often to poll Slack for new messages. Defaults to 5 seconds"),
+});
+
 export type SearchUsersParams = z.infer<typeof SearchUsersParamsSchema>;
 export type GetUserProfileParams = z.infer<typeof GetUserProfileParamsSchema>;
 export type GetUserInfoParams = z.infer<typeof GetUserInfoParamsSchema>;
 export type CreateChannelParams = z.infer<typeof CreateChannelParamsSchema>;
 export type CreateGroupDmParams = z.infer<typeof CreateGroupDmParamsSchema>;
+export type WaitForReplyParams = z.infer<typeof WaitForReplyParamsSchema>;
 export type MessageMetadata = z.infer<typeof MessageMetadataSchema>;
 export type SendDmParams = z.infer<typeof SendDmParamsSchema>;
 export type GetDmHistoryParams = z.infer<typeof GetDmHistoryParamsSchema>;

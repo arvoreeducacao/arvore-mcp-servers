@@ -11,6 +11,7 @@ import type {
   RemoveReactionParams,
   CreateChannelParams,
   CreateGroupDmParams,
+  WaitForReplyParams,
   McpToolResult,
   SlackMessage,
 } from "../types.js";
@@ -440,6 +441,92 @@ export class MessagingTools {
     } catch (error) {
       return this.formatError(error);
     }
+  }
+
+  async waitForReply(params: WaitForReplyParams, signal?: AbortSignal): Promise<McpToolResult> {
+    try {
+      const userId = await this.slack.resolveUserId(params.user);
+
+      let channelId: string;
+      if (params.channel) {
+        channelId = await this.slack.resolveChannelId(params.channel);
+      } else {
+        channelId = await this.slack.openDm(userId);
+      }
+
+      const sinceTs = params.since_ts ?? (Date.now() / 1000).toFixed(6);
+      const deadline = Date.now() + params.timeout_seconds * 1000;
+      const pollMs = params.poll_interval_seconds * 1000;
+      const method = params.thread_ts ? "conversations.replies" : "conversations.history";
+
+      while (Date.now() < deadline) {
+        if (signal?.aborted) {
+          return this.ok({
+            replied: false,
+            cancelled: true,
+            channel_id: channelId,
+            waiting_for_user_id: userId,
+          });
+        }
+
+        const requestParams: Record<string, unknown> = {
+          channel: channelId,
+          oldest: sinceTs,
+          limit: 50,
+        };
+        if (params.thread_ts) requestParams.ts = params.thread_ts;
+
+        const res = await this.slack.request<{
+          ok: boolean;
+          messages: SlackMessage[];
+        }>(method, requestParams);
+
+        const reply = res.messages
+          .filter((m) => m.user === userId && m.ts > sinceTs)
+          .sort((a, b) => Number(a.ts) - Number(b.ts))[0];
+
+        if (reply) {
+          return this.ok({
+            replied: true,
+            text: reply.text,
+            ts: reply.ts,
+            user_id: userId,
+            channel_id: channelId,
+            thread_ts: reply.thread_ts ?? null,
+          });
+        }
+
+        const remaining = deadline - Date.now();
+        if (remaining <= 0) break;
+        await this.sleep(Math.min(pollMs, remaining), signal);
+      }
+
+      return this.ok({
+        replied: false,
+        timed_out: true,
+        channel_id: channelId,
+        waiting_for_user_id: userId,
+        waited_seconds: params.timeout_seconds,
+      });
+    } catch (error) {
+      return this.formatError(error);
+    }
+  }
+
+  private sleep(ms: number, signal?: AbortSignal): Promise<void> {
+    return new Promise((resolve) => {
+      const timer = setTimeout(resolve, ms);
+      if (signal) {
+        signal.addEventListener(
+          "abort",
+          () => {
+            clearTimeout(timer);
+            resolve();
+          },
+          { once: true }
+        );
+      }
+    });
   }
 
   private ok(data: unknown): McpToolResult {

@@ -32,6 +32,7 @@ import {
   RemoveReactionParamsSchema,
   CreateChannelParamsSchema,
   CreateGroupDmParamsSchema,
+  WaitForReplyParamsSchema,
 } from "./types.js";
 
 export class SlackAdvancedMCPServer {
@@ -277,6 +278,15 @@ export class SlackAdvancedMCPServer {
       inputSchema: CreateGroupDmParamsSchema.shape,
     }, async (params) => {
       return this.messagingTools.createGroupDm(CreateGroupDmParamsSchema.parse(params));
+    });
+
+    this.server.registerTool("wait_for_reply", {
+      title: "Wait For Reply",
+      description:
+        "Block and poll Slack until a specific user replies in a DM or thread, then return their message text. Use this after send_dm/send_channel_message to wait for a human's answer and continue the conversation: pass the same user and the ts of your message as since_ts. Watches the 1:1 DM by default, or a channel/thread when channel/thread_ts are provided. Polls every poll_interval_seconds (default 5) until the user replies or timeout_seconds elapses (default 600, max 3600). Returns { replied, text, ts } on success, { replied: false, timed_out: true } on timeout, or { cancelled: true } if interrupted. Only messages authored by the target user count as a reply.",
+      inputSchema: WaitForReplyParamsSchema.shape,
+    }, async (params, extra) => {
+      return this.messagingTools.waitForReply(WaitForReplyParamsSchema.parse(params), extra?.signal);
     });
   }
 
