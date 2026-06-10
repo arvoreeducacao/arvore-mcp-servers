@@ -9,6 +9,8 @@ import type {
   DeleteMessageParams,
   AddReactionParams,
   RemoveReactionParams,
+  CreateChannelParams,
+  CreateGroupDmParams,
   McpToolResult,
   SlackMessage,
 } from "../types.js";
@@ -303,6 +305,137 @@ export class MessagingTools {
         channel: params.channel,
         ts: params.ts,
         emoji: params.emoji,
+      });
+    } catch (error) {
+      return this.formatError(error);
+    }
+  }
+
+  async createChannel(params: CreateChannelParams): Promise<McpToolResult> {
+    try {
+      const createRes = await this.slack.request<{
+        ok: boolean;
+        channel: { id: string; name: string; is_private: boolean };
+      }>("conversations.create", {
+        name: params.name,
+        is_private: params.is_private,
+      });
+
+      const channelId = createRes.channel.id;
+      const invited: Array<{ user: string; user_id: string }> = [];
+      const inviteErrors: Array<{ user: string; error: string }> = [];
+
+      if (params.invite_users && params.invite_users.length > 0) {
+        const userIds: string[] = [];
+        for (const identifier of params.invite_users) {
+          try {
+            const userId = await this.slack.resolveUserId(identifier);
+            userIds.push(userId);
+            invited.push({ user: identifier, user_id: userId });
+          } catch (error) {
+            inviteErrors.push({
+              user: identifier,
+              error: error instanceof Error ? error.message : "Could not resolve user",
+            });
+          }
+        }
+
+        if (userIds.length > 0) {
+          try {
+            await this.slack.request<{ ok: boolean }>("conversations.invite", {
+              channel: channelId,
+              users: userIds.join(","),
+            });
+          } catch (error) {
+            inviteErrors.push({
+              user: userIds.join(","),
+              error: error instanceof Error ? error.message : "Failed to invite users",
+            });
+          }
+        }
+      }
+
+      if (params.topic) {
+        await this.slack.request<{ ok: boolean }>("conversations.setTopic", {
+          channel: channelId,
+          topic: params.topic,
+        });
+      }
+
+      if (params.purpose) {
+        await this.slack.request<{ ok: boolean }>("conversations.setPurpose", {
+          channel: channelId,
+          purpose: params.purpose,
+        });
+      }
+
+      return this.ok({
+        created: true,
+        channel_id: channelId,
+        name: createRes.channel.name,
+        is_private: createRes.channel.is_private,
+        invited,
+        ...(inviteErrors.length > 0 && { invite_errors: inviteErrors }),
+      });
+    } catch (error) {
+      return this.formatError(error);
+    }
+  }
+
+  async createGroupDm(params: CreateGroupDmParams): Promise<McpToolResult> {
+    try {
+      const resolved: Array<{ user: string; user_id: string }> = [];
+      const resolveErrors: Array<{ user: string; error: string }> = [];
+
+      for (const identifier of params.users) {
+        try {
+          const userId = await this.slack.resolveUserId(identifier);
+          resolved.push({ user: identifier, user_id: userId });
+        } catch (error) {
+          resolveErrors.push({
+            user: identifier,
+            error: error instanceof Error ? error.message : "Could not resolve user",
+          });
+        }
+      }
+
+      if (resolved.length === 0) {
+        return this.ok({
+          created: false,
+          error: "No users could be resolved",
+          resolve_errors: resolveErrors,
+        });
+      }
+
+      const openRes = await this.slack.request<{
+        ok: boolean;
+        channel: { id: string };
+      }>("conversations.open", {
+        users: resolved.map((r) => r.user_id).join(","),
+      });
+
+      const channelId = openRes.channel.id;
+      let messageTs: string | null = null;
+
+      if (params.message) {
+        const mrkdwn = this.toMrkdwn(params.message);
+        const blocks = this.buildBlocks(mrkdwn);
+        const res = await this.slack.request<{ ok: boolean; ts: string }>("chat.postMessage", {
+          channel: channelId,
+          text: mrkdwn,
+          blocks: JSON.stringify(blocks),
+          unfurl_links: false,
+          unfurl_media: false,
+        });
+        messageTs = res.ts;
+      }
+
+      return this.ok({
+        created: true,
+        channel_id: channelId,
+        members: resolved,
+        ...(messageTs && { message_ts: messageTs }),
+        ...(resolveErrors.length > 0 && { resolve_errors: resolveErrors }),
       });
     } catch (error) {
       return this.formatError(error);

@@ -30,6 +30,8 @@ import {
   DeleteMessageParamsSchema,
   AddReactionParamsSchema,
   RemoveReactionParamsSchema,
+  CreateChannelParamsSchema,
+  CreateGroupDmParamsSchema,
 } from "./types.js";
 
 export class SlackAdvancedMCPServer {
@@ -257,6 +259,24 @@ export class SlackAdvancedMCPServer {
       inputSchema: RemoveReactionParamsSchema.shape,
     }, async (params) => {
       return this.messagingTools.removeReaction(RemoveReactionParamsSchema.parse(params));
+    });
+
+    this.server.registerTool("create_channel", {
+      title: "Create Channel",
+      description:
+        "Create a new Slack channel (public or private) and optionally invite users to it. Users can be referenced by ID, email, or display name. Optionally sets a topic and purpose. Returns the new channel ID, invited users, and any invite errors. Requires channels:manage and/or groups:write scopes, plus channels:write.invites for inviting members.",
+      inputSchema: CreateChannelParamsSchema.shape,
+    }, async (params) => {
+      return this.messagingTools.createChannel(CreateChannelParamsSchema.parse(params));
+    });
+
+    this.server.registerTool("create_group_dm", {
+      title: "Create Group DM",
+      description:
+        "Open a multi-person direct message (MPDM / group DM) with multiple users and optionally post a message in it. Users can be referenced by ID, email, or display name (the authenticated user is added automatically, up to 8 other members). Users that cannot be resolved are reported in resolve_errors without aborting the operation. Requires the mpim:write scope.",
+      inputSchema: CreateGroupDmParamsSchema.shape,
+    }, async (params) => {
+      return this.messagingTools.createGroupDm(CreateGroupDmParamsSchema.parse(params));
     });
   }
 
