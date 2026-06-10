@@ -8,6 +8,7 @@ import {
   GetJobParamsSchema,
   UpdateJobStatusParamsSchema,
   ListApplicationsParamsSchema,
+  ListApplicationExperiencesParamsSchema,
   MoveApplicationParamsSchema,
   CreateApplicationCommentParamsSchema,
   ListApplicationCommentsParamsSchema,
@@ -100,12 +101,27 @@ export class GupyMCPServer {
       {
         title: "List Applications",
         description:
-          "List candidate applications for a specific job, with optional step/status filters",
+          "List candidate applications for a specific job, with optional step/status filters. Use fields='all' to include candidate details such as work experience, education and languages.",
         inputSchema: ListApplicationsParamsSchema.shape,
       },
       async (params) => {
         return this.tools.listApplications(
           ListApplicationsParamsSchema.parse(params)
+        );
+      }
+    );
+
+    this.server.registerTool(
+      "list_application_experiences",
+      {
+        title: "List Application Professional Experiences",
+        description:
+          "List the professional (work) experiences of candidates who applied to a specific job. Returns each candidate's name, email, schooling and a clean list of work experiences (role, company, activities, period). Internally queries the applications endpoint with fields=all.",
+        inputSchema: ListApplicationExperiencesParamsSchema.shape,
+      },
+      async (params) => {
+        return this.tools.listApplicationExperiences(
+          ListApplicationExperiencesParamsSchema.parse(params)
         );
       }
     );

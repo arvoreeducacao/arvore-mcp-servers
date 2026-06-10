@@ -5,6 +5,7 @@ import {
   GetJobParams,
   UpdateJobStatusParams,
   ListApplicationsParams,
+  ListApplicationExperiencesParams,
   MoveApplicationParams,
   CreateApplicationCommentParams,
   ListApplicationCommentsParams,
@@ -92,6 +93,7 @@ export class GupyMCPTools {
         offset: params.offset,
         currentStep: params.currentStep,
         status: params.status,
+        fields: params.fields,
       });
       const data = await this.client.request<unknown>(
         "GET",
@@ -100,6 +102,29 @@ export class GupyMCPTools {
         query
       );
       return this.ok(data);
+    } catch (error) {
+      return this.formatError(error);
+    }
+  }
+
+  async listApplicationExperiences(
+    params: ListApplicationExperiencesParams
+  ): Promise<McpToolResult> {
+    try {
+      const query = this.cleanQuery({
+        limit: params.limit,
+        offset: params.offset,
+        currentStep: params.currentStep,
+        status: params.status,
+        fields: "all",
+      });
+      const data = await this.client.request<unknown>(
+        "GET",
+        `/api/v1/jobs/${params.jobId}/applications`,
+        undefined,
+        query
+      );
+      return this.ok(this.extractExperiences(data));
     } catch (error) {
       return this.formatError(error);
     }
@@ -258,6 +283,53 @@ export class GupyMCPTools {
     } catch (error) {
       return this.formatError(error);
     }
+  }
+
+  private extractExperiences(data: unknown): unknown {
+    const root = data as Record<string, unknown> | null;
+    const list = Array.isArray(root?.data)
+      ? (root?.data as unknown[])
+      : Array.isArray(data)
+        ? (data as unknown[])
+        : [];
+
+    const applications = list.map((item) => {
+      const application = item as Record<string, unknown>;
+      const candidate =
+        (application.candidate as Record<string, unknown> | undefined) ?? {};
+      const rawExperiences = Array.isArray(candidate.workExperience)
+        ? (candidate.workExperience as Record<string, unknown>[])
+        : [];
+
+      const workExperience = rawExperiences.map((experience) => ({
+        role: experience.role ?? null,
+        companyName: experience.companyName ?? null,
+        activitiesPerformed: experience.activitiesPerformed ?? null,
+        startMonth: experience.startMonth ?? null,
+        startYear: experience.startYear ?? null,
+        endMonth: experience.endMonth ?? null,
+        endYear: experience.endYear ?? null,
+      }));
+
+      return {
+        applicationId: application.id ?? null,
+        candidateName: candidate.name ?? null,
+        candidateEmail: candidate.email ?? null,
+        schooling: candidate.schooling ?? null,
+        schoolingStatus: candidate.schoolingStatus ?? null,
+        workExperience,
+      };
+    });
+
+    return {
+      summary: {
+        total: applications.length,
+        withExperience: applications.filter(
+          (application) => application.workExperience.length > 0
+        ).length,
+      },
+      applications,
+    };
   }
 
   private cleanQuery(

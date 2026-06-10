@@ -72,6 +72,25 @@ export const ListApplicationsParamsSchema = z.object({
     .string()
     .optional()
     .describe("Filter by application status"),
+  fields: z
+    .enum(["name", "id", "code", "all"])
+    .optional()
+    .describe(
+      "Controls which application fields are returned. Use 'all' to include candidate details such as workExperience, academicQualification and languages. Defaults to Gupy's standard response when omitted."
+    ),
+});
+
+export const ListApplicationExperiencesParamsSchema = z.object({
+  jobId: z.union([z.string(), z.number()]).describe("Job ID"),
+  ...Pagination,
+  currentStep: z
+    .string()
+    .optional()
+    .describe("Filter applications by current step name"),
+  status: z
+    .string()
+    .optional()
+    .describe("Filter by application status"),
 });
 
 export const MoveApplicationParamsSchema = z.object({
@@ -160,6 +179,9 @@ export type GetJobParams = z.infer<typeof GetJobParamsSchema>;
 export type UpdateJobStatusParams = z.infer<typeof UpdateJobStatusParamsSchema>;
 export type ListApplicationsParams = z.infer<
   typeof ListApplicationsParamsSchema
+>;
+export type ListApplicationExperiencesParams = z.infer<
+  typeof ListApplicationExperiencesParamsSchema
 >;
 export type MoveApplicationParams = z.infer<typeof MoveApplicationParamsSchema>;
 export type CreateApplicationCommentParams = z.infer<
