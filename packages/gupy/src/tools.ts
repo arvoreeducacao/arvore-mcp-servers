@@ -322,6 +322,30 @@ export class GupyMCPTools {
         answer: entry.answer ?? null,
       }));
 
+      const rawAcademic = Array.isArray(candidate.academicQualification)
+        ? (candidate.academicQualification as Record<string, unknown>[])
+        : [];
+
+      const academicQualification = rawAcademic.map((entry) => ({
+        formation: entry.formation ?? null,
+        status: entry.status ?? null,
+        institution: entry.institution ?? null,
+        course: entry.course ?? null,
+        startMonth: entry.startMonth ?? null,
+        startYear: entry.startYear ?? null,
+        endMonth: entry.endMonth ?? null,
+        endYear: entry.endYear ?? null,
+      }));
+
+      const rawLanguages = Array.isArray(candidate.languages)
+        ? (candidate.languages as Record<string, unknown>[])
+        : [];
+
+      const languages = rawLanguages.map((entry) => ({
+        language: entry.language ?? null,
+        level: entry.level ?? null,
+      }));
+
       return {
         applicationId: application.id ?? null,
         candidateName: candidate.name ?? null,
@@ -329,6 +353,8 @@ export class GupyMCPTools {
         schooling: candidate.schooling ?? null,
         schoolingStatus: candidate.schoolingStatus ?? null,
         workExperience,
+        academicQualification,
+        languages,
         additionalQuestions,
       };
     });

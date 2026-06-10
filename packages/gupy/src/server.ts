@@ -34,7 +34,7 @@ export class GupyMCPServer {
 
     this.server = new McpServer({
       name: "gupy-mcp-server",
-      version: "1.0.0",
+      version: "1.1.0",
     });
 
     const client = new GupyClient(apiToken, baseUrl);
@@ -116,7 +116,7 @@ export class GupyMCPServer {
       {
         title: "List Application Professional Experiences",
         description:
-          "List the professional (work) experiences of candidates who applied to a specific job. Returns each candidate's name, email, schooling, a clean list of work experiences (role, company, activities, period) and the additionalQuestions (custom registration questions/answers the candidate filled in). Internally queries the applications endpoint with fields=all.",
+          "List the professional (work) experiences of candidates who applied to a specific job. Returns each candidate's name, email, schooling, work experiences (role, company, activities, period), academic qualifications (course, institution, period), languages (idiom + level) and additionalQuestions (custom registration questions/answers). Internally queries the applications endpoint with fields=all.",
         inputSchema: ListApplicationExperiencesParamsSchema.shape,
       },
       async (params) => {
