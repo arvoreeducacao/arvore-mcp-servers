@@ -26,12 +26,15 @@ import {
 export class HubSpotMCPServer {
   private readonly server: McpServer;
   private readonly tools: HubSpotMCPTools;
+  private readonly readOnly: boolean;
 
   constructor() {
     const accessToken = process.env.HUBSPOT_ACCESS_TOKEN;
     if (!accessToken) {
       throw new Error("Missing required env var: HUBSPOT_ACCESS_TOKEN");
     }
+
+    this.readOnly = process.env.HUBSPOT_READ_ONLY !== "false";
 
     this.server = new McpServer({
       name: "hubspot-mcp-server",
@@ -41,10 +44,13 @@ export class HubSpotMCPServer {
     const client = new HubSpotClient(accessToken);
     this.tools = new HubSpotMCPTools(client);
 
-    this.setupTools();
+    this.setupReadTools();
+    if (!this.readOnly) {
+      this.setupWriteTools();
+    }
   }
 
-  private setupTools(): void {
+  private setupReadTools(): void {
     this.server.registerTool(
       "list_objects",
       {
@@ -64,37 +70,6 @@ export class HubSpotMCPServer {
         inputSchema: GetObjectParamsSchema.shape,
       },
       async (params) => this.tools.getObject(GetObjectParamsSchema.parse(params))
-    );
-
-    this.server.registerTool(
-      "create_object",
-      {
-        title: "Create CRM Object",
-        description:
-          "Create a CRM record (contact, company, deal, ticket, note, task, call, email, meeting, or custom) with properties and optional associations.",
-        inputSchema: CreateObjectParamsSchema.shape,
-      },
-      async (params) => this.tools.createObject(CreateObjectParamsSchema.parse(params))
-    );
-
-    this.server.registerTool(
-      "update_object",
-      {
-        title: "Update CRM Object",
-        description: "Update a CRM record's properties by ID (or by a unique idProperty).",
-        inputSchema: UpdateObjectParamsSchema.shape,
-      },
-      async (params) => this.tools.updateObject(UpdateObjectParamsSchema.parse(params))
-    );
-
-    this.server.registerTool(
-      "delete_object",
-      {
-        title: "Delete CRM Object",
-        description: "Archive (soft-delete) a CRM record by ID.",
-        inputSchema: DeleteObjectParamsSchema.shape,
-      },
-      async (params) => this.tools.deleteObject(DeleteObjectParamsSchema.parse(params))
     );
 
     this.server.registerTool(
@@ -126,27 +101,6 @@ export class HubSpotMCPServer {
         inputSchema: ListAssociationsParamsSchema.shape,
       },
       async (params) => this.tools.listAssociations(ListAssociationsParamsSchema.parse(params))
-    );
-
-    this.server.registerTool(
-      "create_association",
-      {
-        title: "Create Association",
-        description:
-          "Associate two records. Omit types for a default (unlabeled) association, or provide associationTypeId(s) for labeled associations.",
-        inputSchema: CreateAssociationParamsSchema.shape,
-      },
-      async (params) => this.tools.createAssociation(CreateAssociationParamsSchema.parse(params))
-    );
-
-    this.server.registerTool(
-      "delete_association",
-      {
-        title: "Delete Association",
-        description: "Remove all associations between two specific records.",
-        inputSchema: DeleteAssociationParamsSchema.shape,
-      },
-      async (params) => this.tools.deleteAssociation(DeleteAssociationParamsSchema.parse(params))
     );
 
     this.server.registerTool(
@@ -208,6 +162,60 @@ export class HubSpotMCPServer {
       },
       async (params) => this.tools.listThreadMessages(ListThreadMessagesParamsSchema.parse(params))
     );
+  }
+
+  private setupWriteTools(): void {
+    this.server.registerTool(
+      "create_object",
+      {
+        title: "Create CRM Object",
+        description:
+          "Create a CRM record (contact, company, deal, ticket, note, task, call, email, meeting, or custom) with properties and optional associations.",
+        inputSchema: CreateObjectParamsSchema.shape,
+      },
+      async (params) => this.tools.createObject(CreateObjectParamsSchema.parse(params))
+    );
+
+    this.server.registerTool(
+      "update_object",
+      {
+        title: "Update CRM Object",
+        description: "Update a CRM record's properties by ID (or by a unique idProperty).",
+        inputSchema: UpdateObjectParamsSchema.shape,
+      },
+      async (params) => this.tools.updateObject(UpdateObjectParamsSchema.parse(params))
+    );
+
+    this.server.registerTool(
+      "delete_object",
+      {
+        title: "Delete CRM Object",
+        description: "Archive (soft-delete) a CRM record by ID.",
+        inputSchema: DeleteObjectParamsSchema.shape,
+      },
+      async (params) => this.tools.deleteObject(DeleteObjectParamsSchema.parse(params))
+    );
+
+    this.server.registerTool(
+      "create_association",
+      {
+        title: "Create Association",
+        description:
+          "Associate two records. Omit types for a default (unlabeled) association, or provide associationTypeId(s) for labeled associations.",
+        inputSchema: CreateAssociationParamsSchema.shape,
+      },
+      async (params) => this.tools.createAssociation(CreateAssociationParamsSchema.parse(params))
+    );
+
+    this.server.registerTool(
+      "delete_association",
+      {
+        title: "Delete Association",
+        description: "Remove all associations between two specific records.",
+        inputSchema: DeleteAssociationParamsSchema.shape,
+      },
+      async (params) => this.tools.deleteAssociation(DeleteAssociationParamsSchema.parse(params))
+    );
 
     this.server.registerTool(
       "send_thread_message",
@@ -235,7 +243,9 @@ export class HubSpotMCPServer {
     try {
       const transport = new StdioServerTransport();
       await this.server.connect(transport);
-      console.error("✅ HubSpot MCP Server started");
+      console.error(
+        `✅ HubSpot MCP Server started (${this.readOnly ? "read-only" : "read-write"} mode)`
+      );
     } catch (error) {
       console.error(
         "Failed to start HubSpot MCP Server:",
