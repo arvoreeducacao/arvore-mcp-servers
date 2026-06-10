@@ -31,6 +31,7 @@ import {
   AddReactionParamsSchema,
   RemoveReactionParamsSchema,
   CreateChannelParamsSchema,
+  CreateGroupDmParamsSchema,
 } from "./types.js";
 
 export class SlackAdvancedMCPServer {
@@ -267,6 +268,15 @@ export class SlackAdvancedMCPServer {
       inputSchema: CreateChannelParamsSchema.shape,
     }, async (params) => {
       return this.messagingTools.createChannel(CreateChannelParamsSchema.parse(params));
+    });
+
+    this.server.registerTool("create_group_dm", {
+      title: "Create Group DM",
+      description:
+        "Open a multi-person direct message (MPDM / group DM) with multiple users and optionally post a message in it. Users can be referenced by ID, email, or display name (the authenticated user is added automatically, up to 8 other members). Users that cannot be resolved are reported in resolve_errors without aborting the operation. Requires the mpim:write scope.",
+      inputSchema: CreateGroupDmParamsSchema.shape,
+    }, async (params) => {
+      return this.messagingTools.createGroupDm(CreateGroupDmParamsSchema.parse(params));
     });
   }
 

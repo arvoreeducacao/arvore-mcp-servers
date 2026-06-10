@@ -10,6 +10,7 @@ import type {
   AddReactionParams,
   RemoveReactionParams,
   CreateChannelParams,
+  CreateGroupDmParams,
   McpToolResult,
   SlackMessage,
 } from "../types.js";
@@ -375,6 +376,66 @@ export class MessagingTools {
         is_private: createRes.channel.is_private,
         invited,
         ...(inviteErrors.length > 0 && { invite_errors: inviteErrors }),
+      });
+    } catch (error) {
+      return this.formatError(error);
+    }
+  }
+
+  async createGroupDm(params: CreateGroupDmParams): Promise<McpToolResult> {
+    try {
+      const resolved: Array<{ user: string; user_id: string }> = [];
+      const resolveErrors: Array<{ user: string; error: string }> = [];
+
+      for (const identifier of params.users) {
+        try {
+          const userId = await this.slack.resolveUserId(identifier);
+          resolved.push({ user: identifier, user_id: userId });
+        } catch (error) {
+          resolveErrors.push({
+            user: identifier,
+            error: error instanceof Error ? error.message : "Could not resolve user",
+          });
+        }
+      }
+
+      if (resolved.length === 0) {
+        return this.ok({
+          created: false,
+          error: "No users could be resolved",
+          resolve_errors: resolveErrors,
+        });
+      }
+
+      const openRes = await this.slack.request<{
+        ok: boolean;
+        channel: { id: string };
+      }>("conversations.open", {
+        users: resolved.map((r) => r.user_id).join(","),
+      });
+
+      const channelId = openRes.channel.id;
+      let messageTs: string | null = null;
+
+      if (params.message) {
+        const mrkdwn = this.toMrkdwn(params.message);
+        const blocks = this.buildBlocks(mrkdwn);
+        const res = await this.slack.request<{ ok: boolean; ts: string }>("chat.postMessage", {
+          channel: channelId,
+          text: mrkdwn,
+          blocks: JSON.stringify(blocks),
+          unfurl_links: false,
+          unfurl_media: false,
+        });
+        messageTs = res.ts;
+      }
+
+      return this.ok({
+        created: true,
+        channel_id: channelId,
+        members: resolved,
+        ...(messageTs && { message_ts: messageTs }),
+        ...(resolveErrors.length > 0 && { resolve_errors: resolveErrors }),
       });
     } catch (error) {
       return this.formatError(error);

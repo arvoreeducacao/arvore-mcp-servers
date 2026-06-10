@@ -411,10 +411,22 @@ export const CreateChannelParamsSchema = z.object({
     .describe("Optional channel purpose/description to set after creation"),
 });
 
+export const CreateGroupDmParamsSchema = z.object({
+  users: z
+    .array(z.string().min(1))
+    .min(1, "At least one user is required")
+    .describe("Users to include in the multi-person DM (MPDM). Each entry can be a user ID, email, or display name. The authenticated user is added automatically by Slack. Slack supports up to 8 other members"),
+  message: z
+    .string()
+    .optional()
+    .describe("Optional message to post in the group DM right after opening it (supports Slack mrkdwn)"),
+});
+
 export type SearchUsersParams = z.infer<typeof SearchUsersParamsSchema>;
 export type GetUserProfileParams = z.infer<typeof GetUserProfileParamsSchema>;
 export type GetUserInfoParams = z.infer<typeof GetUserInfoParamsSchema>;
 export type CreateChannelParams = z.infer<typeof CreateChannelParamsSchema>;
+export type CreateGroupDmParams = z.infer<typeof CreateGroupDmParamsSchema>;
 export type MessageMetadata = z.infer<typeof MessageMetadataSchema>;
 export type SendDmParams = z.infer<typeof SendDmParamsSchema>;
 export type GetDmHistoryParams = z.infer<typeof GetDmHistoryParamsSchema>;
