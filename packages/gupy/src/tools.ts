@@ -311,6 +311,17 @@ export class GupyMCPTools {
         endYear: experience.endYear ?? null,
       }));
 
+      const rawAdditionalQuestions = Array.isArray(
+        application.additionalQuestions
+      )
+        ? (application.additionalQuestions as Record<string, unknown>[])
+        : [];
+
+      const additionalQuestions = rawAdditionalQuestions.map((entry) => ({
+        question: entry.question ?? null,
+        answer: entry.answer ?? null,
+      }));
+
       return {
         applicationId: application.id ?? null,
         candidateName: candidate.name ?? null,
@@ -318,6 +329,7 @@ export class GupyMCPTools {
         schooling: candidate.schooling ?? null,
         schoolingStatus: candidate.schoolingStatus ?? null,
         workExperience,
+        additionalQuestions,
       };
     });
 

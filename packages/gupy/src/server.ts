@@ -116,7 +116,7 @@ export class GupyMCPServer {
       {
         title: "List Application Professional Experiences",
         description:
-          "List the professional (work) experiences of candidates who applied to a specific job. Returns each candidate's name, email, schooling and a clean list of work experiences (role, company, activities, period). Internally queries the applications endpoint with fields=all.",
+          "List the professional (work) experiences of candidates who applied to a specific job. Returns each candidate's name, email, schooling, a clean list of work experiences (role, company, activities, period) and the additionalQuestions (custom registration questions/answers the candidate filled in). Internally queries the applications endpoint with fields=all.",
         inputSchema: ListApplicationExperiencesParamsSchema.shape,
       },
       async (params) => {
