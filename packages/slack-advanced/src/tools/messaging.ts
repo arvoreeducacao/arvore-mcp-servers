@@ -9,6 +9,7 @@ import type {
   DeleteMessageParams,
   AddReactionParams,
   RemoveReactionParams,
+  CreateChannelParams,
   McpToolResult,
   SlackMessage,
 } from "../types.js";
@@ -303,6 +304,77 @@ export class MessagingTools {
         channel: params.channel,
         ts: params.ts,
         emoji: params.emoji,
+      });
+    } catch (error) {
+      return this.formatError(error);
+    }
+  }
+
+  async createChannel(params: CreateChannelParams): Promise<McpToolResult> {
+    try {
+      const createRes = await this.slack.request<{
+        ok: boolean;
+        channel: { id: string; name: string; is_private: boolean };
+      }>("conversations.create", {
+        name: params.name,
+        is_private: params.is_private,
+      });
+
+      const channelId = createRes.channel.id;
+      const invited: Array<{ user: string; user_id: string }> = [];
+      const inviteErrors: Array<{ user: string; error: string }> = [];
+
+      if (params.invite_users && params.invite_users.length > 0) {
+        const userIds: string[] = [];
+        for (const identifier of params.invite_users) {
+          try {
+            const userId = await this.slack.resolveUserId(identifier);
+            userIds.push(userId);
+            invited.push({ user: identifier, user_id: userId });
+          } catch (error) {
+            inviteErrors.push({
+              user: identifier,
+              error: error instanceof Error ? error.message : "Could not resolve user",
+            });
+          }
+        }
+
+        if (userIds.length > 0) {
+          try {
+            await this.slack.request<{ ok: boolean }>("conversations.invite", {
+              channel: channelId,
+              users: userIds.join(","),
+            });
+          } catch (error) {
+            inviteErrors.push({
+              user: userIds.join(","),
+              error: error instanceof Error ? error.message : "Failed to invite users",
+            });
+          }
+        }
+      }
+
+      if (params.topic) {
+        await this.slack.request<{ ok: boolean }>("conversations.setTopic", {
+          channel: channelId,
+          topic: params.topic,
+        });
+      }
+
+      if (params.purpose) {
+        await this.slack.request<{ ok: boolean }>("conversations.setPurpose", {
+          channel: channelId,
+          purpose: params.purpose,
+        });
+      }
+
+      return this.ok({
+        created: true,
+        channel_id: channelId,
+        name: createRes.channel.name,
+        is_private: createRes.channel.is_private,
+        invited,
+        ...(inviteErrors.length > 0 && { invite_errors: inviteErrors }),
       });
     } catch (error) {
       return this.formatError(error);

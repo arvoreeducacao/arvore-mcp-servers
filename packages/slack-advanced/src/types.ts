@@ -387,9 +387,34 @@ export const GetUserInfoParamsSchema = z.object({
     .describe("User ID, email, display name, or real name to look up"),
 });
 
+export const CreateChannelParamsSchema = z.object({
+  name: z
+    .string()
+    .min(1, "Channel name is required")
+    .describe("Channel name. Slack normalizes it to lowercase, replaces spaces with hyphens, and strips invalid characters (max 80 chars)"),
+  is_private: z
+    .boolean()
+    .optional()
+    .default(false)
+    .describe("Create a private channel instead of a public one"),
+  invite_users: z
+    .array(z.string().min(1))
+    .optional()
+    .describe("List of users to invite after creation. Each entry can be a user ID, email, or display name"),
+  topic: z
+    .string()
+    .optional()
+    .describe("Optional channel topic to set after creation"),
+  purpose: z
+    .string()
+    .optional()
+    .describe("Optional channel purpose/description to set after creation"),
+});
+
 export type SearchUsersParams = z.infer<typeof SearchUsersParamsSchema>;
 export type GetUserProfileParams = z.infer<typeof GetUserProfileParamsSchema>;
 export type GetUserInfoParams = z.infer<typeof GetUserInfoParamsSchema>;
+export type CreateChannelParams = z.infer<typeof CreateChannelParamsSchema>;
 export type MessageMetadata = z.infer<typeof MessageMetadataSchema>;
 export type SendDmParams = z.infer<typeof SendDmParamsSchema>;
 export type GetDmHistoryParams = z.infer<typeof GetDmHistoryParamsSchema>;

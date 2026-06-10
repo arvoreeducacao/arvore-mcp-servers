@@ -30,6 +30,7 @@ import {
   DeleteMessageParamsSchema,
   AddReactionParamsSchema,
   RemoveReactionParamsSchema,
+  CreateChannelParamsSchema,
 } from "./types.js";
 
 export class SlackAdvancedMCPServer {
@@ -257,6 +258,15 @@ export class SlackAdvancedMCPServer {
       inputSchema: RemoveReactionParamsSchema.shape,
     }, async (params) => {
       return this.messagingTools.removeReaction(RemoveReactionParamsSchema.parse(params));
+    });
+
+    this.server.registerTool("create_channel", {
+      title: "Create Channel",
+      description:
+        "Create a new Slack channel (public or private) and optionally invite users to it. Users can be referenced by ID, email, or display name. Optionally sets a topic and purpose. Returns the new channel ID, invited users, and any invite errors. Requires channels:manage and/or groups:write scopes, plus channels:write.invites for inviting members.",
+      inputSchema: CreateChannelParamsSchema.shape,
+    }, async (params) => {
+      return this.messagingTools.createChannel(CreateChannelParamsSchema.parse(params));
     });
   }
 
