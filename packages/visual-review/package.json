@@ -1,0 +1,55 @@
+{
+  "name": "@arvoretech/visual-review-mcp",
+  "version": "1.0.0",
+  "description": "Visual Review MCP - Compare changed routes side-by-side with Figma designs",
+  "main": "dist/index.js",
+  "type": "module",
+  "files": [
+    "dist",
+    "ui",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "bin": {
+    "visual-review-mcp": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:cov": "vitest run --coverage --passWithNoTests",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix"
+  },
+  "keywords": [
+    "mcp",
+    "visual-review",
+    "figma",
+    "pixel-perfect",
+    "arvore"
+  ],
+  "author": "Arvore",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/arvoreeducacao/arvore-mcp-servers.git",
+    "directory": "packages/visual-review"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "~1.22.0",
+    "express": "^4.21.0",
+    "http-proxy-middleware": "^3.0.0",
+    "pixelmatch": "^6.0.0",
+    "pngjs": "^7.0.0",
+    "puppeteer": "^24.0.0",
+    "sharp": "^0.33.0",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/pngjs": "^6.0.0"
+  }
+}
