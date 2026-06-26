@@ -50,6 +50,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
+      packages: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -76,6 +77,10 @@ jobs:
       - name: Publish packages
         run: |
           for pkg in packages/*/; do
+            if [ "$pkg" = "packages/client-hub/" ]; then
+              echo "Skipping $pkg (published to GitHub Packages in a separate step)"
+              continue
+            fi
             echo "Publishing $pkg..."
             cd "$pkg"
             npm publish --access public --provenance 2>&1 || {
@@ -84,3 +89,17 @@ jobs:
             }
             cd ../..
           done
+
+      - name: Setup Node.js for GitHub Packages
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://npm.pkg.github.com"
+          scope: "@arvoretech"
+
+      - name: Publish private packages to GitHub Packages
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd packages/client-hub
+          npm publish 2>&1 || echo "Skipped client-hub (already published or error)"

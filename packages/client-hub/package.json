@@ -1,0 +1,45 @@
+{
+  "name": "@arvoretech/client-hub-mcp",
+  "version": "1.0.0",
+  "description": "Client Hub MCP Server for read-only customer 360 and conversation search",
+  "main": "dist/index.js",
+  "type": "module",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com",
+    "access": "restricted"
+  },
+  "bin": {
+    "client-hub-mcp": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "test": "vitest",
+    "test:cov": "vitest --coverage",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "client-hub",
+    "crm",
+    "pipedrive",
+    "whatsapp",
+    "llm",
+    "ai",
+    "arvore"
+  ],
+  "author": "Arvore",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/arvoreeducacao/arvore-mcp-servers.git",
+    "directory": "packages/client-hub"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "~1.22.0",
+    "zod": "^3.22.4"
+  }
+}
