@@ -5,7 +5,8 @@
   "main": "dist/index.js",
   "type": "module",
   "publishConfig": {
-    "access": "public"
+    "registry": "https://npm.pkg.github.com",
+    "access": "restricted"
   },
   "bin": {
     "client-hub-mcp": "./dist/index.js"

@@ -25,6 +25,16 @@ Claude (skills) → client-hub-mcp (stdio) → api-arvore (guards) → ClickHous
 
 ## Installation
 
+This package is published privately to **GitHub Packages**, not the public npm
+registry. Authenticate first with a GitHub token that has `read:packages` scope
+and point the `@arvoretech` scope to GitHub Packages:
+
+```bash
+# ~/.npmrc
+@arvoretech:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
+```
+
 ```bash
 npm install -g @arvoretech/client-hub-mcp
 ```
@@ -36,6 +46,12 @@ export CLIENT_HUB_API_URL=https://api.arvore.com.br
 export CLIENT_HUB_API_TOKEN=<read-only service token>
 export CLIENT_HUB_REQUEST_TIMEOUT=30000
 ```
+
+> **Security**: `CLIENT_HUB_API_TOKEN` is a personal, short-lived credential —
+> every request goes through the api-arvore guards (`@Auth`, `@AdminOnly`,
+> `@EmployeeOnly`, `@TotpAuth`), so the data is never exposed without an
+> authenticated employee/admin session. Do not share or commit the token, and
+> rotate it if leaked. The package itself carries no secrets.
 
 ## Tools
 
