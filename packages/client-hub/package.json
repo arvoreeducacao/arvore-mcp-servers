@@ -1,5 +1,5 @@
 {
-  "name": "@arvoretech/client-hub-mcp",
+  "name": "@arvoreeducacao/client-hub-mcp",
   "version": "1.0.0",
   "description": "Client Hub MCP Server for read-only customer 360 and conversation search",
   "main": "dist/index.js",

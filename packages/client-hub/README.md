@@ -36,7 +36,7 @@ and point the `@arvoretech` scope to GitHub Packages:
 ```
 
 ```bash
-npm install -g @arvoretech/client-hub-mcp
+npm install -g @arvoreeducacao/client-hub-mcp
 ```
 
 ## Configuration

@@ -95,7 +95,7 @@ jobs:
         with:
           node-version: "20"
           registry-url: "https://npm.pkg.github.com"
-          scope: "@arvoretech"
+          scope: "@arvoreeducacao"
 
       - name: Publish private packages to GitHub Packages
         env:
