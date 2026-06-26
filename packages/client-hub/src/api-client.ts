@@ -5,7 +5,7 @@ export class ClientHubApiClient {
 
   async testConnection(): Promise<boolean> {
     try {
-      await this.request("GET", "clients", { limit: "1" });
+      await this.request("GET", "v1/client-hub/clients", { limit: "1" });
       return true;
     } catch {
       return false;
