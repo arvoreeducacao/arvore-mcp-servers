@@ -93,7 +93,7 @@ export class ClientHubMCPServer {
       {
         title: "Search Client Conversations",
         description:
-          "Semantic search over a client's conversations (WhatsApp). Returns relevant snippets.",
+          "Semantic search over a client's conversations across sources (WhatsApp messages and Elephan call transcripts). Optionally filter by source ('whatsapp' or 'elephan'); omit to search all sources. Returns relevant snippets.",
         inputSchema: {
           clientId: SearchConversationsParamsSchema.shape.clientId,
           query: SearchConversationsParamsSchema.shape.query,

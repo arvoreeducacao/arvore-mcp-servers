@@ -25,7 +25,10 @@ export type GetClient360Params = z.infer<typeof GetClient360ParamsSchema>;
 export const SearchConversationsParamsSchema = z.object({
   clientId: z.number().int().positive(),
   query: z.string().min(1),
-  source: z.string().optional(),
+  source: z
+    .string()
+    .optional()
+    .describe("Filter by source: 'whatsapp' or 'elephan'. Omit to search all sources."),
   limit: z.number().int().positive().optional(),
 });
 
