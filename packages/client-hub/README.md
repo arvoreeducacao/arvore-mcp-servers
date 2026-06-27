@@ -42,7 +42,7 @@ npm install -g @arvoreeducacao/client-hub-mcp
 ## Configuration
 
 ```bash
-export CLIENT_HUB_API_URL=https://api.arvore.com.br
+export CLIENT_HUB_API_URL=https://livros.arvore.com.br/api-arvore
 export CLIENT_HUB_API_TOKEN=<read-only service token>
 export CLIENT_HUB_REQUEST_TIMEOUT=30000
 ```
@@ -76,7 +76,7 @@ Register in Claude Desktop `mcpServers`:
     "client-hub": {
       "command": "client-hub-mcp",
       "env": {
-        "CLIENT_HUB_API_URL": "https://api.arvore.com.br",
+        "CLIENT_HUB_API_URL": "https://livros.arvore.com.br/api-arvore",
         "CLIENT_HUB_API_TOKEN": "<token>"
       }
     }
