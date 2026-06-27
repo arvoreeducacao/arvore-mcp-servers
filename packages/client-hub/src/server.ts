@@ -36,7 +36,7 @@ export class ClientHubMCPServer {
   static fromEnvironment(): ClientHubMCPServer {
     const config = ClientHubConfigSchema.parse({
       apiBaseUrl:
-        process.env.CLIENT_HUB_API_URL || "https://api.arvore.com.br",
+        process.env.CLIENT_HUB_API_URL || "https://livros.arvore.com.br/api-arvore",
       apiToken: process.env.CLIENT_HUB_API_TOKEN || "",
       requestTimeout: Number.parseInt(
         process.env.CLIENT_HUB_REQUEST_TIMEOUT || "30000",
