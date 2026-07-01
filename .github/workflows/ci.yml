@@ -54,6 +54,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -65,20 +67,55 @@ jobs:
           cache: "pnpm"
           registry-url: "https://registry.npmjs.org"
 
+      - name: Detect changed packages
+        id: changed
+        run: |
+          BEFORE="${{ github.event.before }}"
+          if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            echo "No valid previous commit, comparing against parent of HEAD"
+            BEFORE="HEAD~1"
+          fi
+          echo "Comparing $BEFORE...${{ github.sha }}"
+          CHANGED=$(git diff --name-only "$BEFORE" "${{ github.sha }}" -- 'packages/**' \
+            | sed -n 's#^packages/\([^/]*\)/.*#\1#p' \
+            | sort -u)
+          echo "Changed packages:"
+          echo "$CHANGED"
+          echo "packages<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$CHANGED" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+          if echo "$CHANGED" | grep -qx 'client-hub'; then
+            echo "client_hub=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "client_hub=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Install dependencies
+        if: steps.changed.outputs.packages != ''
         run: pnpm install --frozen-lockfile
 
       - name: Build packages
+        if: steps.changed.outputs.packages != ''
         run: pnpm build
 
       - name: Install latest npm
+        if: steps.changed.outputs.packages != ''
         run: npm install -g npm@latest
 
-      - name: Publish packages
+      - name: Publish changed packages
+        if: steps.changed.outputs.packages != ''
+        env:
+          CHANGED_PACKAGES: ${{ steps.changed.outputs.packages }}
         run: |
-          for pkg in packages/*/; do
-            if [ "$pkg" = "packages/client-hub/" ]; then
-              echo "Skipping $pkg (published to GitHub Packages in a separate step)"
+          echo "$CHANGED_PACKAGES" | while IFS= read -r name; do
+            [ -z "$name" ] && continue
+            if [ "$name" = "client-hub" ]; then
+              echo "Skipping client-hub (published to GitHub Packages in a separate step)"
+              continue
+            fi
+            pkg="packages/$name/"
+            if [ ! -d "$pkg" ]; then
+              echo "Skipping $name (directory removed)"
               continue
             fi
             echo "Publishing $pkg..."
@@ -91,6 +128,7 @@ jobs:
           done
 
       - name: Setup Node.js for GitHub Packages
+        if: steps.changed.outputs.client_hub == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: "20"
@@ -98,6 +136,7 @@ jobs:
           scope: "@arvoreeducacao"
 
       - name: Publish private packages to GitHub Packages
+        if: steps.changed.outputs.client_hub == 'true'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
