@@ -29,6 +29,16 @@ export class ClientHubMCPTools {
       "GET",
       `v1/client-hub/clients/${params.clientId}/360`
     );
+
+    if (data === null) {
+      return this.toResult({
+        found: false,
+        clientId: params.clientId,
+        message:
+          "No 360 data available for this client yet. The client may not have been materialized in the analytics mart.",
+      });
+    }
+
     return this.toResult(data);
   }
 

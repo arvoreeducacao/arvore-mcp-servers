@@ -70,6 +70,39 @@ describe("ClientHubApiClient", () => {
       expect(result).toEqual({ id: 1, name: "Escola" });
     });
 
+    it("returns null when the response body is empty", async () => {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => {
+          throw new Error("Unexpected end of JSON input");
+        },
+        text: async () => "",
+      });
+
+      const result = await client.request("GET", "clients/999/360");
+
+      expect(result).toBeNull();
+    });
+
+    it("throws INVALID_RESPONSE when the body is not valid json", async () => {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => {
+          throw new Error("Unexpected token");
+        },
+        text: async () => "<html>oops</html>",
+      });
+
+      await expect(
+        client.request("GET", "clients/1/360")
+      ).rejects.toMatchObject({
+        name: "ClientHubMCPError",
+        code: "INVALID_RESPONSE",
+      });
+    });
+
     it("throws API_ERROR when the response is not ok", async () => {
       fetchMock.mockResolvedValue({
         ok: false,

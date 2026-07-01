@@ -53,7 +53,21 @@ export class ClientHubApiClient {
         );
       }
 
-      return await res.json();
+      const body = await res.text();
+
+      if (body.trim() === "") {
+        return null;
+      }
+
+      try {
+        return JSON.parse(body);
+      } catch {
+        throw new ClientHubMCPError(
+          "Client Hub API returned an invalid JSON response",
+          "INVALID_RESPONSE",
+          body.slice(0, 500)
+        );
+      }
     } catch (error) {
       if (error instanceof ClientHubMCPError) {
         throw error;
