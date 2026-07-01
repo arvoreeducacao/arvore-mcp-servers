@@ -3,32 +3,9 @@ import type { Server as HttpServer } from "node:http";
 import express, { type Request, type Response } from "express";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { requireBearerAuth } from "@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js";
-import {
-  getOAuthProtectedResourceMetadataUrl,
-  mcpAuthMetadataRouter,
-} from "@modelcontextprotocol/sdk/server/auth/router.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
-import type { OAuthMetadata } from "@modelcontextprotocol/sdk/shared/auth.js";
 import { createTokenVerifier, type OAuthConfig } from "./auth.js";
 import type { ClientHubMCPServer } from "./server.js";
-
-async function fetchOAuthMetadata(config: OAuthConfig): Promise<OAuthMetadata> {
-  const discoveryUrl = `${config.issuer}/api-arvore/.well-known/openid-configuration`;
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10_000);
-  const res = await fetch(discoveryUrl, {
-    headers: { accept: "application/json" },
-    signal: controller.signal,
-  }).finally(() => clearTimeout(timeout));
-
-  if (!res.ok) {
-    throw new Error(
-      `Failed to fetch OAuth metadata from ${discoveryUrl}: ${res.status}`
-    );
-  }
-
-  return (await res.json()) as OAuthMetadata;
-}
 
 export interface HttpServerOptions {
   port: number;
@@ -49,8 +26,6 @@ export async function startHttpServer(
   oauthConfig: OAuthConfig,
   options: HttpServerOptions
 ): Promise<HttpServer> {
-  const oauthMetadata = await fetchOAuthMetadata(oauthConfig);
-  const resourceServerUrl = new URL(oauthConfig.resourceUrl);
   const verifier = createTokenVerifier(oauthConfig);
 
   const app = express();
@@ -60,19 +35,128 @@ export async function startHttpServer(
     res.json({ status: "ok" });
   });
 
-  app.use(
-    mcpAuthMetadataRouter({
-      oauthMetadata,
-      resourceServerUrl,
-      scopesSupported: oauthConfig.requiredScopes,
-      resourceName: "Client Hub MCP",
-    })
+  const origin = new URL(oauthConfig.resourceUrl).origin;
+
+  const protectedResourceMetadata = {
+    resource: oauthConfig.resourceUrl,
+    authorization_servers: [origin],
+    scopes_supported: oauthConfig.requiredScopes,
+    resource_name: "Client Hub MCP",
+    bearer_methods_supported: ["header"],
+  };
+
+  const authorizationServerMetadata = {
+    issuer: origin,
+    authorization_endpoint: `${origin}/authorize`,
+    token_endpoint: `${origin}/token`,
+    registration_endpoint: `${origin}/register`,
+    jwks_uri: oauthConfig.jwksUri,
+    response_types_supported: ["code"],
+    response_modes_supported: ["query"],
+    grant_types_supported: ["authorization_code"],
+    code_challenge_methods_supported: ["S256"],
+    token_endpoint_auth_methods_supported: [
+      "client_secret_post",
+      "none",
+    ],
+    scopes_supported: oauthConfig.requiredScopes,
+  };
+
+  const protectedResourceHandler = (_req: Request, res: Response) => {
+    res.json(protectedResourceMetadata);
+  };
+
+  app.get("/.well-known/oauth-protected-resource", protectedResourceHandler);
+  app.get(
+    "/.well-known/oauth-protected-resource/mcp",
+    protectedResourceHandler
   );
+
+  app.get(
+    "/.well-known/oauth-authorization-server",
+    (_req: Request, res: Response) => {
+      res.json(authorizationServerMetadata);
+    }
+  );
+
+  const appendOAuthParam = (
+    params: URLSearchParams,
+    key: string,
+    value: unknown
+  ) => {
+    if (typeof value === "string") {
+      params.append(key, value);
+    } else if (Array.isArray(value)) {
+      for (const item of value) {
+        if (typeof item === "string") {
+          params.append(key, item);
+        }
+      }
+    }
+  };
+
+  app.get("/authorize", (req: Request, res: Response) => {
+    const target = new URL(oauthConfig.authorizationEndpoint);
+    for (const [key, value] of Object.entries(req.query)) {
+      appendOAuthParam(target.searchParams, key, value);
+    }
+    res.redirect(302, target.toString());
+  });
+
+  app.post(
+    "/token",
+    express.urlencoded({ extended: true }),
+    async (req: Request, res: Response) => {
+      try {
+        const body = new URLSearchParams();
+        for (const [key, value] of Object.entries(req.body ?? {})) {
+          appendOAuthParam(body, key, value);
+        }
+
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10_000);
+        const upstream = await fetch(oauthConfig.tokenEndpoint, {
+          method: "POST",
+          headers: {
+            "content-type": "application/x-www-form-urlencoded",
+            accept: "application/json",
+          },
+          body: body.toString(),
+          signal: controller.signal,
+        }).finally(() => clearTimeout(timeout));
+
+        const text = await upstream.text();
+        res.status(upstream.status);
+        res.set("Cache-Control", "no-store");
+        res.set("Pragma", "no-cache");
+        const contentType = upstream.headers.get("content-type");
+        if (contentType) {
+          res.type(contentType);
+        }
+        res.send(text);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        res
+          .status(502)
+          .json({ error: "server_error", error_description: message });
+      }
+    }
+  );
+
+  app.post("/register", (_req: Request, res: Response) => {
+    res.status(201).json({
+      client_id: oauthConfig.clientId,
+      token_endpoint_auth_method: "none",
+      grant_types: ["authorization_code"],
+      response_types: ["code"],
+      redirect_uris: oauthConfig.redirectUris,
+    });
+  });
 
   const bearerAuth = requireBearerAuth({
     verifier,
     requiredScopes: oauthConfig.requiredScopes,
-    resourceMetadataUrl: getOAuthProtectedResourceMetadataUrl(resourceServerUrl),
+    resourceMetadataUrl: `${origin}/.well-known/oauth-protected-resource/mcp`,
   });
 
   const transports = new Map<string, StreamableHTTPServerTransport>();

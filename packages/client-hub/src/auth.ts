@@ -9,6 +9,10 @@ export interface OAuthConfig {
   resourceUrl: string;
   authorizationServers: string[];
   requiredScopes: string[];
+  authorizationEndpoint: string;
+  tokenEndpoint: string;
+  clientId: string;
+  redirectUris: string[];
 }
 
 export function oauthConfigFromEnvironment(): OAuthConfig {
@@ -18,10 +22,23 @@ export function oauthConfigFromEnvironment(): OAuthConfig {
   const resourceUrl =
     process.env.OAUTH_RESOURCE_URL || "https://client-hub-mcp.arvore.dev/mcp";
   const audience = process.env.OAUTH_AUDIENCE || issuer;
-  const requiredScopes = (process.env.OAUTH_REQUIRED_SCOPES || "")
-    .split(",")
+  const requiredScopes = (process.env.OAUTH_REQUIRED_SCOPES || "openid profile email")
+    .split(/[\s,]+/)
     .map((scope) => scope.trim())
     .filter((scope) => scope.length > 0);
+  const authorizationEndpoint =
+    process.env.OAUTH_AUTHORIZATION_ENDPOINT ||
+    `${issuer}/api-arvore/oauth2/authorize`;
+  const tokenEndpoint =
+    process.env.OAUTH_TOKEN_ENDPOINT || `${issuer}/api-arvore/oauth2/token`;
+  const clientId = process.env.OAUTH_CLIENT_ID || "client-hub-mcp-claude";
+  const redirectUris = (
+    process.env.OAUTH_REDIRECT_URIS ||
+    "https://claude.ai/api/mcp/auth_callback,https://claude.com/api/mcp/auth_callback"
+  )
+    .split(",")
+    .map((uri) => uri.trim())
+    .filter((uri) => uri.length > 0);
 
   return {
     issuer,
@@ -30,6 +47,10 @@ export function oauthConfigFromEnvironment(): OAuthConfig {
     resourceUrl,
     authorizationServers: [issuer],
     requiredScopes,
+    authorizationEndpoint,
+    tokenEndpoint,
+    clientId,
+    redirectUris,
   };
 }
 
