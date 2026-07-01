@@ -655,7 +655,7 @@ This monorepo uses GitHub Actions for automatic publishing to npm. Publishing ha
 
 #### 1. Push to main branch
 
-All packages are automatically published when code is merged to main (after CI passes).
+Only the packages changed in the push are published when code is merged to main (after CI passes). The publish job detects which `packages/<name>` directories were touched via `git diff` against the previous commit and runs `npm publish` only for those. Remember to bump the `version` in the changed package's `package.json` before merging, otherwise npm will skip it as already published.
 
 #### 2. Manual workflow dispatch
 
