@@ -7,15 +7,19 @@ import {
   getOAuthProtectedResourceMetadataUrl,
   mcpAuthMetadataRouter,
 } from "@modelcontextprotocol/sdk/server/auth/router.js";
+import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import type { OAuthMetadata } from "@modelcontextprotocol/sdk/shared/auth.js";
 import { createTokenVerifier, type OAuthConfig } from "./auth.js";
 import type { ClientHubMCPServer } from "./server.js";
 
 async function fetchOAuthMetadata(config: OAuthConfig): Promise<OAuthMetadata> {
   const discoveryUrl = `${config.issuer}/api-arvore/.well-known/openid-configuration`;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10_000);
   const res = await fetch(discoveryUrl, {
     headers: { accept: "application/json" },
-  });
+    signal: controller.signal,
+  }).finally(() => clearTimeout(timeout));
 
   if (!res.ok) {
     throw new Error(
@@ -78,7 +82,7 @@ export async function startHttpServer(
       const sessionId = req.headers["mcp-session-id"] as string | undefined;
       let transport = sessionId ? transports.get(sessionId) : undefined;
 
-      if (!transport && req.method === "POST") {
+      if (!transport && req.method === "POST" && isInitializeRequest(req.body)) {
         transport = new StreamableHTTPServerTransport({
           sessionIdGenerator: () => randomUUID(),
           onsessioninitialized: (id) => {

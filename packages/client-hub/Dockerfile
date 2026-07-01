@@ -28,4 +28,5 @@ COPY --from=prod-deps /app/packages/client-hub/node_modules ./node_modules
 COPY --from=build /app/packages/client-hub/dist ./dist
 COPY packages/client-hub/package.json ./package.json
 EXPOSE 3000
+USER node
 CMD ["node", "dist/index.js"]
