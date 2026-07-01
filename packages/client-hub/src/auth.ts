@@ -17,7 +17,7 @@ export function oauthConfigFromEnvironment(): OAuthConfig {
     process.env.OAUTH_JWKS_URI || `${issuer}/api-arvore/oauth2/jwks`;
   const resourceUrl =
     process.env.OAUTH_RESOURCE_URL || "https://client-hub-mcp.arvore.dev/mcp";
-  const audience = process.env.OAUTH_AUDIENCE || resourceUrl;
+  const audience = process.env.OAUTH_AUDIENCE || issuer;
   const requiredScopes = (process.env.OAUTH_REQUIRED_SCOPES || "")
     .split(",")
     .map((scope) => scope.trim())
