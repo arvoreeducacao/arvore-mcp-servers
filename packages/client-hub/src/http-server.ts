@@ -95,37 +95,13 @@ export async function startHttpServer(
     }
   };
 
-  const allowedAuthorizeParams = new Set([
-    "response_type",
-    "client_id",
-    "redirect_uri",
-    "scope",
-    "state",
-    "code_challenge",
-    "code_challenge_method",
-    "nonce",
-    "prompt",
-    "login_hint",
-  ]);
-
   app.get("/authorize", (req: Request, res: Response) => {
     const target = new URL(oauthConfig.authorizationEndpoint);
     for (const [key, value] of Object.entries(req.query)) {
-      if (allowedAuthorizeParams.has(key)) {
-        appendOAuthParam(target.searchParams, key, value);
-      }
+      appendOAuthParam(target.searchParams, key, value);
     }
     res.redirect(302, target.toString());
   });
-
-  const allowedTokenParams = new Set([
-    "grant_type",
-    "code",
-    "client_id",
-    "client_secret",
-    "redirect_uri",
-    "code_verifier",
-  ]);
 
   app.post(
     "/token",
@@ -134,9 +110,7 @@ export async function startHttpServer(
       try {
         const body = new URLSearchParams();
         for (const [key, value] of Object.entries(req.body ?? {})) {
-          if (allowedTokenParams.has(key)) {
-            appendOAuthParam(body, key, value);
-          }
+          appendOAuthParam(body, key, value);
         }
 
         const controller = new AbortController();
