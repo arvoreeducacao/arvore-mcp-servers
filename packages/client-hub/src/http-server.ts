@@ -109,12 +109,16 @@ export async function startHttpServer(
   ]);
 
   app.get("/authorize", (req: Request, res: Response) => {
+    console.error(
+      `[oauth] GET /authorize query=${JSON.stringify(req.query)}`
+    );
     const target = new URL(oauthConfig.authorizationEndpoint);
     for (const [key, value] of Object.entries(req.query)) {
       if (allowedAuthorizeParams.has(key)) {
         appendOAuthParam(target.searchParams, key, value);
       }
     }
+    console.error(`[oauth] -> 302 ${target.toString()}`);
     res.redirect(302, target.toString());
   });
 
@@ -132,6 +136,10 @@ export async function startHttpServer(
     express.urlencoded({ extended: true }),
     async (req: Request, res: Response) => {
       try {
+        const receivedKeys = Object.keys(req.body ?? {});
+        console.error(
+          `[oauth] POST /token keys=${JSON.stringify(receivedKeys)}`
+        );
         const body = new URLSearchParams();
         for (const [key, value] of Object.entries(req.body ?? {})) {
           if (allowedTokenParams.has(key)) {
@@ -152,6 +160,9 @@ export async function startHttpServer(
         }).finally(() => clearTimeout(timeout));
 
         const text = await upstream.text();
+        console.error(
+          `[oauth] token upstream status=${upstream.status} body=${text.slice(0, 300)}`
+        );
         res.status(upstream.status);
         res.set("Cache-Control", "no-store");
         res.set("Pragma", "no-cache");
@@ -169,7 +180,10 @@ export async function startHttpServer(
     }
   );
 
-  app.post("/register", (_req: Request, res: Response) => {
+  app.post("/register", (req: Request, res: Response) => {
+    console.error(
+      `[oauth] POST /register body=${JSON.stringify(req.body ?? {}).slice(0, 300)}`
+    );
     res.status(201).json({
       client_id: oauthConfig.clientId,
       token_endpoint_auth_method: "none",
