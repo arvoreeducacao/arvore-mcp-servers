@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { ClientHubApiClient } from "./api-client.js";
+import { extractAuthToken } from "./auth.js";
 import { ClientHubMCPTools } from "./tools.js";
 import {
   ClientHubConfig,
@@ -22,15 +23,9 @@ export class ClientHubMCPServer {
   private tools: ClientHubMCPTools;
 
   constructor(config: ClientHubConfig) {
-    this.server = new McpServer({
-      name: "client-hub-mcp-server",
-      version: "1.0.0",
-    });
-
     this.api = new ClientHubApiClient(config);
     this.tools = new ClientHubMCPTools(this.api);
-
-    this.setupTools();
+    this.server = this.createMcpServer();
   }
 
   static fromEnvironment(): ClientHubMCPServer {
@@ -47,8 +42,17 @@ export class ClientHubMCPServer {
     return new ClientHubMCPServer(config);
   }
 
-  private setupTools(): void {
-    this.server.registerTool(
+  createMcpServer(): McpServer {
+    const server = new McpServer({
+      name: "client-hub-mcp-server",
+      version: "1.0.0",
+    });
+    this.setupTools(server);
+    return server;
+  }
+
+  private setupTools(server: McpServer): void {
+    server.registerTool(
       "search_client",
       {
         title: "Search Client",
@@ -59,10 +63,14 @@ export class ClientHubMCPServer {
           limit: SearchClientParamsSchema.shape.limit,
         },
       },
-      async (params) => this.tools.searchClient(params as SearchClientParams)
+      async (params, extra) =>
+        this.tools.searchClient(
+          params as SearchClientParams,
+          extractAuthToken(extra)
+        )
     );
 
-    this.server.registerTool(
+    server.registerTool(
       "get_client_360",
       {
         title: "Get Client 360",
@@ -72,10 +80,14 @@ export class ClientHubMCPServer {
           clientId: GetClient360ParamsSchema.shape.clientId,
         },
       },
-      async (params) => this.tools.getClient360(params as GetClient360Params)
+      async (params, extra) =>
+        this.tools.getClient360(
+          params as GetClient360Params,
+          extractAuthToken(extra)
+        )
     );
 
-    this.server.registerTool(
+    server.registerTool(
       "list_client_links",
       {
         title: "List Client Source Links",
@@ -85,10 +97,11 @@ export class ClientHubMCPServer {
           clientId: ListLinksParamsSchema.shape.clientId,
         },
       },
-      async (params) => this.tools.listLinks(params as ListLinksParams)
+      async (params, extra) =>
+        this.tools.listLinks(params as ListLinksParams, extractAuthToken(extra))
     );
 
-    this.server.registerTool(
+    server.registerTool(
       "search_conversations",
       {
         title: "Search Client Conversations",
@@ -101,8 +114,11 @@ export class ClientHubMCPServer {
           limit: SearchConversationsParamsSchema.shape.limit,
         },
       },
-      async (params) =>
-        this.tools.searchConversations(params as SearchConversationsParams)
+      async (params, extra) =>
+        this.tools.searchConversations(
+          params as SearchConversationsParams,
+          extractAuthToken(extra)
+        )
     );
   }
 
@@ -130,6 +146,14 @@ export class ClientHubMCPServer {
       }
       process.exit(1);
     }
+  }
+
+  get mcpServer(): McpServer {
+    return this.server;
+  }
+
+  async verifyApiConnection(): Promise<boolean> {
+    return this.api.testConnection();
   }
 
   setupGracefulShutdown(): void {

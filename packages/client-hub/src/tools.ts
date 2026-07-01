@@ -16,18 +16,31 @@ export class ClientHubMCPTools {
     };
   }
 
-  async searchClient(params: SearchClientParams): Promise<McpToolResult> {
-    const data = await this.api.request("GET", "v1/client-hub/clients", {
-      query: params.query,
-      limit: params.limit !== undefined ? String(params.limit) : undefined,
-    });
+  async searchClient(
+    params: SearchClientParams,
+    authToken?: string
+  ): Promise<McpToolResult> {
+    const data = await this.api.request(
+      "GET",
+      "v1/client-hub/clients",
+      {
+        query: params.query,
+        limit: params.limit !== undefined ? String(params.limit) : undefined,
+      },
+      authToken
+    );
     return this.toResult(data);
   }
 
-  async getClient360(params: GetClient360Params): Promise<McpToolResult> {
+  async getClient360(
+    params: GetClient360Params,
+    authToken?: string
+  ): Promise<McpToolResult> {
     const data = await this.api.request(
       "GET",
-      `v1/client-hub/clients/${params.clientId}/360`
+      `v1/client-hub/clients/${params.clientId}/360`,
+      undefined,
+      authToken
     );
 
     if (data === null) {
@@ -42,16 +55,22 @@ export class ClientHubMCPTools {
     return this.toResult(data);
   }
 
-  async listLinks(params: ListLinksParams): Promise<McpToolResult> {
+  async listLinks(
+    params: ListLinksParams,
+    authToken?: string
+  ): Promise<McpToolResult> {
     const data = await this.api.request(
       "GET",
-      `v1/client-hub/clients/${params.clientId}/links`
+      `v1/client-hub/clients/${params.clientId}/links`,
+      undefined,
+      authToken
     );
     return this.toResult(data);
   }
 
   async searchConversations(
-    params: SearchConversationsParams
+    params: SearchConversationsParams,
+    authToken?: string
   ): Promise<McpToolResult> {
     const data = await this.api.request(
       "GET",
@@ -60,7 +79,8 @@ export class ClientHubMCPTools {
         query: params.query,
         source: params.source,
         limit: params.limit !== undefined ? String(params.limit) : undefined,
-      }
+      },
+      authToken
     );
     return this.toResult(data);
   }
