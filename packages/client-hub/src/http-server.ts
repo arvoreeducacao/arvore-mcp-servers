@@ -79,12 +79,26 @@ export async function startHttpServer(
     }
   );
 
+  const appendOAuthParam = (
+    params: URLSearchParams,
+    key: string,
+    value: unknown
+  ) => {
+    if (typeof value === "string") {
+      params.append(key, value);
+    } else if (Array.isArray(value)) {
+      for (const item of value) {
+        if (typeof item === "string") {
+          params.append(key, item);
+        }
+      }
+    }
+  };
+
   app.get("/authorize", (req: Request, res: Response) => {
     const target = new URL(oauthConfig.authorizationEndpoint);
     for (const [key, value] of Object.entries(req.query)) {
-      if (typeof value === "string") {
-        target.searchParams.set(key, value);
-      }
+      appendOAuthParam(target.searchParams, key, value);
     }
     res.redirect(302, target.toString());
   });
@@ -96,11 +110,11 @@ export async function startHttpServer(
       try {
         const body = new URLSearchParams();
         for (const [key, value] of Object.entries(req.body ?? {})) {
-          if (typeof value === "string") {
-            body.set(key, value);
-          }
+          appendOAuthParam(body, key, value);
         }
 
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10_000);
         const upstream = await fetch(oauthConfig.tokenEndpoint, {
           method: "POST",
           headers: {
@@ -108,10 +122,13 @@ export async function startHttpServer(
             accept: "application/json",
           },
           body: body.toString(),
-        });
+          signal: controller.signal,
+        }).finally(() => clearTimeout(timeout));
 
         const text = await upstream.text();
         res.status(upstream.status);
+        res.set("Cache-Control", "no-store");
+        res.set("Pragma", "no-cache");
         const contentType = upstream.headers.get("content-type");
         if (contentType) {
           res.type(contentType);
