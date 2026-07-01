@@ -40,6 +40,11 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "~1.22.0",
+    "express": "^5.1.0",
+    "jose": "^5.9.6",
     "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0"
   }
 }

@@ -62,6 +62,29 @@ describe("ClientHubApiClient", () => {
       expect(init.headers.authorization).toBe("Bearer secret-token");
     });
 
+    it("prefers the per-request auth token over the configured service token", async () => {
+      fetchMock.mockResolvedValue(okResponse({ data: [] }));
+
+      await client.request("GET", "clients", undefined, "user-token");
+
+      const [, init] = fetchMock.mock.calls[0];
+      expect(init.headers.authorization).toBe("Bearer user-token");
+    });
+
+    it("throws NO_AUTH_TOKEN when neither service nor request token is present", async () => {
+      const tokenless = new ClientHubApiClient({
+        apiBaseUrl: "https://api.test",
+        apiToken: "",
+        requestTimeout: 1000,
+      });
+
+      await expect(tokenless.request("GET", "clients")).rejects.toMatchObject({
+        name: "ClientHubMCPError",
+        code: "NO_AUTH_TOKEN",
+      });
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
     it("returns the parsed json body on success", async () => {
       fetchMock.mockResolvedValue(okResponse({ id: 1, name: "Escola" }));
 

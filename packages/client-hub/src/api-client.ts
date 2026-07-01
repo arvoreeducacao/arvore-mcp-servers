@@ -15,8 +15,18 @@ export class ClientHubApiClient {
   async request(
     method: "GET",
     path: string,
-    query?: Record<string, string | undefined>
+    query?: Record<string, string | undefined>,
+    authToken?: string
   ): Promise<unknown> {
+    const token = authToken ?? this.config.apiToken;
+
+    if (!token) {
+      throw new ClientHubMCPError(
+        "No auth token available for Client Hub API request",
+        "NO_AUTH_TOKEN"
+      );
+    }
+
     const params = query
       ? Object.entries(query)
           .filter(([, value]) => value !== undefined && value !== "")
@@ -40,7 +50,7 @@ export class ClientHubApiClient {
         method,
         headers: {
           accept: "application/json",
-          authorization: `Bearer ${this.config.apiToken}`,
+          authorization: `Bearer ${token}`,
         },
         signal: controller.signal,
       });

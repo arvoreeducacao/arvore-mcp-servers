@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const ClientHubConfigSchema = z.object({
   apiBaseUrl: z.string().url(),
-  apiToken: z.string().min(1),
+  apiToken: z.string().optional().default(""),
   requestTimeout: z.number().optional().default(30000),
 });
 
