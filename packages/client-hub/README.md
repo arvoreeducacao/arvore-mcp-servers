@@ -121,7 +121,7 @@ export OAUTH_RESOURCE_URL=https://client-hub-mcp.arvore.dev/mcp
 | `MCP_PATH` | `/mcp` | Path the MCP endpoint is served on. |
 | `OAUTH_ISSUER` | `https://auth.arvore.com.br` | Identity issuer. |
 | `OAUTH_JWKS_URI` | `<issuer>/api-arvore/oauth2/jwks` | JWKS used to verify tokens. |
-| `OAUTH_AUDIENCE` | `<issuer>` | Expected token `aud`. The identity server issues tokens with `aud` set to the issuer, so this defaults to `OAUTH_ISSUER`. Override only if the identity server changes the audience it emits. |
+| `OAUTH_AUDIENCE` | `<resourceUrl>` | Expected token `aud`. The identity server (RFC 8707) issues tokens with `aud` set to the `resource` requested by the client, which is this server's `OAUTH_RESOURCE_URL`. Defaults to `OAUTH_RESOURCE_URL`. |
 | `OAUTH_RESOURCE_URL` | `https://client-hub-mcp.arvore.dev/mcp` | Public URL of this resource, advertised in metadata. |
 | `OAUTH_REQUIRED_SCOPES` | _(none)_ | Comma-separated scopes required on the token. |
 
