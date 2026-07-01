@@ -103,6 +103,15 @@ export async function startHttpServer(
     res.redirect(302, target.toString());
   });
 
+  const allowedTokenParams = new Set([
+    "grant_type",
+    "code",
+    "client_id",
+    "client_secret",
+    "redirect_uri",
+    "code_verifier",
+  ]);
+
   app.post(
     "/token",
     express.urlencoded({ extended: true }),
@@ -110,7 +119,9 @@ export async function startHttpServer(
       try {
         const body = new URLSearchParams();
         for (const [key, value] of Object.entries(req.body ?? {})) {
-          appendOAuthParam(body, key, value);
+          if (allowedTokenParams.has(key)) {
+            appendOAuthParam(body, key, value);
+          }
         }
 
         const controller = new AbortController();
