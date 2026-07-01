@@ -57,11 +57,20 @@ export function oauthConfigFromEnvironment(): OAuthConfig {
 export function createTokenVerifier(config: OAuthConfig): OAuthTokenVerifier {
   const jwks = createRemoteJWKSet(new URL(config.jwksUri));
 
+  const acceptedAudiences = Array.from(
+    new Set(
+      [config.audience, config.resourceUrl, config.issuer].filter(
+        (value): value is string =>
+          typeof value === "string" && value.length > 0
+      )
+    )
+  );
+
   return {
     async verifyAccessToken(token: string): Promise<AuthInfo> {
       const { payload } = await jwtVerify(token, jwks, {
         issuer: config.issuer,
-        audience: config.audience,
+        audience: acceptedAudiences,
       });
 
       const scopes =
