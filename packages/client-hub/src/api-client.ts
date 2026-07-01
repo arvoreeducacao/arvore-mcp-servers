@@ -46,10 +46,14 @@ export class ClientHubApiClient {
       }).finally(() => clearTimeout(timeout));
 
       if (!res.ok) {
+        const detail = await res.text().catch(() => undefined);
+        console.error(
+          `[exchange] FAILED status=${res.status} body=${(detail || "").slice(0, 400)}`
+        );
         throw new ClientHubMCPError(
           `Token exchange failed: ${res.status}`,
           "TOKEN_EXCHANGE_ERROR",
-          await res.text().catch(() => undefined)
+          detail
         );
       }
 
@@ -57,6 +61,10 @@ export class ClientHubApiClient {
         access_token: string;
         expires_in: number;
       };
+
+      console.error(
+        `[exchange] OK legacyTokenLen=${data.access_token?.length} expiresIn=${data.expires_in}`
+      );
 
       this.legacyTokenCache.set(identityToken, {
         token: data.access_token,
@@ -120,10 +128,14 @@ export class ClientHubApiClient {
       });
 
       if (!res.ok) {
+        const errDetail = await res.text().catch(() => undefined);
+        console.error(
+          `[api] ${path} FAILED status=${res.status} tokenLen=${resolvedToken?.length} body=${(errDetail || "").slice(0, 400)}`
+        );
         throw new ClientHubMCPError(
           `Client Hub API error: ${res.status}`,
           "API_ERROR",
-          await res.text().catch(() => undefined)
+          errDetail
         );
       }
 
