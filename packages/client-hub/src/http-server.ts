@@ -155,7 +155,6 @@ export async function startHttpServer(
 
   const bearerAuth = requireBearerAuth({
     verifier,
-    requiredScopes: oauthConfig.requiredScopes,
     resourceMetadataUrl: `${origin}/.well-known/oauth-protected-resource/mcp`,
   });
 
