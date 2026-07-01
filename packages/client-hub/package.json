@@ -1,6 +1,6 @@
 {
   "name": "@arvoreeducacao/client-hub-mcp",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Client Hub MCP Server for read-only customer 360 and conversation search",
   "main": "dist/index.js",
   "type": "module",
