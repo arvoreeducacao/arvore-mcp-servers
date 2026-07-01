@@ -153,15 +153,46 @@ export async function startHttpServer(
     });
   });
 
-  const bearerAuth = requireBearerAuth({
-    verifier,
+  const transports = new Map<string, StreamableHTTPServerTransport>();
+
+  const logMcpAuth = (req: Request, _res: Response, next: () => void) => {
+    const auth = req.headers["authorization"];
+    const hasToken = typeof auth === "string" && auth.length > 0;
+    console.error(
+      `[mcp] ${req.method} ${req.path} hasAuth=${hasToken} tokenPrefix=${
+        hasToken ? (auth as string).slice(0, 20) : "none"
+      } sessionId=${req.headers["mcp-session-id"] ?? "none"}`
+    );
+    next();
+  };
+
+  const debugVerifier = {
+    async verifyAccessToken(token: string) {
+      try {
+        const info = await verifier.verifyAccessToken(token);
+        console.error(
+          `[mcp] token OK sub=${JSON.stringify(info.extra?.sub)} aud/clientId=${info.clientId} scopes=${JSON.stringify(info.scopes)}`
+        );
+        return info;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(`[mcp] token INVALID: ${message}`);
+        throw error;
+      }
+    },
+  };
+
+  const bearerAuthWithLog = requireBearerAuth({
+    verifier: debugVerifier,
     requiredScopes: oauthConfig.requiredScopes,
     resourceMetadataUrl: `${origin}/.well-known/oauth-protected-resource/mcp`,
   });
 
-  const transports = new Map<string, StreamableHTTPServerTransport>();
-
-  app.all(options.mcpPath, bearerAuth, async (req: Request, res: Response) => {
+  app.all(
+    options.mcpPath,
+    logMcpAuth,
+    bearerAuthWithLog,
+    async (req: Request, res: Response) => {
     try {
       const sessionId = req.headers["mcp-session-id"] as string | undefined;
       let transport = sessionId ? transports.get(sessionId) : undefined;
