@@ -63,12 +63,50 @@ describe("ClientHubApiClient", () => {
     });
 
     it("prefers the per-request auth token over the configured service token", async () => {
-      fetchMock.mockResolvedValue(okResponse({ data: [] }));
+      fetchMock
+        .mockResolvedValueOnce(
+          new Response(
+            JSON.stringify({
+              access_token: "exchanged-legacy-token",
+              expires_in: 3600,
+              token_type: "Bearer",
+              issued_token_type:
+                "urn:ietf:params:oauth:token-type:access_token",
+            }),
+            { status: 200, headers: { "content-type": "application/json" } }
+          )
+        )
+        .mockResolvedValueOnce(okResponse({ data: [] }));
 
-      await client.request("GET", "clients", undefined, "user-token");
+      await client.request("GET", "clients", undefined, "user-identity-token");
 
-      const [, init] = fetchMock.mock.calls[0];
-      expect(init.headers.authorization).toBe("Bearer user-token");
+      const [, init] = fetchMock.mock.calls[1];
+      expect(init.headers.authorization).toBe("Bearer exchanged-legacy-token");
+    });
+
+    it("caches the exchanged legacy token for subsequent requests", async () => {
+      fetchMock
+        .mockResolvedValueOnce(
+          new Response(
+            JSON.stringify({
+              access_token: "cached-legacy-token",
+              expires_in: 3600,
+              token_type: "Bearer",
+              issued_token_type:
+                "urn:ietf:params:oauth:token-type:access_token",
+            }),
+            { status: 200, headers: { "content-type": "application/json" } }
+          )
+        )
+        .mockResolvedValue(okResponse({ data: [] }));
+
+      await client.request("GET", "clients", undefined, "user-identity-token");
+      await client.request("GET", "clients", undefined, "user-identity-token");
+
+      const exchangeCalls = fetchMock.mock.calls.filter(([url]) =>
+        (url as string).includes("token/exchange")
+      );
+      expect(exchangeCalls).toHaveLength(1);
     });
 
     it("throws NO_AUTH_TOKEN when neither service nor request token is present", async () => {
