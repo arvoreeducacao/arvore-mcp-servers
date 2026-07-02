@@ -84,11 +84,6 @@ jobs:
           echo "packages<<EOF" >> "$GITHUB_OUTPUT"
           echo "$CHANGED" >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
-          if echo "$CHANGED" | grep -qx 'client-hub'; then
-            echo "client_hub=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "client_hub=false" >> "$GITHUB_OUTPUT"
-          fi
 
       - name: Install dependencies
         if: steps.changed.outputs.packages != ''
@@ -109,10 +104,6 @@ jobs:
         run: |
           echo "$CHANGED_PACKAGES" | while IFS= read -r name; do
             [ -z "$name" ] && continue
-            if [ "$name" = "client-hub" ]; then
-              echo "Skipping client-hub (published to GitHub Packages in a separate step)"
-              continue
-            fi
             pkg="packages/$name/"
             if [ ! -d "$pkg" ]; then
               echo "Skipping $name (directory removed)"
@@ -126,19 +117,3 @@ jobs:
             }
             cd ../..
           done
-
-      - name: Setup Node.js for GitHub Packages
-        if: steps.changed.outputs.client_hub == 'true'
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          registry-url: "https://npm.pkg.github.com"
-          scope: "@arvoreeducacao"
-
-      - name: Publish private packages to GitHub Packages
-        if: steps.changed.outputs.client_hub == 'true'
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          cd packages/client-hub
-          npm publish 2>&1 || echo "Skipped client-hub (already published or error)"
