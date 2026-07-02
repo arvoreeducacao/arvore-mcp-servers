@@ -5,12 +5,13 @@ vi.mock("jose", async () => {
   const actual = await vi.importActual<typeof import("jose")>("jose");
   return {
     ...actual,
-    createRemoteJWKSet: () => publicKey,
+    createRemoteJWKSet: () => jwksResolver,
   };
 });
 
 let publicKey: KeyLike;
 let privateKey: KeyLike;
+let jwksResolver: unknown;
 
 const config = {
   issuer: "https://auth.arvore.com.br",
@@ -43,6 +44,7 @@ describe("createTokenVerifier", () => {
     const pair = await generateKeyPair("RS256");
     publicKey = pair.publicKey;
     privateKey = pair.privateKey;
+    jwksResolver = publicKey;
     await exportJWK(publicKey);
   });
 
@@ -93,5 +95,53 @@ describe("createTokenVerifier", () => {
     await expect(verifier.verifyAccessToken(token)).rejects.toBeInstanceOf(
       InvalidTokenError
     );
+  });
+
+  it("propagates JWKS network failures instead of turning them into 401", async () => {
+    const { createTokenVerifier } = await import("./auth.js");
+    const { InvalidTokenError } = await import(
+      "@modelcontextprotocol/sdk/server/auth/errors.js"
+    );
+    const networkError = new TypeError("fetch failed");
+    jwksResolver = () => {
+      throw networkError;
+    };
+    try {
+      const verifier = createTokenVerifier(config);
+      const token = await makeToken();
+
+      await expect(verifier.verifyAccessToken(token)).rejects.toBe(
+        networkError
+      );
+      await expect(
+        verifier.verifyAccessToken(token)
+      ).rejects.not.toBeInstanceOf(InvalidTokenError);
+    } finally {
+      jwksResolver = publicKey;
+    }
+  });
+
+  it("propagates JWKSTimeout instead of turning it into 401", async () => {
+    const { createTokenVerifier } = await import("./auth.js");
+    const { InvalidTokenError } = await import(
+      "@modelcontextprotocol/sdk/server/auth/errors.js"
+    );
+    const { errors } = await import("jose");
+    jwksResolver = () => {
+      throw new errors.JWKSTimeout();
+    };
+    try {
+      const verifier = createTokenVerifier(config);
+      const token = await makeToken();
+
+      await expect(
+        verifier.verifyAccessToken(token)
+      ).rejects.toBeInstanceOf(errors.JWKSTimeout);
+      await expect(
+        verifier.verifyAccessToken(token)
+      ).rejects.not.toBeInstanceOf(InvalidTokenError);
+    } finally {
+      jwksResolver = publicKey;
+    }
   });
 });

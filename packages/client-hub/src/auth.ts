@@ -79,10 +79,18 @@ export function createTokenVerifier(config: OAuthConfig): OAuthTokenVerifier {
         if (error instanceof joseErrors.JWTExpired) {
           throw new InvalidTokenError("Token has expired");
         }
+        if (
+          error instanceof joseErrors.JWKSTimeout ||
+          error instanceof joseErrors.JWKSInvalid
+        ) {
+          console.error("Client Hub MCP JWKS unavailable:", error);
+          throw error;
+        }
         if (error instanceof joseErrors.JOSEError) {
           throw new InvalidTokenError(`Invalid token: ${error.code}`);
         }
-        throw new InvalidTokenError("Invalid token");
+        console.error("Client Hub MCP token verification failed:", error);
+        throw error;
       }
 
       const scopes =
