@@ -3,6 +3,10 @@ import { ClientHubConfig, ClientHubMCPError } from "./types.js";
 const TOKEN_EXCHANGE_GRANT_TYPE =
   "urn:ietf:params:oauth:grant-type:token-exchange";
 
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export class ClientHubApiClient {
   private readonly legacyTokenCache = new Map<
     string,
@@ -103,11 +107,66 @@ export class ClientHubApiClient {
 
     const url = `${this.config.apiBaseUrl}/${path}${params ? `?${params}` : ""}`;
 
-    const controller = new AbortController();
-    const timeout = setTimeout(
-      () => controller.abort(),
-      this.config.requestTimeout
+    const totalAttempts = (this.config.maxRetries ?? 0) + 1;
+    let lastError: ClientHubMCPError | undefined;
+
+    for (let attempt = 1; attempt <= totalAttempts; attempt += 1) {
+      try {
+        return await this.attemptRequest(method, url, resolvedToken);
+      } catch (error) {
+        const normalized =
+          error instanceof ClientHubMCPError
+            ? error
+            : new ClientHubMCPError(
+                "Client Hub API unreachable",
+                "UNREACHABLE",
+                error instanceof Error ? error.message : String(error)
+              );
+
+        if (!this.isRetryable(normalized) || attempt === totalAttempts) {
+          throw normalized;
+        }
+
+        lastError = normalized;
+        const baseDelay = this.config.retryBaseDelay ?? 500;
+        const backoff =
+          baseDelay * 2 ** (attempt - 1) +
+          Math.floor(Math.random() * baseDelay);
+        await delay(backoff);
+      }
+    }
+
+    throw (
+      lastError ??
+      new ClientHubMCPError("Client Hub API unreachable", "UNREACHABLE")
     );
+  }
+
+  private isRetryable(error: ClientHubMCPError): boolean {
+    if (error.code === "UNREACHABLE" || error.code === "TIMEOUT") {
+      return true;
+    }
+    if (error.code === "API_ERROR") {
+      const status = Number.parseInt(
+        error.message.replace(/\D/g, "") || "0",
+        10
+      );
+      return status === 429 || status >= 500;
+    }
+    return false;
+  }
+
+  private async attemptRequest(
+    method: "GET",
+    url: string,
+    resolvedToken: string
+  ): Promise<unknown> {
+    const controller = new AbortController();
+    let timedOut = false;
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, this.config.requestTimeout);
 
     try {
       const res = await fetch(url, {
@@ -145,6 +204,13 @@ export class ClientHubApiClient {
     } catch (error) {
       if (error instanceof ClientHubMCPError) {
         throw error;
+      }
+      if (timedOut) {
+        throw new ClientHubMCPError(
+          `Client Hub API timed out after ${this.config.requestTimeout}ms`,
+          "TIMEOUT",
+          error instanceof Error ? error.message : String(error)
+        );
       }
       throw new ClientHubMCPError(
         "Client Hub API unreachable",

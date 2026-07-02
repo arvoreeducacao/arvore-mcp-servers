@@ -4,6 +4,8 @@ export const ClientHubConfigSchema = z.object({
   apiBaseUrl: z.string().url(),
   apiToken: z.string().optional().default(""),
   requestTimeout: z.number().optional().default(30000),
+  maxRetries: z.number().int().min(0).optional().default(2),
+  retryBaseDelay: z.number().int().min(0).optional().default(500),
 });
 
 export type ClientHubConfig = z.output<typeof ClientHubConfigSchema>;

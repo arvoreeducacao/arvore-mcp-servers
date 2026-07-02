@@ -37,6 +37,14 @@ export class ClientHubMCPServer {
         process.env.CLIENT_HUB_REQUEST_TIMEOUT || "30000",
         10
       ),
+      maxRetries: Number.parseInt(
+        process.env.CLIENT_HUB_MAX_RETRIES || "2",
+        10
+      ),
+      retryBaseDelay: Number.parseInt(
+        process.env.CLIENT_HUB_RETRY_BASE_DELAY || "500",
+        10
+      ),
     });
 
     return new ClientHubMCPServer(config);

@@ -199,6 +199,64 @@ describe("ClientHubApiClient", () => {
     });
   });
 
+  describe("retry", () => {
+    const makeClient = () =>
+      new ClientHubApiClient({
+        apiBaseUrl: "https://api.test",
+        apiToken: "secret-token",
+        requestTimeout: 1000,
+        maxRetries: 2,
+        retryBaseDelay: 0,
+      });
+
+    it("retries transient network errors and succeeds", async () => {
+      const retryClient = makeClient();
+      fetchMock
+        .mockRejectedValueOnce(new Error("ECONNRESET"))
+        .mockResolvedValueOnce(okResponse({ data: [1] }));
+
+      await expect(retryClient.request("GET", "clients")).resolves.toEqual({
+        data: [1],
+      });
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    it("gives up after maxRetries + 1 attempts on persistent failure", async () => {
+      const retryClient = makeClient();
+      fetchMock.mockRejectedValue(new Error("down"));
+
+      await expect(retryClient.request("GET", "clients")).rejects.toMatchObject(
+        { code: "UNREACHABLE" }
+      );
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+    });
+
+    it("retries 5xx responses but not 4xx", async () => {
+      const retryClient = makeClient();
+      const errorResponse = (status: number) => ({
+        ok: false,
+        status,
+        text: async () => "err",
+        json: async () => ({}),
+      });
+
+      fetchMock.mockResolvedValue(errorResponse(404));
+      await expect(
+        retryClient.request("GET", "clients")
+      ).rejects.toMatchObject({ code: "API_ERROR" });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+
+      fetchMock.mockReset();
+      fetchMock
+        .mockResolvedValueOnce(errorResponse(503))
+        .mockResolvedValueOnce(okResponse({ data: [] }));
+      await expect(retryClient.request("GET", "clients")).resolves.toEqual({
+        data: [],
+      });
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+  });
+
   describe("testConnection", () => {
     it("returns true when the clients endpoint responds ok", async () => {
       fetchMock.mockResolvedValue(okResponse({ data: [] }));
