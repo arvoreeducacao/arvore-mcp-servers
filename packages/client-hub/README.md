@@ -56,6 +56,8 @@ npm install -g @arvoreeducacao/client-hub-mcp
 export CLIENT_HUB_API_URL=https://livros.arvore.com.br/api-arvore
 export CLIENT_HUB_API_TOKEN=<read-only service token>
 export CLIENT_HUB_REQUEST_TIMEOUT=30000
+export CLIENT_HUB_MAX_RETRIES=2
+export CLIENT_HUB_RETRY_BASE_DELAY=500
 ```
 
 > **Security**: `CLIENT_HUB_API_TOKEN` is a personal, short-lived credential —
@@ -63,6 +65,12 @@ export CLIENT_HUB_REQUEST_TIMEOUT=30000
 > `@EmployeeOnly`, `@TotpAuth`), so the data is never exposed without an
 > authenticated employee/admin session. Do not share or commit the token, and
 > rotate it if leaked. The package itself carries no secrets.
+
+| Variable | Default | Description |
+|---|---|---|
+| `CLIENT_HUB_REQUEST_TIMEOUT` | `30000` | Per-attempt request timeout (ms). On expiry the error is reported as `TIMEOUT`. |
+| `CLIENT_HUB_MAX_RETRIES` | `2` | Extra retries for transient failures (network errors, timeouts, HTTP 429/5xx). Total attempts = `maxRetries + 1`. 4xx errors are never retried. |
+| `CLIENT_HUB_RETRY_BASE_DELAY` | `500` | Base backoff (ms). Delay grows exponentially with jitter across retries. |
 
 ## Tools
 
