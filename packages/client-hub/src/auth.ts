@@ -1,6 +1,7 @@
-import { createRemoteJWKSet, jwtVerify } from "jose";
+import { createRemoteJWKSet, jwtVerify, errors as joseErrors } from "jose";
 import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 import type { OAuthTokenVerifier } from "@modelcontextprotocol/sdk/server/auth/provider.js";
+import { InvalidTokenError } from "@modelcontextprotocol/sdk/server/auth/errors.js";
 
 export interface OAuthConfig {
   issuer: string;
@@ -68,14 +69,33 @@ export function createTokenVerifier(config: OAuthConfig): OAuthTokenVerifier {
 
   return {
     async verifyAccessToken(token: string): Promise<AuthInfo> {
-      const { payload } = await jwtVerify(token, jwks, {
-        issuer: config.issuer,
-        audience: acceptedAudiences,
-      });
+      let payload;
+      try {
+        ({ payload } = await jwtVerify(token, jwks, {
+          issuer: config.issuer,
+          audience: acceptedAudiences,
+        }));
+      } catch (error) {
+        if (error instanceof joseErrors.JWTExpired) {
+          throw new InvalidTokenError("Token has expired");
+        }
+        if (
+          error instanceof joseErrors.JWKSTimeout ||
+          error instanceof joseErrors.JWKSInvalid
+        ) {
+          console.error("Client Hub MCP JWKS unavailable:", error);
+          throw error;
+        }
+        if (error instanceof joseErrors.JOSEError) {
+          throw new InvalidTokenError(`Invalid token: ${error.code}`);
+        }
+        console.error("Client Hub MCP token verification failed:", error);
+        throw error;
+      }
 
       const scopes =
         typeof payload.scope === "string"
-          ? payload.scope.split(" ").filter((scope) => scope.length > 0)
+          ? payload.scope.split(" ").filter((scope: string) => scope.length > 0)
           : [];
 
       return {

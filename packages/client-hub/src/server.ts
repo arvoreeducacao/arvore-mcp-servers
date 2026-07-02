@@ -6,7 +6,6 @@ import { ClientHubMCPTools } from "./tools.js";
 import {
   ClientHubConfig,
   ClientHubConfigSchema,
-  ClientHubMCPError,
   GetClient360Params,
   GetClient360ParamsSchema,
   ListLinksParams,
@@ -134,9 +133,9 @@ export class ClientHubMCPServer {
     try {
       const isConnected = await this.api.testConnection();
       if (!isConnected) {
-        throw new ClientHubMCPError(
-          "Client Hub API connection test failed",
-          "CONNECTION_TEST_FAILED"
+        console.error(
+          "Warning: Client Hub API connection test failed at startup; " +
+            "starting anyway and will retry on demand."
         );
       }
 

@@ -13,7 +13,7 @@ export type ClientHubConfigInput = z.input<typeof ClientHubConfigSchema>;
 
 export const SearchClientParamsSchema = z.object({
   query: z.string().min(1),
-  limit: z.number().int().positive().optional(),
+  limit: z.number().int().positive().max(50).optional(),
 });
 
 export type SearchClientParams = z.infer<typeof SearchClientParamsSchema>;
@@ -28,10 +28,10 @@ export const SearchConversationsParamsSchema = z.object({
   clientId: z.number().int().positive(),
   query: z.string().min(1),
   source: z
-    .string()
+    .enum(["whatsapp", "elephan"])
     .optional()
     .describe("Filter by source: 'whatsapp' or 'elephan'. Omit to search all sources."),
-  limit: z.number().int().positive().optional(),
+  limit: z.number().int().positive().max(50).optional(),
 });
 
 export type SearchConversationsParams = z.infer<
