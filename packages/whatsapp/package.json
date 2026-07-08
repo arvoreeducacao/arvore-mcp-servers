@@ -1,6 +1,6 @@
 {
   "name": "@arvoretech/whatsapp-mcp",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "WhatsApp MCP Server using Baileys for sending and reading messages from a single WhatsApp account",
   "main": "dist/index.js",
   "type": "module",
