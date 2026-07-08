@@ -249,16 +249,6 @@ export class WhatsAppClient {
     });
   }
 
-  async setPresence(to: string, type: "composing" | "paused" | "recording" | "available" | "unavailable"): Promise<void> {
-    const sock = this.requireSocket();
-    const jid = await this.resolveSendJid(to);
-
-    if (type === "composing" || type === "recording") {
-      await sock.presenceSubscribe(jid).catch(() => undefined);
-    }
-    await sock.sendPresenceUpdate(type, jid);
-  }
-
   async markRead(messageIds: string[], jid: string): Promise<void> {
     const sock = this.requireSocket();
     const keys = messageIds.map((id) => ({ remoteJid: jid, id, fromMe: false }));
@@ -348,6 +338,7 @@ export class WhatsAppClient {
       browser: Browsers.macOS("Arvore MCP"),
       generateHighQualityLinkPreview: false,
       syncFullHistory: false,
+      markOnlineOnConnect: false,
     });
 
     this.sock = sock;
