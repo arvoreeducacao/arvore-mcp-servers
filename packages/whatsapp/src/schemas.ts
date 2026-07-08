@@ -81,11 +81,6 @@ export const SendReactionParamsSchema = z.object({
     .describe("True if the target message was sent by you (default false)"),
 });
 
-export const SetPresenceParamsSchema = z.object({
-  to: recipient,
-  type: z.enum(["composing", "paused", "recording", "available", "unavailable"]),
-});
-
 export const MarkReadParamsSchema = z.object({
   jid: z.string().min(1),
   messageIds: z.array(z.string().min(1)).min(1),

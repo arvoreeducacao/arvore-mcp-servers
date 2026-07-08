@@ -33,7 +33,6 @@ The agent can also call `qr_code` to retrieve the pairing QR in `ascii`, `png` (
 | `send_text` | Send a text message. Supports replies via `quotedMessageId`. Brazilian numbers are normalized automatically. |
 | `send_media` | Send image, audio, video, or document via `filePath` (absolute path on disk) or `base64`. Audio defaults to push-to-talk. |
 | `send_reaction` | React to a message with an emoji. Pass an empty string to remove a previous reaction. |
-| `set_presence` | Set composing / paused / recording / available / unavailable for a chat. |
 | `mark_read` | Mark messages as read on WhatsApp and reset the local unread counter. |
 | `list_chats` | List recent chats with last message preview and unread count. |
 | `get_messages` | Fetch chat history (paginated by `beforeTimestamp`, oldest first). |

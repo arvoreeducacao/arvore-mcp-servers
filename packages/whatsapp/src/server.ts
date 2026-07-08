@@ -26,7 +26,6 @@ import {
   SendMediaParamsShape,
   SendReactionParamsSchema,
   SendTextParamsSchema,
-  SetPresenceParamsSchema,
   StatusParamsSchema,
 } from "./schemas.js";
 import { WhatsAppClient } from "./whatsapp-client.js";
@@ -232,21 +231,6 @@ export class WhatsAppMcpServer {
       async (params) => {
         const args = SendReactionParamsSchema.parse(params);
         await this.client.sendReaction(args);
-        return jsonResponse({ ok: true });
-      }
-    );
-
-    this.server.registerTool(
-      "set_presence",
-      {
-        title: "Set Presence",
-        description:
-          "Set typing/recording/online state for a chat. Useful before sending a long message to feel more natural.",
-        inputSchema: SetPresenceParamsSchema.shape,
-      },
-      async (params) => {
-        const args = SetPresenceParamsSchema.parse(params);
-        await this.client.setPresence(args.to, args.type);
         return jsonResponse({ ok: true });
       }
     );
