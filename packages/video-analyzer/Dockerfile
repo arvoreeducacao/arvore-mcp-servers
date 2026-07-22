@@ -5,11 +5,18 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     MCP_TRANSPORT=http \
     HOST=0.0.0.0 \
-    PORT=8080
+    PORT=8080 \
+    POT_PROVIDER_DIR=/opt/bgutil-pot
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ffmpeg curl nodejs \
+    && apt-get install -y --no-install-recommends ffmpeg curl nodejs npm git \
     && rm -rf /var/lib/apt/lists/*
+
+RUN git clone --depth 1 https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git "$POT_PROVIDER_DIR" \
+    && cd "$POT_PROVIDER_DIR/server" \
+    && npm install --omit=optional --no-audit --no-fund \
+    && npx tsc \
+    && npm cache clean --force
 
 WORKDIR /app
 
@@ -17,7 +24,8 @@ COPY pyproject.toml README.md ./
 COPY src ./src
 
 RUN pip install --upgrade pip \
-    && pip install .
+    && pip install . \
+    && pip install bgutil-ytdlp-pot-provider
 
 RUN groupadd -r app && useradd -r -g app -d /app app \
     && mkdir -p /tmp/arvore-video-analyzer \

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import json
+import os
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -52,8 +53,6 @@ def download_url(source: str, dest_dir: Path) -> Path:
     out_template = str(dest_dir / "source.%(ext)s")
     cmd = [
         ytdlp,
-        "--extractor-args",
-        "youtube:player_client=android,ios,web",
         "-f",
         "bv*[height<=720]+ba/b[height<=720]/b/18",
         "--merge-output-format",
@@ -65,6 +64,24 @@ def download_url(source: str, dest_dir: Path) -> Path:
     node = shutil.which("node")
     if node:
         cmd[1:1] = ["--js-runtimes", "node"]
+
+    pot_script = os.environ.get("POT_PROVIDER_DIR")
+    pot_built = (
+        Path(pot_script) / "server" / "build" / "generate_once.js"
+        if pot_script
+        else None
+    )
+    if pot_built and pot_built.exists():
+        cmd[1:1] = [
+            "--extractor-args",
+            f"youtubepot-bgutilscript:script_path={pot_built}",
+        ]
+    else:
+        cmd[1:1] = [
+            "--extractor-args",
+            "youtube:player_client=android,ios,web",
+        ]
+
     cmd.append(source)
     _run(cmd)
     candidates = sorted(dest_dir.glob("source.*"))
