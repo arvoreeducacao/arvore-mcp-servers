@@ -79,6 +79,11 @@ indices to seconds via `index_to_seconds` → `get_frames_at` for full-res frame
 - Frames are downscaled (max 768px, JPEG) to protect the context window.
 - Frame extraction is capped at 12 images per call.
 - Videos are cached under a temp dir by `video_id` and GC'd after 6h.
+- **YouTube on cloud**: YouTube blocks datacenter IPs (`Sign in to confirm you're
+  not a bot`), so YouTube URLs do not work from a hosted deployment. Local runs
+  (residential IP) work fine. Direct file URLs, Vimeo, Google Drive and other
+  yt-dlp sites work from the cloud. To enable YouTube on cloud you would need to
+  supply cookies (`--cookies`) or route through a residential proxy.
 
 ## Cloud (Dokploy)
 
