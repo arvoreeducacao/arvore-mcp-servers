@@ -42,7 +42,7 @@ Point an MCP client at the streamable-http endpoint:
 {
   "mcpServers": {
     "video-analyzer": {
-      "url": "https://video-analyzer.arvore.dev/mcp",
+      "url": "https://<your-domain>/mcp",
       "headers": { "Authorization": "Bearer <MCP_AUTH_TOKEN>" }
     }
   }
