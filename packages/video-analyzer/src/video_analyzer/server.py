@@ -279,6 +279,11 @@ def main() -> None:
     if transport in ("http", "streamable-http", "streamable_http"):
         import uvicorn
 
+        from mcp.server.transport_security import TransportSecuritySettings
+
+        mcp.settings.transport_security = TransportSecuritySettings(
+            enable_dns_rebinding_protection=False
+        )
         host = os.environ.get("HOST", "0.0.0.0")
         port = int(os.environ.get("PORT", "8080"))
         uvicorn.run(_build_http_app(), host=host, port=port, log_level="info")
