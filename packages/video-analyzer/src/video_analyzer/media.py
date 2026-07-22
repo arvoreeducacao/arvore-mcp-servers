@@ -45,6 +45,9 @@ def is_url(source: str) -> bool:
 
 
 def download_url(source: str, dest_dir: Path) -> Path:
+    from .security import assert_safe_url
+
+    assert_safe_url(source)
     ytdlp = _require("yt-dlp")
     out_template = str(dest_dir / "source.%(ext)s")
     cmd = [
