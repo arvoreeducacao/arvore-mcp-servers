@@ -45,9 +45,11 @@ google-slides-mcp auth login     # prints the refresh token on stdout
 3. Keep the token as `GSLIDES_MCP_REFRESH_TOKEN`. Revoke with
    `google-slides-mcp auth logout`.
 
-The server acts as **one Google identity** — the account that authorized it. Decks it
-creates belong to that account; to collaborate, put them in a Shared Drive or a
-shared folder (`folderId`).
+Identity depends on how the client authenticates. Over **OAuth** (claude.ai connectors) the
+server acts as **the person who signed in** — their own Google refresh token travels
+encrypted inside the issued token, so decks belong to them. With the **static
+`MCP_AUTH_TOKEN`** (Claude Code, curl) it acts as the account behind
+`GSLIDES_MCP_REFRESH_TOKEN` — the service identity, ideally a bot account.
 
 ## Environment
 
@@ -63,6 +65,7 @@ shared folder (`folderId`).
 | `GSLIDES_MCP_SIGNIN_CLIENT_ID` | no | Web OAuth client id — turns the OAuth consent screen into Google sign-in |
 | `GSLIDES_MCP_SIGNIN_CLIENT_SECRET` | with the above | secret of that Web client |
 | `GSLIDES_MCP_SIGNIN_DOMAINS` | no | allowed email domains, default `arvore.com.br` |
+| `GSLIDES_MCP_SIGNIN_SCOPES` | no | scopes asked of each user, default `presentations,drive` |
 | `GSLIDES_MCP_LOGIN_HINT` | no | pre-fills the Google account on `auth login` |
 
 ## Client config

@@ -4,7 +4,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
-import { GoogleSignInConfig, OAuthProvider } from "./oauth-provider.js";
+import { GoogleSignInConfig, OAuthProvider, ResolvedIdentity } from "./oauth-provider.js";
 import { GoogleSlidesClient } from "./client.js";
 import { GoogleSlidesMCPTools } from "./tools.js";
 import {
@@ -27,18 +27,19 @@ import {
 } from "./types.js";
 
 export interface GoogleSlidesMCPServerOptions {
-  client: GoogleSlidesClientConfig;
+  client: GoogleSlidesClientConfig | null;
   transport: "stdio" | "http";
   host: string;
   port: number;
   authToken: string;
   publicUrl?: string;
   googleSignIn?: GoogleSignInConfig;
+  signInCredentials?: { clientId: string; clientSecret: string };
 }
 
 export class GoogleSlidesMCPServer {
-  private client: GoogleSlidesClient;
-  private tools: GoogleSlidesMCPTools;
+  private serviceTools: GoogleSlidesMCPTools | null = null;
+  private toolsByIdentity = new Map<string, GoogleSlidesMCPTools>();
   private options: GoogleSlidesMCPServerOptions;
   private httpServer: HttpServer | null = null;
   private transports = new Map<string, StreamableHTTPServerTransport>();
@@ -56,13 +57,45 @@ export class GoogleSlidesMCPServer {
       issuer: () => this.publicUrl,
       googleSignIn: options.googleSignIn,
     });
-    this.client = new GoogleSlidesClient(options.client);
-    this.tools = new GoogleSlidesMCPTools(this.client, {
-      allowLocalWrites: options.transport === "stdio",
-    });
+    if (options.client) {
+      this.serviceTools = new GoogleSlidesMCPTools(new GoogleSlidesClient(options.client), {
+        allowLocalWrites: options.transport === "stdio",
+      });
+    }
   }
 
-  private createMcpServer(): McpServer {
+  private toolsFor(identity: ResolvedIdentity | null): GoogleSlidesMCPTools {
+    if (!identity) {
+      if (!this.serviceTools) {
+        throw new Error(
+          "This server has no service identity — connect through OAuth so it acts as your own Google account."
+        );
+      }
+      return this.serviceTools;
+    }
+
+    const cached = this.toolsByIdentity.get(identity.refreshToken);
+    if (cached) return cached;
+
+    const credentials = this.options.signInCredentials;
+    if (!credentials) {
+      throw new Error("Google sign-in is not configured on this server.");
+    }
+
+    const tools = new GoogleSlidesMCPTools(
+      new GoogleSlidesClient({
+        clientId: credentials.clientId,
+        clientSecret: credentials.clientSecret,
+        refreshToken: identity.refreshToken,
+      }),
+      { allowLocalWrites: false }
+    );
+    this.toolsByIdentity.set(identity.refreshToken, tools);
+    return tools;
+  }
+
+  private createMcpServer(identity: ResolvedIdentity | null = null): McpServer {
+    const tools = this.toolsFor(identity);
     const server = new McpServer({
       name: "google-slides-mcp-server",
       version: "1.0.0",
@@ -76,7 +109,7 @@ export class GoogleSlidesMCPServer {
           "List Google Slides presentations from Drive, newest first. Use nameContains to search by title and folderId to scope to a folder.",
         inputSchema: ListPresentationsParamsSchema.shape,
       },
-      async (params) => this.tools.listPresentations(ListPresentationsParamsSchema.parse(params))
+      async (params) => tools.listPresentations(ListPresentationsParamsSchema.parse(params))
     );
 
     server.registerTool(
@@ -88,7 +121,7 @@ export class GoogleSlidesMCPServer {
         inputSchema: CreatePresentationParamsSchema.shape,
       },
       async (params) =>
-        this.tools.createPresentation(CreatePresentationParamsSchema.parse(params))
+        tools.createPresentation(CreatePresentationParamsSchema.parse(params))
     );
 
     server.registerTool(
@@ -99,7 +132,7 @@ export class GoogleSlidesMCPServer {
           "Copy an existing presentation or template into a new file, optionally inside a folder. Best starting point for branded decks: copy, then replace_all_text on the placeholders.",
         inputSchema: CopyPresentationParamsSchema.shape,
       },
-      async (params) => this.tools.copyPresentation(CopyPresentationParamsSchema.parse(params))
+      async (params) => tools.copyPresentation(CopyPresentationParamsSchema.parse(params))
     );
 
     server.registerTool(
@@ -111,7 +144,7 @@ export class GoogleSlidesMCPServer {
         inputSchema: SummarizePresentationParamsSchema.shape,
       },
       async (params) =>
-        this.tools.summarizePresentation(SummarizePresentationParamsSchema.parse(params))
+        tools.summarizePresentation(SummarizePresentationParamsSchema.parse(params))
     );
 
     server.registerTool(
@@ -122,7 +155,7 @@ export class GoogleSlidesMCPServer {
           "Raw Slides API presentation resource. Large — always pass a fields mask (e.g. 'slides.objectId,slides.pageElements(objectId,shape.shapeType)') unless you need everything, including layouts and masters.",
         inputSchema: GetPresentationParamsSchema.shape,
       },
-      async (params) => this.tools.getPresentation(GetPresentationParamsSchema.parse(params))
+      async (params) => tools.getPresentation(GetPresentationParamsSchema.parse(params))
     );
 
     server.registerTool(
@@ -133,7 +166,7 @@ export class GoogleSlidesMCPServer {
           "Raw page resource for one slide, addressed by pageObjectId or slideIndex. Includes exact geometry (transform, size) of every element — use it when positioning matters.",
         inputSchema: GetPageParamsSchema.shape,
       },
-      async (params) => this.tools.getPage(GetPageParamsSchema.parse(params))
+      async (params) => tools.getPage(GetPageParamsSchema.parse(params))
     );
 
     server.registerTool(
@@ -144,7 +177,7 @@ export class GoogleSlidesMCPServer {
           "Render a slide as a PNG and return it as an image, so the deck can be inspected visually. Use it after every batch of edits to check layout, overflow and alignment. Sizes: SMALL 200px, MEDIUM 800px, LARGE 1600px.",
         inputSchema: GetSlideImageParamsSchema.shape,
       },
-      async (params) => this.tools.getSlideImage(GetSlideImageParamsSchema.parse(params))
+      async (params) => tools.getSlideImage(GetSlideImageParamsSchema.parse(params))
     );
 
     server.registerTool(
@@ -155,7 +188,7 @@ export class GoogleSlidesMCPServer {
           "Append or insert a slide from a predefined layout and fill its title/subtitle/body placeholders in one call. Returns the new page object id.",
         inputSchema: AddSlideParamsSchema.shape,
       },
-      async (params) => this.tools.addSlide(AddSlideParamsSchema.parse(params))
+      async (params) => tools.addSlide(AddSlideParamsSchema.parse(params))
     );
 
     server.registerTool(
@@ -166,7 +199,7 @@ export class GoogleSlidesMCPServer {
           "Insert text into a shape or table cell by object id. Pass replaceExisting to overwrite the current content instead of appending.",
         inputSchema: InsertTextParamsSchema.shape,
       },
-      async (params) => this.tools.insertText(InsertTextParamsSchema.parse(params))
+      async (params) => tools.insertText(InsertTextParamsSchema.parse(params))
     );
 
     server.registerTool(
@@ -177,7 +210,7 @@ export class GoogleSlidesMCPServer {
           "Find-and-replace across the whole deck (or specific pages). The fastest way to fill a template full of {{placeholders}}.",
         inputSchema: ReplaceAllTextParamsSchema.shape,
       },
-      async (params) => this.tools.replaceAllText(ReplaceAllTextParamsSchema.parse(params))
+      async (params) => tools.replaceAllText(ReplaceAllTextParamsSchema.parse(params))
     );
 
     server.registerTool(
@@ -188,7 +221,7 @@ export class GoogleSlidesMCPServer {
           "Place a publicly reachable image on a slide at a position/size given in points (a 16:9 slide is 720x405pt).",
         inputSchema: InsertImageParamsSchema.shape,
       },
-      async (params) => this.tools.insertImage(InsertImageParamsSchema.parse(params))
+      async (params) => tools.insertImage(InsertImageParamsSchema.parse(params))
     );
 
     server.registerTool(
@@ -199,7 +232,7 @@ export class GoogleSlidesMCPServer {
           "Replace the speaker notes of a slide, addressed by pageObjectId or slideIndex.",
         inputSchema: SetSpeakerNotesParamsSchema.shape,
       },
-      async (params) => this.tools.setSpeakerNotes(SetSpeakerNotesParamsSchema.parse(params))
+      async (params) => tools.setSpeakerNotes(SetSpeakerNotesParamsSchema.parse(params))
     );
 
     server.registerTool(
@@ -210,7 +243,7 @@ export class GoogleSlidesMCPServer {
           "Delete a page element or an entire slide by object id (a slide's page object id deletes the slide).",
         inputSchema: DeleteObjectParamsSchema.shape,
       },
-      async (params) => this.tools.deleteObject(DeleteObjectParamsSchema.parse(params))
+      async (params) => tools.deleteObject(DeleteObjectParamsSchema.parse(params))
     );
 
     server.registerTool(
@@ -221,7 +254,7 @@ export class GoogleSlidesMCPServer {
           "Escape hatch with the full power of the Slides API: send an array of raw Request objects (createShape, createTable, updateTextStyle, updateShapeProperties, updatePageElementTransform, duplicateObject, updateSlidesPosition, createLine, refreshSheetsChart...). Requests run atomically in order. Use the typed tools for common edits and this one for styling, geometry and anything else.",
         inputSchema: BatchUpdateParamsSchema.shape,
       },
-      async (params) => this.tools.batchUpdate(BatchUpdateParamsSchema.parse(params))
+      async (params) => tools.batchUpdate(BatchUpdateParamsSchema.parse(params))
     );
 
     server.registerTool(
@@ -233,7 +266,7 @@ export class GoogleSlidesMCPServer {
         inputSchema: ExportPresentationParamsSchema.shape,
       },
       async (params) =>
-        this.tools.exportPresentation(ExportPresentationParamsSchema.parse(params))
+        tools.exportPresentation(ExportPresentationParamsSchema.parse(params))
     );
 
     return server;
@@ -277,10 +310,12 @@ export class GoogleSlidesMCPServer {
         }
 
         const bearer = readBearer(req);
-        const authorized =
+        const staticAuthorized =
           matchesToken(bearer, authToken) ||
-          (pathToken !== null && matchesToken(pathToken, authToken)) ||
-          (bearer !== "" && this.oauth.verifyAccessToken(bearer));
+          (pathToken !== null && matchesToken(pathToken, authToken));
+        const identity = staticAuthorized || bearer === "" ? null : this.oauth.resolveIdentity(bearer);
+        const authorized =
+          staticAuthorized || (bearer !== "" && this.oauth.verifyAccessToken(bearer));
 
         if (!authorized) {
           res.writeHead(401, {
@@ -325,7 +360,7 @@ export class GoogleSlidesMCPServer {
             if (created.sessionId) this.transports.delete(created.sessionId);
           };
 
-          await this.createMcpServer().connect(created);
+          await this.createMcpServer(identity).connect(created);
           transport = created;
         }
 

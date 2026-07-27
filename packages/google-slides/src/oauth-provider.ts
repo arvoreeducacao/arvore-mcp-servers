@@ -1,4 +1,10 @@
-import { createHmac, randomBytes, timingSafeEqual, createHash } from "node:crypto";
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHash,
+  randomBytes,
+  timingSafeEqual,
+} from "node:crypto";
 import { IncomingMessage, ServerResponse } from "node:http";
 
 const CODE_TTL_MS = 5 * 60 * 1000;
@@ -9,6 +15,12 @@ export interface GoogleSignInConfig {
   clientId: string;
   clientSecret: string;
   allowedDomains: string[];
+  scopes: string[];
+}
+
+export interface ResolvedIdentity {
+  email: string;
+  refreshToken: string;
 }
 
 export interface OAuthProviderOptions {
@@ -38,6 +50,8 @@ interface CodePayload {
   redirectUri: string;
   codeChallenge: string;
   issuedAt: number;
+  email?: string;
+  googleRefreshToken?: string;
 }
 
 interface TokenPayload {
@@ -45,6 +59,8 @@ interface TokenPayload {
   clientId: string;
   issuedAt: number;
   expiresAt: number;
+  email?: string;
+  googleRefreshToken?: string;
 }
 
 export class OAuthProvider {
@@ -116,6 +132,13 @@ export class OAuthProvider {
     const payload = this.decode<TokenPayload>(token, "token");
     if (!payload) return false;
     return payload.kind === "access" && payload.expiresAt > Date.now();
+  }
+
+  resolveIdentity(token: string): ResolvedIdentity | null {
+    const payload = this.decode<TokenPayload>(token, "token");
+    if (!payload || payload.kind !== "access" || payload.expiresAt <= Date.now()) return null;
+    if (!payload.email || !payload.googleRefreshToken) return null;
+    return { email: payload.email, refreshToken: payload.googleRefreshToken };
   }
 
   private async register(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -209,8 +232,10 @@ export class OAuthProvider {
       target.searchParams.set("client_id", google.clientId);
       target.searchParams.set("redirect_uri", `${this.options.issuer()}/oauth/google/callback`);
       target.searchParams.set("response_type", "code");
-      target.searchParams.set("scope", "openid email");
-      target.searchParams.set("prompt", "select_account");
+      target.searchParams.set("scope", ["openid", "email", ...google.scopes].join(" "));
+      target.searchParams.set("access_type", "offline");
+      target.searchParams.set("prompt", "consent select_account");
+      target.searchParams.set("include_granted_scopes", "true");
       target.searchParams.set("state", this.encode(pending, "pending"));
       if (google.allowedDomains.length === 1) {
         target.searchParams.set("hd", google.allowedDomains[0]);
@@ -284,19 +309,42 @@ export class OAuthProvider {
       return;
     }
 
-    let email: string;
+    let identity: { email: string; refreshToken?: string; grantedScopes: string[] };
     try {
-      email = await verifyGoogleIdentity(google, code, `${this.options.issuer()}/oauth/google/callback`);
+      identity = await exchangeGoogleCode(
+        google,
+        code,
+        `${this.options.issuer()}/oauth/google/callback`
+      );
     } catch (error) {
       renderDeniedPage(res, error instanceof Error ? error.message : "sign-in failed");
       return;
     }
 
-    const domain = email.split("@")[1] || "";
+    const domain = identity.email.split("@")[1] || "";
     if (!google.allowedDomains.includes(domain.toLowerCase())) {
       renderDeniedPage(
         res,
-        `${email} não tem acesso. Permitido: ${google.allowedDomains.map((d) => `@${d}`).join(", ")}.`
+        `${identity.email} não tem acesso. Permitido: ${google.allowedDomains
+          .map((d) => `@${d}`)
+          .join(", ")}.`
+      );
+      return;
+    }
+
+    const missing = google.scopes.filter((scope) => !identity.grantedScopes.includes(scope));
+    if (missing.length > 0) {
+      renderDeniedPage(
+        res,
+        `Faltou autorizar: ${missing.join(", ")}. Reconecte e mantenha todas as permissões marcadas.`
+      );
+      return;
+    }
+
+    if (!identity.refreshToken) {
+      renderDeniedPage(
+        res,
+        "O Google não devolveu refresh token para esta conta. Remova o acesso do app em myaccount.google.com/permissions e conecte de novo."
       );
       return;
     }
@@ -307,6 +355,8 @@ export class OAuthProvider {
         redirectUri: pending.redirectUri,
         codeChallenge: pending.codeChallenge,
         issuedAt: Date.now(),
+        email: identity.email,
+        googleRefreshToken: identity.refreshToken,
       },
       "code"
     );
@@ -333,7 +383,7 @@ export class OAuthProvider {
         json(res, 400, { error: "invalid_grant" });
         return;
       }
-      json(res, 200, this.issueTokens(payload.clientId));
+      json(res, 200, this.issueTokens(payload.clientId, payload.email, payload.googleRefreshToken));
       return;
     }
 
@@ -360,20 +410,38 @@ export class OAuthProvider {
       return;
     }
 
-    json(res, 200, this.issueTokens(payload.clientId));
+    json(res, 200, this.issueTokens(payload.clientId, payload.email, payload.googleRefreshToken));
   }
 
-  private issueTokens(clientId: string): Record<string, unknown> {
+  private issueTokens(
+    clientId: string,
+    email?: string,
+    googleRefreshToken?: string
+  ): Record<string, unknown> {
     const now = Date.now();
     return {
       access_token: this.encode<TokenPayload>(
-        { kind: "access", clientId, issuedAt: now, expiresAt: now + ACCESS_TOKEN_TTL_MS },
+        {
+          kind: "access",
+          clientId,
+          issuedAt: now,
+          expiresAt: now + ACCESS_TOKEN_TTL_MS,
+          email,
+          googleRefreshToken,
+        },
         "token"
       ),
       token_type: "Bearer",
       expires_in: Math.floor(ACCESS_TOKEN_TTL_MS / 1000),
       refresh_token: this.encode<TokenPayload>(
-        { kind: "refresh", clientId, issuedAt: now, expiresAt: now + REFRESH_TOKEN_TTL_MS },
+        {
+          kind: "refresh",
+          clientId,
+          issuedAt: now,
+          expiresAt: now + REFRESH_TOKEN_TTL_MS,
+          email,
+          googleRefreshToken,
+        },
         "token"
       ),
       scope: "mcp",
@@ -387,33 +455,31 @@ export class OAuthProvider {
   }
 
   private encode<T>(payload: T, context: string): string {
-    const data = Buffer.from(JSON.stringify(payload)).toString("base64url");
-    return `${data}.${this.sign(data, context)}`;
+    const iv = randomBytes(12);
+    const cipher = createCipheriv("aes-256-gcm", this.key(context), iv);
+    const body = Buffer.concat([
+      cipher.update(JSON.stringify(payload), "utf-8"),
+      cipher.final(),
+    ]);
+    return Buffer.concat([iv, cipher.getAuthTag(), body]).toString("base64url");
   }
 
   private decode<T>(value: string, context: string): T | null {
-    const [data, signature] = value.split(".");
-    if (!data || !signature) return null;
-
-    const expected = this.sign(data, context);
-    if (
-      signature.length !== expected.length ||
-      !timingSafeEqual(Buffer.from(signature), Buffer.from(expected))
-    ) {
-      return null;
-    }
-
+    if (!value) return null;
     try {
-      return JSON.parse(Buffer.from(data, "base64url").toString("utf-8")) as T;
+      const raw = Buffer.from(value, "base64url");
+      if (raw.length < 29) return null;
+      const decipher = createDecipheriv("aes-256-gcm", this.key(context), raw.subarray(0, 12));
+      decipher.setAuthTag(raw.subarray(12, 28));
+      const plain = Buffer.concat([decipher.update(raw.subarray(28)), decipher.final()]);
+      return JSON.parse(plain.toString("utf-8")) as T;
     } catch {
       return null;
     }
   }
 
-  private sign(data: string, context: string): string {
-    return createHmac("sha256", `${this.options.sharedSecret}:${context}`)
-      .update(data)
-      .digest("base64url");
+  private key(context: string): Buffer {
+    return createHash("sha256").update(`${this.options.sharedSecret}:${context}`).digest();
   }
 }
 
@@ -421,11 +487,11 @@ export function generateToken(): string {
   return randomBytes(24).toString("hex");
 }
 
-async function verifyGoogleIdentity(
+async function exchangeGoogleCode(
   google: GoogleSignInConfig,
   code: string,
   redirectUri: string
-): Promise<string> {
+): Promise<{ email: string; refreshToken?: string; grantedScopes: string[] }> {
   const response = await fetch(GOOGLE_TOKEN_URL, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -442,7 +508,11 @@ async function verifyGoogleIdentity(
     throw new Error(`Google rejeitou o login (${response.status}).`);
   }
 
-  const tokens = (await response.json()) as { id_token?: string };
+  const tokens = (await response.json()) as {
+    id_token?: string;
+    refresh_token?: string;
+    scope?: string;
+  };
   if (!tokens.id_token) {
     throw new Error("Google não devolveu id_token.");
   }
@@ -466,7 +536,11 @@ async function verifyGoogleIdentity(
   }
   if (!claims.email) throw new Error("id_token sem email.");
 
-  return claims.email.toLowerCase();
+  return {
+    email: claims.email.toLowerCase(),
+    refreshToken: tokens.refresh_token,
+    grantedScopes: (tokens.scope || "").split(" ").filter(Boolean),
+  };
 }
 
 function renderDeniedPage(res: ServerResponse, message: string): void {

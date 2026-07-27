@@ -34,6 +34,7 @@ The image builds the TypeScript in a first stage and ships only `dist` + prod de
 | `GSLIDES_MCP_SIGNIN_CLIENT_ID` | recommended | OAuth client id of a **Web application** client (the Desktop client used for the refresh token cannot do a server-side redirect). Enables Google sign-in on the consent screen |
 | `GSLIDES_MCP_SIGNIN_CLIENT_SECRET` | with the above | store as a **secret** |
 | `GSLIDES_MCP_SIGNIN_DOMAINS` | no | comma-separated allowed email domains, default `arvore.com.br` |
+| `GSLIDES_MCP_SIGNIN_SCOPES` | no | scopes requested from each user, default `presentations,drive` |
 | `MCP_TRANSPORT` | no | defaults to `http` in the image |
 | `HOST` / `PORT` | no | default `0.0.0.0:8080` |
 
@@ -62,11 +63,22 @@ per RFC 9728 / OAuth 2.1).
 Registrations, codes and tokens are HMAC-signed rather than stored — rotating
 `MCP_AUTH_TOKEN` invalidates every issued token and forces clients to reconnect.
 
-**Who can connect vs. what they act as**: Google sign-in gates *who* may authorize a client
-(any account in the allowed domains), but every authorized client still edits Slides as the
-single Google account whose refresh token the server holds. `MCP_AUTH_TOKEN` remains a
-master credential — it authenticates `/mcp` directly and, when sign-in is disabled, is also
-the consent credential.
+**Two identities, deliberately**:
+
+- **OAuth clients act as the person who authorized them.** Sign-in requests the user's own
+  Slides/Drive scopes with `access_type=offline`; their Google refresh token is encrypted
+  (AES-256-GCM, key derived from `MCP_AUTH_TOKEN`) *inside* the access/refresh token the
+  server issues, so there is no credential store and one user can never touch another's Drive.
+- **`MCP_AUTH_TOKEN` is the service identity.** A client presenting it acts as the account
+  behind `GSLIDES_MCP_REFRESH_TOKEN` — that's how header-only clients (Claude Code, curl)
+  work. Treat it as a master credential; prefer a bot Google account over a personal one.
+
+`GSLIDES_MCP_REFRESH_TOKEN` becomes **optional** when sign-in is configured: without it the
+server has no service identity and `MCP_AUTH_TOKEN` only opens the OAuth-less door for tools
+to report "connect through OAuth".
+
+Rotating `MCP_AUTH_TOKEN` re-keys the encryption, so every issued token and client
+registration dies — clients re-register and re-consent automatically on the next 401.
 
 ## 4. Client config
 

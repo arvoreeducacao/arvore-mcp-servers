@@ -24,10 +24,15 @@ if (!clientId || !clientSecret) {
   process.exit(1);
 }
 
-if (!refreshToken) {
+const hasSignIn = !!(
+  process.env.GSLIDES_MCP_SIGNIN_CLIENT_ID && process.env.GSLIDES_MCP_SIGNIN_CLIENT_SECRET
+);
+
+if (!refreshToken && !hasSignIn) {
   console.error(
-    "Error: GSLIDES_MCP_REFRESH_TOKEN is required.\n" +
-      "Run `google-slides-mcp auth login` locally and store the printed refresh token."
+    "Error: GSLIDES_MCP_REFRESH_TOKEN is required unless Google sign-in is configured.\n" +
+      "Run `google-slides-mcp auth login` locally and store the printed refresh token,\n" +
+      "or set GSLIDES_MCP_SIGNIN_CLIENT_ID/SECRET so each user connects with their own account."
   );
   process.exit(1);
 }
@@ -55,6 +60,10 @@ const signInDomains = (process.env.GSLIDES_MCP_SIGNIN_DOMAINS || "arvore.com.br"
   .split(",")
   .map((domain) => domain.trim().toLowerCase().replace(/^@/, ""))
   .filter(Boolean);
+const signInScopes = (process.env.GSLIDES_MCP_SIGNIN_SCOPES || DEFAULT_SCOPES.join(","))
+  .split(",")
+  .map((scope) => scope.trim())
+  .filter(Boolean);
 
 if ((signInClientId || signInClientSecret) && !(signInClientId && signInClientSecret)) {
   console.error(
@@ -70,7 +79,7 @@ if (signInClientId && signInDomains.length === 0) {
 
 try {
   const server = new GoogleSlidesMCPServer({
-    client: { clientId, clientSecret, refreshToken },
+    client: refreshToken ? { clientId, clientSecret, refreshToken } : null,
     transport,
     host: process.env.HOST || "0.0.0.0",
     port: parsePort(process.env.PORT, 8080),
@@ -82,7 +91,12 @@ try {
             clientId: signInClientId,
             clientSecret: signInClientSecret,
             allowedDomains: signInDomains,
+            scopes: signInScopes,
           }
+        : undefined,
+    signInCredentials:
+      signInClientId && signInClientSecret
+        ? { clientId: signInClientId, clientSecret: signInClientSecret }
         : undefined,
   });
 
