@@ -127,6 +127,20 @@ Gmail integration — read, send, and manage messages with OAuth user flow.
 - Encrypted token storage (AES-256-GCM + macOS keychain)
 - Send-mode opt-in via `GMAIL_MCP_ALLOW_SEND` to prevent accidental sends
 
+### [@arvoretech/google-slides-mcp](./packages/google-slides)
+
+Google Slides integration — create, edit and visually inspect presentations.
+
+**Features:**
+
+- Search decks in Drive, create from scratch or copy a template
+- Compact deck summary with object ids, placeholders and speaker notes
+- Screenshot any slide as PNG so the model can verify layout visually
+- Typed edits: add slide from layout, insert/replace text, insert image, speaker notes
+- Raw `batchUpdate` escape hatch for full Slides API styling and geometry
+- Export as pdf / pptx / txt
+- Runs over stdio or streamable-http (deployable to Dokploy)
+
 ### [@arvoretech/memory-mcp](./packages/memory)
 
 Team memory — persistent knowledge base with semantic search for AI-assisted development.
