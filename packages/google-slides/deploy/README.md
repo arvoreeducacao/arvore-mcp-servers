@@ -30,10 +30,10 @@ The image builds the TypeScript in a first stage and ships only `dist` + prod de
 | `GSLIDES_MCP_CLIENT_SECRET` | yes | store as a **secret** |
 | `GSLIDES_MCP_REFRESH_TOKEN` | yes | minted locally with `google-slides-mcp auth login` — store as a **secret** |
 | `MCP_AUTH_TOKEN` | **yes** | ≥16 chars. Guards `/mcp` and is the credential of the built-in OAuth server. The container **refuses to start** without it. Store as a **secret** |
-| `MCP_PUBLIC_URL` | yes (http) | e.g. `https://google-slides.arvore.dev`. The OAuth issuer and the URLs in the discovery documents; wrong value breaks the connector flow |
+| `MCP_PUBLIC_URL` | yes (http) | public origin of the deployment, e.g. `https://slides-mcp.example.com`. The OAuth issuer and the URLs in the discovery documents; a wrong value breaks the connector flow |
 | `GSLIDES_MCP_SIGNIN_CLIENT_ID` | recommended | OAuth client id of a **Web application** client (the Desktop client used for the refresh token cannot do a server-side redirect). Enables Google sign-in on the consent screen |
 | `GSLIDES_MCP_SIGNIN_CLIENT_SECRET` | with the above | store as a **secret** |
-| `GSLIDES_MCP_SIGNIN_DOMAINS` | no | comma-separated allowed email domains, default `arvore.com.br` |
+| `GSLIDES_MCP_SIGNIN_DOMAINS` | with sign-in | comma-separated email domains allowed to authorize a client |
 | `GSLIDES_MCP_SIGNIN_SCOPES` | no | scopes requested from each user, default `presentations,drive` |
 | `MCP_TRANSPORT` | no | defaults to `http` in the image |
 | `HOST` / `PORT` | no | default `0.0.0.0:8080` |

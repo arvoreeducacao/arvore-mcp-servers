@@ -61,10 +61,10 @@ encrypted inside the issued token, so decks belong to them. With the **static
 | `MCP_TRANSPORT` | no | `stdio` (default) or `http` |
 | `HOST` / `PORT` | no | http transport only, defaults `0.0.0.0:8080` |
 | `MCP_AUTH_TOKEN` | http only | ≥16 chars, **required** for http: guards `/mcp` and backs the built-in OAuth server |
-| `MCP_PUBLIC_URL` | http only | public origin, e.g. `https://google-slides.arvore.dev` — the OAuth issuer |
+| `MCP_PUBLIC_URL` | http only | public origin of the deployment, e.g. `https://slides-mcp.example.com` — used as the OAuth issuer |
 | `GSLIDES_MCP_SIGNIN_CLIENT_ID` | no | Web OAuth client id — turns the OAuth consent screen into Google sign-in |
 | `GSLIDES_MCP_SIGNIN_CLIENT_SECRET` | with the above | secret of that Web client |
-| `GSLIDES_MCP_SIGNIN_DOMAINS` | no | allowed email domains, default `arvore.com.br` |
+| `GSLIDES_MCP_SIGNIN_DOMAINS` | with sign-in | email domains allowed to authorize a client, e.g. `example.com` |
 | `GSLIDES_MCP_SIGNIN_SCOPES` | no | scopes asked of each user, default `presentations,drive` |
 | `GSLIDES_MCP_LOGIN_HINT` | no | pre-fills the Google account on `auth login` |
 

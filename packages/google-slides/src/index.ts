@@ -56,7 +56,7 @@ if (transport === "http" && authToken.length < 16) {
 
 const signInClientId = process.env.GSLIDES_MCP_SIGNIN_CLIENT_ID;
 const signInClientSecret = process.env.GSLIDES_MCP_SIGNIN_CLIENT_SECRET;
-const signInDomains = (process.env.GSLIDES_MCP_SIGNIN_DOMAINS || "arvore.com.br")
+const signInDomains = (process.env.GSLIDES_MCP_SIGNIN_DOMAINS || "")
   .split(",")
   .map((domain) => domain.trim().toLowerCase().replace(/^@/, ""))
   .filter(Boolean);
@@ -73,7 +73,10 @@ if ((signInClientId || signInClientSecret) && !(signInClientId && signInClientSe
 }
 
 if (signInClientId && signInDomains.length === 0) {
-  console.error("Error: GSLIDES_MCP_SIGNIN_DOMAINS cannot be empty when Google sign-in is enabled.");
+  console.error(
+    "Error: GSLIDES_MCP_SIGNIN_DOMAINS is required when Google sign-in is enabled.\n" +
+      "List the email domains allowed to authorize a client, e.g. GSLIDES_MCP_SIGNIN_DOMAINS=example.com"
+  );
   process.exit(1);
 }
 
