@@ -1,8 +1,8 @@
 {
   "name": "@arvoretech/google-slides-mcp",
   "version": "1.0.0",
-  "description": "Google Slides MCP Server — create, read, edit and visually inspect Google Slides presentations via the Slides + Drive APIs",
-  "main": "dist/index.js",
+  "description": "Google Slides MCP Server \u2014 create, read, edit and visually inspect Google Slides presentations via the Slides + Drive APIs",
+  "main": "dist/lib.js",
   "type": "module",
   "publishConfig": {
     "access": "public"
@@ -49,5 +49,15 @@
   "devDependencies": {
     "@types/node": "^20.10.0",
     "typescript": "^5.3.0"
+  },
+  "types": "dist/lib.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/lib.d.ts",
+      "default": "./dist/lib.js"
+    }
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

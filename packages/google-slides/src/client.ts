@@ -51,6 +51,9 @@ export class GoogleSlidesClient {
     init: { method?: string; body?: unknown; query?: Record<string, string | undefined> } = {}
   ): Promise<T> {
     const url = new URL(`${baseUrl}${path}`);
+    if (url.origin !== new URL(baseUrl).origin || !url.pathname.startsWith(new URL(baseUrl).pathname)) {
+      throw new GoogleSlidesMCPError(`Refusing to call ${url.toString()}`, "INVALID_PARAMS");
+    }
     for (const [key, value] of Object.entries(init.query || {})) {
       if (value !== undefined) url.searchParams.set(key, value);
     }
@@ -79,7 +82,7 @@ export class GoogleSlidesClient {
   }
 
   async getPresentation(presentationId: string, fields?: string): Promise<Presentation> {
-    return this.request<Presentation>(SLIDES_API, `/presentations/${presentationId}`, {
+    return this.request<Presentation>(SLIDES_API, `/presentations/${encodeURIComponent(presentationId)}`, {
       query: { fields },
     });
   }
@@ -94,7 +97,7 @@ export class GoogleSlidesClient {
   async getPage(presentationId: string, pageObjectId: string): Promise<Page> {
     return this.request<Page>(
       SLIDES_API,
-      `/presentations/${presentationId}/pages/${pageObjectId}`
+      `/presentations/${encodeURIComponent(presentationId)}/pages/${encodeURIComponent(pageObjectId)}`
     );
   }
 
@@ -102,7 +105,7 @@ export class GoogleSlidesClient {
     presentationId: string,
     requests: Record<string, unknown>[]
   ): Promise<{ replies?: Record<string, unknown>[]; presentationId?: string }> {
-    return this.request(SLIDES_API, `/presentations/${presentationId}:batchUpdate`, {
+    return this.request(SLIDES_API, `/presentations/${encodeURIComponent(presentationId)}:batchUpdate`, {
       method: "POST",
       body: { requests },
     });
@@ -115,7 +118,7 @@ export class GoogleSlidesClient {
   ): Promise<{ contentUrl: string; width: number; height: number }> {
     return this.request(
       SLIDES_API,
-      `/presentations/${presentationId}/pages/${pageObjectId}/thumbnail`,
+      `/presentations/${encodeURIComponent(presentationId)}/pages/${encodeURIComponent(pageObjectId)}/thumbnail`,
       {
         query: {
           "thumbnailProperties.mimeType": "PNG",
@@ -173,7 +176,7 @@ export class GoogleSlidesClient {
     name: string,
     parentFolderId?: string
   ): Promise<DriveFile> {
-    return this.request<DriveFile>(DRIVE_API, `/files/${fileId}/copy`, {
+    return this.request<DriveFile>(DRIVE_API, `/files/${encodeURIComponent(fileId)}/copy`, {
       method: "POST",
       body: { name, ...(parentFolderId ? { parents: [parentFolderId] } : {}) },
       query: { supportsAllDrives: "true", fields: "id,name,webViewLink,parents" },
@@ -181,11 +184,11 @@ export class GoogleSlidesClient {
   }
 
   async moveFile(fileId: string, folderId: string): Promise<DriveFile> {
-    const current = await this.request<DriveFile>(DRIVE_API, `/files/${fileId}`, {
+    const current = await this.request<DriveFile>(DRIVE_API, `/files/${encodeURIComponent(fileId)}`, {
       query: { fields: "parents", supportsAllDrives: "true" },
     });
 
-    return this.request<DriveFile>(DRIVE_API, `/files/${fileId}`, {
+    return this.request<DriveFile>(DRIVE_API, `/files/${encodeURIComponent(fileId)}`, {
       method: "PATCH",
       query: {
         addParents: folderId,
@@ -198,7 +201,7 @@ export class GoogleSlidesClient {
 
   async exportFile(fileId: string, mimeType: string): Promise<Buffer> {
     const token = await this.token();
-    const url = new URL(`${DRIVE_API}/files/${fileId}/export`);
+    const url = new URL(`${DRIVE_API}/files/${encodeURIComponent(fileId)}/export`);
     url.searchParams.set("mimeType", mimeType);
 
     const response = await fetch(url.toString(), {

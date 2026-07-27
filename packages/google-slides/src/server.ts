@@ -1,8 +1,10 @@
 import { createServer, type Server as HttpServer, IncomingMessage, ServerResponse } from "node:http";
-import { randomUUID } from "node:crypto";
+import { randomUUID, timingSafeEqual } from "node:crypto";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
+import { OAuthProvider } from "./oauth-provider.js";
 import { GoogleSlidesClient } from "./client.js";
 import { GoogleSlidesMCPTools } from "./tools.js";
 import {
@@ -29,7 +31,8 @@ export interface GoogleSlidesMCPServerOptions {
   transport: "stdio" | "http";
   host: string;
   port: number;
-  authToken?: string;
+  authToken: string;
+  publicUrl?: string;
 }
 
 export class GoogleSlidesMCPServer {
@@ -38,11 +41,23 @@ export class GoogleSlidesMCPServer {
   private options: GoogleSlidesMCPServerOptions;
   private httpServer: HttpServer | null = null;
   private transports = new Map<string, StreamableHTTPServerTransport>();
+  private oauth: OAuthProvider;
+  private publicUrl: string;
 
   constructor(options: GoogleSlidesMCPServerOptions) {
     this.options = options;
+    this.publicUrl = (options.publicUrl || `http://${options.host}:${options.port}`).replace(
+      /\/+$/,
+      ""
+    );
+    this.oauth = new OAuthProvider({
+      sharedSecret: options.authToken,
+      issuer: () => this.publicUrl,
+    });
     this.client = new GoogleSlidesClient(options.client);
-    this.tools = new GoogleSlidesMCPTools(this.client);
+    this.tools = new GoogleSlidesMCPTools(this.client, {
+      allowLocalWrites: options.transport === "stdio",
+    });
   }
 
   private createMcpServer(): McpServer {
@@ -247,14 +262,29 @@ export class GoogleSlidesMCPServer {
           return;
         }
 
-        if (url.pathname !== "/mcp") {
+        if (this.oauth.handles(url.pathname)) {
+          await this.oauth.handle(req, res, url);
+          return;
+        }
+
+        const pathToken = readPathToken(url.pathname);
+        if (url.pathname !== "/mcp" && pathToken === null) {
           res.writeHead(404, { "Content-Type": "text/plain" });
           res.end("Not found");
           return;
         }
 
-        if (authToken && !isAuthorized(req, authToken)) {
-          res.writeHead(401, { "Content-Type": "application/json" });
+        const bearer = readBearer(req);
+        const authorized =
+          matchesToken(bearer, authToken) ||
+          (pathToken !== null && matchesToken(pathToken, authToken)) ||
+          (bearer !== "" && this.oauth.verifyAccessToken(bearer));
+
+        if (!authorized) {
+          res.writeHead(401, {
+            "Content-Type": "application/json",
+            "WWW-Authenticate": `Bearer realm="google-slides-mcp", resource_metadata="${this.publicUrl}/.well-known/oauth-protected-resource"`,
+          });
           res.end(JSON.stringify({ error: "unauthorized" }));
           return;
         }
@@ -265,10 +295,23 @@ export class GoogleSlidesMCPServer {
           return;
         }
 
+        const body = req.method === "POST" ? await readJsonBody(req) : undefined;
         const sessionId = req.headers["mcp-session-id"] as string | undefined;
         let transport = sessionId ? this.transports.get(sessionId) : undefined;
 
-        if (!transport && req.method === "POST") {
+        if (!transport) {
+          if (req.method !== "POST" || !isInitializeRequest(body)) {
+            res.writeHead(400, { "Content-Type": "application/json" });
+            res.end(
+              JSON.stringify({
+                error: sessionId
+                  ? "unknown session — reinitialize"
+                  : "missing mcp-session-id; only an initialize request may open a session",
+              })
+            );
+            return;
+          }
+
           const created = new StreamableHTTPServerTransport({
             sessionIdGenerator: () => randomUUID(),
             onsessioninitialized: (id) => {
@@ -284,13 +327,7 @@ export class GoogleSlidesMCPServer {
           transport = created;
         }
 
-        if (!transport) {
-          res.writeHead(400, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: "no valid session" }));
-          return;
-        }
-
-        await transport.handleRequest(req, res);
+        await transport.handleRequest(req, res, body);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         console.error(`HTTP handler error: ${message}`);
@@ -306,9 +343,7 @@ export class GoogleSlidesMCPServer {
     });
 
     console.error(
-      `Google Slides MCP Server listening on http://${host}:${port}/mcp (auth ${
-        authToken ? "enabled" : "DISABLED"
-      })`
+      `Google Slides MCP Server listening on http://${host}:${port}/mcp (public ${this.publicUrl}) — bearer, /mcp/<token>, or OAuth`
     );
   }
 
@@ -326,8 +361,36 @@ export class GoogleSlidesMCPServer {
   }
 }
 
-function isAuthorized(req: IncomingMessage, expected: string): boolean {
+function readBearer(req: IncomingMessage): string {
   const header = req.headers.authorization || "";
-  const token = header.toLowerCase().startsWith("bearer ") ? header.slice(7) : "";
-  return token === expected;
+  return header.toLowerCase().startsWith("bearer ") ? header.slice(7).trim() : "";
+}
+
+function readPathToken(pathname: string): string | null {
+  const match = /^\/mcp\/([^/]+)\/?$/.exec(pathname);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+function matchesToken(candidate: string, expected: string): boolean {
+  if (!candidate || candidate.length !== expected.length) return false;
+  return timingSafeEqual(Buffer.from(candidate), Buffer.from(expected));
+}
+
+const MAX_BODY_BYTES = 8 * 1024 * 1024;
+
+async function readJsonBody(req: IncomingMessage): Promise<unknown> {
+  const chunks: Buffer[] = [];
+  let size = 0;
+
+  for await (const chunk of req) {
+    const buffer = chunk as Buffer;
+    size += buffer.length;
+    if (size > MAX_BODY_BYTES) {
+      throw new Error(`request body exceeds ${MAX_BODY_BYTES} bytes`);
+    }
+    chunks.push(buffer);
+  }
+
+  if (size === 0) return undefined;
+  return JSON.parse(Buffer.concat(chunks).toString("utf-8"));
 }

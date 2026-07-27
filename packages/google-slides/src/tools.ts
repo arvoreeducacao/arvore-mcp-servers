@@ -33,8 +33,15 @@ const PLACEHOLDER_TARGETS: Record<string, string[]> = {
   body: ["BODY"],
 };
 
+export interface GoogleSlidesMCPToolsOptions {
+  allowLocalWrites: boolean;
+}
+
 export class GoogleSlidesMCPTools {
-  constructor(private client: GoogleSlidesClient) {}
+  constructor(
+    private client: GoogleSlidesClient,
+    private options: GoogleSlidesMCPToolsOptions = { allowLocalWrites: true }
+  ) {}
 
   async listPresentations(params: ListPresentationsParams): Promise<McpToolResult> {
     return this.guard(async () => {
@@ -343,10 +350,24 @@ export class GoogleSlidesMCPTools {
 
   async exportPresentation(params: ExportPresentationParams): Promise<McpToolResult> {
     return this.guard(async () => {
+      if (params.destinationPath && !this.options.allowLocalWrites) {
+        throw new GoogleSlidesMCPError(
+          "destinationPath is only available when the server runs locally over stdio",
+          "INVALID_PARAMS"
+        );
+      }
+
       const mimeType = EXPORT_MIME_TYPES[params.format];
       const bytes = await this.client.exportFile(params.presentationId, mimeType);
 
       if (params.destinationPath) {
+        const { isAbsolute } = await import("node:path");
+        if (!isAbsolute(params.destinationPath)) {
+          throw new GoogleSlidesMCPError(
+            "destinationPath must be an absolute path",
+            "INVALID_PARAMS"
+          );
+        }
         const { writeFile } = await import("node:fs/promises");
         await writeFile(params.destinationPath, bytes);
         return json({

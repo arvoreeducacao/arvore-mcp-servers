@@ -32,7 +32,7 @@ export async function runAuthorizationFlow(
     onReady: (resolvedPort) => {
       const authUrl = buildAuthUrl({
         clientId: options.clientId,
-        redirectUri: `http://localhost:${resolvedPort}/callback`,
+        redirectUri: `http://127.0.0.1:${resolvedPort}/callback`,
         scopes,
         state,
         loginHint: options.loginHint,
@@ -47,7 +47,7 @@ export async function runAuthorizationFlow(
     clientId: options.clientId,
     clientSecret: options.clientSecret,
     code,
-    redirectUri: `http://localhost:${port}/callback`,
+    redirectUri: `http://127.0.0.1:${port}/callback`,
   });
 }
 

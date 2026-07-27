@@ -38,13 +38,25 @@ const transport =
     ? "http"
     : "stdio";
 
+const authToken = process.env.MCP_AUTH_TOKEN || "";
+
+if (transport === "http" && authToken.length < 16) {
+  console.error(
+    "Error: MCP_AUTH_TOKEN with at least 16 characters is required for the http transport.\n" +
+      "It guards /mcp and doubles as the credential of the built-in OAuth authorization server.\n" +
+      "Generate one with: node -e \"console.log(require('crypto').randomBytes(24).toString('hex'))\""
+  );
+  process.exit(1);
+}
+
 try {
   const server = new GoogleSlidesMCPServer({
     client: { clientId, clientSecret, refreshToken },
     transport,
     host: process.env.HOST || "0.0.0.0",
-    port: parseInt(process.env.PORT || "8080", 10),
-    authToken: process.env.MCP_AUTH_TOKEN,
+    port: parsePort(process.env.PORT, 8080),
+    authToken,
+    publicUrl: process.env.MCP_PUBLIC_URL,
   });
 
   server.setupGracefulShutdown();
@@ -75,7 +87,7 @@ async function runAuthCommand(args: string[]): Promise<void> {
       clientId: authClientId,
       clientSecret: authClientSecret,
       port: process.env.GSLIDES_MCP_REDIRECT_PORT
-        ? parseInt(process.env.GSLIDES_MCP_REDIRECT_PORT, 10)
+        ? parsePort(process.env.GSLIDES_MCP_REDIRECT_PORT, 0)
         : undefined,
       loginHint: process.env.GSLIDES_MCP_LOGIN_HINT,
     });
@@ -103,7 +115,12 @@ async function runAuthCommand(args: string[]): Promise<void> {
   process.exit(1);
 }
 
-export { GoogleSlidesMCPServer } from "./server.js";
-export { GoogleSlidesClient } from "./client.js";
-export { GoogleSlidesMCPTools } from "./tools.js";
-export * from "./types.js";
+function parsePort(value: string | undefined, fallback: number): number {
+  if (value === undefined || value.trim() === "") return fallback;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 0 || parsed > 65535) {
+    console.error(`Error: invalid port "${value}"`);
+    process.exit(1);
+  }
+  return parsed;
+}

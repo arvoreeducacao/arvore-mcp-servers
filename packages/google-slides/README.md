@@ -58,7 +58,8 @@ shared folder (`folderId`).
 | `GSLIDES_MCP_REFRESH_TOKEN` | yes | from `auth login` — store as a secret |
 | `MCP_TRANSPORT` | no | `stdio` (default) or `http` |
 | `HOST` / `PORT` | no | http transport only, defaults `0.0.0.0:8080` |
-| `MCP_AUTH_TOKEN` | no | http transport: requires `Authorization: Bearer <token>` on `/mcp` |
+| `MCP_AUTH_TOKEN` | http only | ≥16 chars, **required** for http: guards `/mcp` and backs the built-in OAuth server |
+| `MCP_PUBLIC_URL` | http only | public origin, e.g. `https://google-slides.arvore.dev` — the OAuth issuer |
 | `GSLIDES_MCP_LOGIN_HINT` | no | pre-fills the Google account on `auth login` |
 
 ## Client config
@@ -81,7 +82,7 @@ Local (stdio):
 }
 ```
 
-Deployed (streamable-http):
+Deployed (streamable-http) — header auth:
 
 ```jsonc
 {
@@ -94,7 +95,11 @@ Deployed (streamable-http):
 }
 ```
 
-See [`deploy/README.md`](./deploy/README.md) for the Dokploy setup.
+Clients that accept only a URL can use `https://<domain>/mcp/<MCP_AUTH_TOKEN>`, and
+claude.ai custom connectors use the built-in OAuth 2.1 flow (DCR + PKCE) — add the
+connector with the plain `/mcp` URL and no Client ID.
+
+See [`deploy/README.md`](./deploy/README.md) for the Dokploy setup and the full auth matrix.
 
 ## Notes
 

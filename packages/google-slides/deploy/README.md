@@ -1,12 +1,15 @@
 # deploy — google-slides MCP on Dokploy
 
-Single stateless HTTP container exposing the MCP **streamable-http** transport at
-`POST /mcp`, plus `GET /health`. No disk state: every call goes straight to the
-Google Slides / Drive APIs, so it scales horizontally without extra work.
+Single HTTP container exposing the MCP **streamable-http** transport at `POST /mcp`,
+plus `GET /health` and the OAuth endpoints below. No persistent disk state — every
+call goes straight to the Google Slides / Drive APIs.
 
-MCP sessions live in memory, so a client's session is bound to the instance that
-created it — run **one replica**, or add sticky sessions by `mcp-session-id` if you
-scale out.
+MCP sessions live in an in-process map, so a session is bound to the instance that
+created it: horizontal scaling needs sticky routing by `mcp-session-id` (or an
+external session store). Run **one replica** and the question doesn't come up.
+OAuth state does *not* need stickiness — client registrations, codes and tokens are
+HMAC-signed with `MCP_AUTH_TOKEN` instead of stored, so they survive redeploys and
+work across replicas.
 
 ## 1. Dokploy application
 
@@ -26,18 +29,34 @@ The image builds the TypeScript in a first stage and ships only `dist` + prod de
 | `GSLIDES_MCP_CLIENT_ID` | yes | OAuth client id (Desktop app) |
 | `GSLIDES_MCP_CLIENT_SECRET` | yes | store as a **secret** |
 | `GSLIDES_MCP_REFRESH_TOKEN` | yes | minted locally with `google-slides-mcp auth login` — store as a **secret** |
-| `MCP_AUTH_TOKEN` | recommended | if set, `/mcp` requires `Authorization: Bearer <token>`; `/health` stays open. Store as a **secret** |
+| `MCP_AUTH_TOKEN` | **yes** | ≥16 chars. Guards `/mcp` and is the credential of the built-in OAuth server. The container **refuses to start** without it. Store as a **secret** |
+| `MCP_PUBLIC_URL` | yes (http) | e.g. `https://google-slides.arvore.dev`. The OAuth issuer and the URLs in the discovery documents; wrong value breaks the connector flow |
 | `MCP_TRANSPORT` | no | defaults to `http` in the image |
 | `HOST` / `PORT` | no | default `0.0.0.0:8080` |
 
-Without `MCP_AUTH_TOKEN` the `/mcp` endpoint is **unauthenticated** and anyone who
-reaches the domain edits Slides as the authorizing Google account. On a public domain,
-always set it.
+`/health` stays open; everything else requires a credential. The refresh token cannot
+be minted on the server (that OAuth flow needs a browser) — generate it on a laptop
+and paste it into Dokploy.
 
-The refresh token cannot be minted on the server (the OAuth flow needs a browser).
-Generate it on a laptop, paste it into Dokploy.
+## 3. Three ways for a client to authenticate
 
-## 3. Client config
+| Client | How |
+|---|---|
+| Claude Code, curl, anything that sets headers | `Authorization: Bearer $MCP_AUTH_TOKEN` on `POST /mcp` |
+| Clients that only take a URL | `POST /mcp/<MCP_AUTH_TOKEN>` — the token rides in the path. Convenient, but it lands in proxy access logs; prefer a header when the client supports one |
+| claude.ai custom connectors | OAuth 2.1. Add the connector with URL `https://<domain>/mcp` and nothing else — Claude discovers the authorization server, registers itself (DCR), and shows a page asking for `MCP_AUTH_TOKEN` once. No Client ID to paste |
+
+The OAuth endpoints are `/.well-known/oauth-protected-resource[/mcp]`,
+`/.well-known/oauth-authorization-server`, `/oauth/register`, `/oauth/authorize`
+and `/oauth/token` (authorization code + PKCE S256 + refresh, per RFC 9728 / OAuth 2.1).
+Registrations, codes and tokens are HMAC-signed rather than stored — rotating
+`MCP_AUTH_TOKEN` invalidates every issued token and forces clients to reconnect.
+
+**The shared credential is the whole authorization model**: anyone holding
+`MCP_AUTH_TOKEN` acts as the Google account that authorized the server. This suits an
+internal tool with one service account; it is not per-user auth.
+
+## 4. Client config
 
 ```jsonc
 {
@@ -50,7 +69,10 @@ Generate it on a laptop, paste it into Dokploy.
 }
 ```
 
-## 4. Local build check
+On claude.ai: **Settings → Connectors → Add custom connector**, URL
+`https://<your-domain>/mcp`, leave Advanced settings empty.
+
+## 5. Local build check
 
 ```bash
 cd packages/google-slides
@@ -59,7 +81,8 @@ docker run --rm -p 8080:8080 \
   -e GSLIDES_MCP_CLIENT_ID=... \
   -e GSLIDES_MCP_CLIENT_SECRET=... \
   -e GSLIDES_MCP_REFRESH_TOKEN=... \
-  -e MCP_AUTH_TOKEN=dev-token \
+  -e MCP_AUTH_TOKEN=dev-token-at-least-16 \
+  -e MCP_PUBLIC_URL=http://localhost:8080 \
   google-slides-mcp
 
 curl -s localhost:8080/health          # -> ok
@@ -73,3 +96,5 @@ curl -s localhost:8080/health          # -> ok
   by default. `get_slide_image` costs one read plus one thumbnail download.
 - Rotating the refresh token: `google-slides-mcp auth logout`, `auth login` again,
   update the Dokploy secret, redeploy.
+- Rotating `MCP_AUTH_TOKEN` also invalidates every OAuth token and client
+  registration — connected clients have to reconnect.
