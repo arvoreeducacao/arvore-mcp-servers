@@ -232,6 +232,22 @@ importers:
         specifier: ^3.22.4
         version: 3.25.76
 
+  packages/google-slides:
+    dependencies:
+      '@modelcontextprotocol/sdk':
+        specifier: ~1.22.0
+        version: 1.22.0
+      zod:
+        specifier: ^3.22.4
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^20.10.0
+        version: 20.19.24
+      typescript:
+        specifier: ^5.3.0
+        version: 5.9.3
+
   packages/gupy:
     dependencies:
       '@modelcontextprotocol/sdk':
