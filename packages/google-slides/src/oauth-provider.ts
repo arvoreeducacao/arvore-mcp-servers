@@ -5,13 +5,31 @@ const CODE_TTL_MS = 5 * 60 * 1000;
 const ACCESS_TOKEN_TTL_MS = 8 * 60 * 60 * 1000;
 const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
+export interface GoogleSignInConfig {
+  clientId: string;
+  clientSecret: string;
+  allowedDomains: string[];
+}
+
 export interface OAuthProviderOptions {
   sharedSecret: string;
   issuer: () => string;
+  googleSignIn?: GoogleSignInConfig;
 }
+
+const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
+const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 
 interface ClientRecord {
   redirectUris: string[];
+  issuedAt: number;
+}
+
+interface PendingAuthorization {
+  clientId: string;
+  redirectUri: string;
+  state: string;
+  codeChallenge: string;
   issuedAt: number;
 }
 
@@ -38,6 +56,7 @@ export class OAuthProvider {
       pathname.startsWith("/.well-known/oauth-authorization-server") ||
       pathname === "/oauth/register" ||
       pathname === "/oauth/authorize" ||
+      pathname === "/oauth/google/callback" ||
       pathname === "/oauth/token"
     );
   }
@@ -77,6 +96,11 @@ export class OAuthProvider {
 
     if (url.pathname === "/oauth/authorize") {
       await this.authorize(req, res, url);
+      return;
+    }
+
+    if (url.pathname === "/oauth/google/callback") {
+      await this.googleCallback(res, url);
       return;
     }
 
@@ -169,7 +193,33 @@ export class OAuthProvider {
       return;
     }
 
+    const pending: PendingAuthorization = {
+      clientId,
+      redirectUri,
+      state,
+      codeChallenge,
+      issuedAt: Date.now(),
+    };
+
+    const google = this.options.googleSignIn;
     const submittedToken = params.get("token") || "";
+
+    if (google && !submittedToken) {
+      const target = new URL(GOOGLE_AUTH_URL);
+      target.searchParams.set("client_id", google.clientId);
+      target.searchParams.set("redirect_uri", `${this.options.issuer()}/oauth/google/callback`);
+      target.searchParams.set("response_type", "code");
+      target.searchParams.set("scope", "openid email");
+      target.searchParams.set("prompt", "select_account");
+      target.searchParams.set("state", this.encode(pending, "pending"));
+      if (google.allowedDomains.length === 1) {
+        target.searchParams.set("hd", google.allowedDomains[0]);
+      }
+      res.writeHead(302, { Location: target.toString() });
+      res.end();
+      return;
+    }
+
     if (!submittedToken) {
       renderLoginPage(res, {
         clientId,
@@ -205,6 +255,65 @@ export class OAuthProvider {
     target.searchParams.set("code", code);
     if (state) target.searchParams.set("state", state);
 
+    res.writeHead(302, { Location: target.toString() });
+    res.end();
+  }
+
+  private async googleCallback(res: ServerResponse, url: URL): Promise<void> {
+    const google = this.options.googleSignIn;
+    if (!google) {
+      json(res, 404, { error: "not_found" });
+      return;
+    }
+
+    const pending = this.decode<PendingAuthorization>(url.searchParams.get("state") || "", "pending");
+    if (!pending || Date.now() - pending.issuedAt > CODE_TTL_MS) {
+      json(res, 400, { error: "invalid_request", error_description: "sign-in state expired" });
+      return;
+    }
+
+    const googleError = url.searchParams.get("error");
+    if (googleError) {
+      redirectWithError(res, pending.redirectUri, pending.state, "access_denied", googleError);
+      return;
+    }
+
+    const code = url.searchParams.get("code");
+    if (!code) {
+      redirectWithError(res, pending.redirectUri, pending.state, "invalid_request", "missing code");
+      return;
+    }
+
+    let email: string;
+    try {
+      email = await verifyGoogleIdentity(google, code, `${this.options.issuer()}/oauth/google/callback`);
+    } catch (error) {
+      renderDeniedPage(res, error instanceof Error ? error.message : "sign-in failed");
+      return;
+    }
+
+    const domain = email.split("@")[1] || "";
+    if (!google.allowedDomains.includes(domain.toLowerCase())) {
+      renderDeniedPage(
+        res,
+        `${email} não tem acesso. Permitido: ${google.allowedDomains.map((d) => `@${d}`).join(", ")}.`
+      );
+      return;
+    }
+
+    const authorizationCode = this.encode<CodePayload>(
+      {
+        clientId: pending.clientId,
+        redirectUri: pending.redirectUri,
+        codeChallenge: pending.codeChallenge,
+        issuedAt: Date.now(),
+      },
+      "code"
+    );
+
+    const target = new URL(pending.redirectUri);
+    target.searchParams.set("code", authorizationCode);
+    if (pending.state) target.searchParams.set("state", pending.state);
     res.writeHead(302, { Location: target.toString() });
     res.end();
   }
@@ -310,6 +419,63 @@ export class OAuthProvider {
 
 export function generateToken(): string {
   return randomBytes(24).toString("hex");
+}
+
+async function verifyGoogleIdentity(
+  google: GoogleSignInConfig,
+  code: string,
+  redirectUri: string
+): Promise<string> {
+  const response = await fetch(GOOGLE_TOKEN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      code,
+      client_id: google.clientId,
+      client_secret: google.clientSecret,
+      redirect_uri: redirectUri,
+      grant_type: "authorization_code",
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Google rejeitou o login (${response.status}).`);
+  }
+
+  const tokens = (await response.json()) as { id_token?: string };
+  if (!tokens.id_token) {
+    throw new Error("Google não devolveu id_token.");
+  }
+
+  const [, payload] = tokens.id_token.split(".");
+  if (!payload) throw new Error("id_token malformado.");
+
+  const claims = JSON.parse(Buffer.from(payload, "base64url").toString("utf-8")) as {
+    email?: string;
+    email_verified?: boolean | string;
+    aud?: string;
+    exp?: number;
+  };
+
+  if (claims.aud !== google.clientId) throw new Error("id_token de outro client.");
+  if (typeof claims.exp === "number" && claims.exp * 1000 < Date.now()) {
+    throw new Error("id_token expirado.");
+  }
+  if (claims.email_verified !== true && claims.email_verified !== "true") {
+    throw new Error("email não verificado no Google.");
+  }
+  if (!claims.email) throw new Error("id_token sem email.");
+
+  return claims.email.toLowerCase();
+}
+
+function renderDeniedPage(res: ServerResponse, message: string): void {
+  res.writeHead(403, { "Content-Type": "text/html; charset=utf-8" });
+  res.end(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Acesso negado</title>
+<style>:root{color-scheme:light dark}body{font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#0f172a;color:#e2e8f0}main{max-width:420px;padding:40px;background:#1e293b;border-radius:16px}h1{margin:0 0 12px;font-size:20px}p{margin:0;color:#94a3b8;line-height:1.6;font-size:14px}</style></head>
+<body><main><h1>Acesso negado</h1><p>${escapeHtml(message)}</p></main></body></html>`);
 }
 
 function isSafeRedirectUri(uri: string): boolean {

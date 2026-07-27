@@ -49,6 +49,25 @@ if (transport === "http" && authToken.length < 16) {
   process.exit(1);
 }
 
+const signInClientId = process.env.GSLIDES_MCP_SIGNIN_CLIENT_ID;
+const signInClientSecret = process.env.GSLIDES_MCP_SIGNIN_CLIENT_SECRET;
+const signInDomains = (process.env.GSLIDES_MCP_SIGNIN_DOMAINS || "arvore.com.br")
+  .split(",")
+  .map((domain) => domain.trim().toLowerCase().replace(/^@/, ""))
+  .filter(Boolean);
+
+if ((signInClientId || signInClientSecret) && !(signInClientId && signInClientSecret)) {
+  console.error(
+    "Error: GSLIDES_MCP_SIGNIN_CLIENT_ID and GSLIDES_MCP_SIGNIN_CLIENT_SECRET must be set together."
+  );
+  process.exit(1);
+}
+
+if (signInClientId && signInDomains.length === 0) {
+  console.error("Error: GSLIDES_MCP_SIGNIN_DOMAINS cannot be empty when Google sign-in is enabled.");
+  process.exit(1);
+}
+
 try {
   const server = new GoogleSlidesMCPServer({
     client: { clientId, clientSecret, refreshToken },
@@ -57,6 +76,14 @@ try {
     port: parsePort(process.env.PORT, 8080),
     authToken,
     publicUrl: process.env.MCP_PUBLIC_URL,
+    googleSignIn:
+      signInClientId && signInClientSecret
+        ? {
+            clientId: signInClientId,
+            clientSecret: signInClientSecret,
+            allowedDomains: signInDomains,
+          }
+        : undefined,
   });
 
   server.setupGracefulShutdown();

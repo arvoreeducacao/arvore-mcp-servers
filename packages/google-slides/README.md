@@ -60,6 +60,9 @@ shared folder (`folderId`).
 | `HOST` / `PORT` | no | http transport only, defaults `0.0.0.0:8080` |
 | `MCP_AUTH_TOKEN` | http only | ≥16 chars, **required** for http: guards `/mcp` and backs the built-in OAuth server |
 | `MCP_PUBLIC_URL` | http only | public origin, e.g. `https://google-slides.arvore.dev` — the OAuth issuer |
+| `GSLIDES_MCP_SIGNIN_CLIENT_ID` | no | Web OAuth client id — turns the OAuth consent screen into Google sign-in |
+| `GSLIDES_MCP_SIGNIN_CLIENT_SECRET` | with the above | secret of that Web client |
+| `GSLIDES_MCP_SIGNIN_DOMAINS` | no | allowed email domains, default `arvore.com.br` |
 | `GSLIDES_MCP_LOGIN_HINT` | no | pre-fills the Google account on `auth login` |
 
 ## Client config
@@ -97,7 +100,8 @@ Deployed (streamable-http) — header auth:
 
 Clients that accept only a URL can use `https://<domain>/mcp/<MCP_AUTH_TOKEN>`, and
 claude.ai custom connectors use the built-in OAuth 2.1 flow (DCR + PKCE) — add the
-connector with the plain `/mcp` URL and no Client ID.
+connector with the plain `/mcp` URL and no Client ID. With `GSLIDES_MCP_SIGNIN_*` set, the
+consent screen is Google sign-in restricted to your domains instead of a token prompt.
 
 See [`deploy/README.md`](./deploy/README.md) for the Dokploy setup and the full auth matrix.
 

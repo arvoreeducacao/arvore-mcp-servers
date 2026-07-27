@@ -31,8 +31,17 @@ The image builds the TypeScript in a first stage and ships only `dist` + prod de
 | `GSLIDES_MCP_REFRESH_TOKEN` | yes | minted locally with `google-slides-mcp auth login` — store as a **secret** |
 | `MCP_AUTH_TOKEN` | **yes** | ≥16 chars. Guards `/mcp` and is the credential of the built-in OAuth server. The container **refuses to start** without it. Store as a **secret** |
 | `MCP_PUBLIC_URL` | yes (http) | e.g. `https://google-slides.arvore.dev`. The OAuth issuer and the URLs in the discovery documents; wrong value breaks the connector flow |
+| `GSLIDES_MCP_SIGNIN_CLIENT_ID` | recommended | OAuth client id of a **Web application** client (the Desktop client used for the refresh token cannot do a server-side redirect). Enables Google sign-in on the consent screen |
+| `GSLIDES_MCP_SIGNIN_CLIENT_SECRET` | with the above | store as a **secret** |
+| `GSLIDES_MCP_SIGNIN_DOMAINS` | no | comma-separated allowed email domains, default `arvore.com.br` |
 | `MCP_TRANSPORT` | no | defaults to `http` in the image |
 | `HOST` / `PORT` | no | default `0.0.0.0:8080` |
+
+The Web client needs `https://<domain>/oauth/google/callback` in **Authorized redirect URIs**.
+With sign-in configured, the consent screen is "sign in with Google" and only accounts in
+`GSLIDES_MCP_SIGNIN_DOMAINS` are accepted (Google itself also restricts an unpublished
+client to the project's organization). Without it, the consent screen falls back to asking
+for `MCP_AUTH_TOKEN`.
 
 `/health` stays open; everything else requires a credential. The refresh token cannot
 be minted on the server (that OAuth flow needs a browser) — generate it on a laptop
@@ -44,17 +53,20 @@ and paste it into Dokploy.
 |---|---|
 | Claude Code, curl, anything that sets headers | `Authorization: Bearer $MCP_AUTH_TOKEN` on `POST /mcp` |
 | Clients that only take a URL | `POST /mcp/<MCP_AUTH_TOKEN>` — the token rides in the path. Convenient, but it lands in proxy access logs; prefer a header when the client supports one |
-| claude.ai custom connectors | OAuth 2.1. Add the connector with URL `https://<domain>/mcp` and nothing else — Claude discovers the authorization server, registers itself (DCR), and shows a page asking for `MCP_AUTH_TOKEN` once. No Client ID to paste |
+| claude.ai custom connectors | OAuth 2.1. Add the connector with URL `https://<domain>/mcp` and nothing else — Claude discovers the authorization server, registers itself (DCR), and the consent screen is Google sign-in restricted to the allowed domains (or, without sign-in configured, a prompt for `MCP_AUTH_TOKEN`). No Client ID to paste |
 
 The OAuth endpoints are `/.well-known/oauth-protected-resource[/mcp]`,
 `/.well-known/oauth-authorization-server`, `/oauth/register`, `/oauth/authorize`
-and `/oauth/token` (authorization code + PKCE S256 + refresh, per RFC 9728 / OAuth 2.1).
+`/oauth/token` and `/oauth/google/callback` (authorization code + PKCE S256 + refresh,
+per RFC 9728 / OAuth 2.1).
 Registrations, codes and tokens are HMAC-signed rather than stored — rotating
 `MCP_AUTH_TOKEN` invalidates every issued token and forces clients to reconnect.
 
-**The shared credential is the whole authorization model**: anyone holding
-`MCP_AUTH_TOKEN` acts as the Google account that authorized the server. This suits an
-internal tool with one service account; it is not per-user auth.
+**Who can connect vs. what they act as**: Google sign-in gates *who* may authorize a client
+(any account in the allowed domains), but every authorized client still edits Slides as the
+single Google account whose refresh token the server holds. `MCP_AUTH_TOKEN` remains a
+master credential — it authenticates `/mcp` directly and, when sign-in is disabled, is also
+the consent credential.
 
 ## 4. Client config
 

@@ -4,7 +4,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
-import { OAuthProvider } from "./oauth-provider.js";
+import { GoogleSignInConfig, OAuthProvider } from "./oauth-provider.js";
 import { GoogleSlidesClient } from "./client.js";
 import { GoogleSlidesMCPTools } from "./tools.js";
 import {
@@ -33,6 +33,7 @@ export interface GoogleSlidesMCPServerOptions {
   port: number;
   authToken: string;
   publicUrl?: string;
+  googleSignIn?: GoogleSignInConfig;
 }
 
 export class GoogleSlidesMCPServer {
@@ -53,6 +54,7 @@ export class GoogleSlidesMCPServer {
     this.oauth = new OAuthProvider({
       sharedSecret: options.authToken,
       issuer: () => this.publicUrl,
+      googleSignIn: options.googleSignIn,
     });
     this.client = new GoogleSlidesClient(options.client);
     this.tools = new GoogleSlidesMCPTools(this.client, {
