@@ -10,16 +10,36 @@ export function getDataRoot(): string {
   return root;
 }
 
-export function getAuthDir(): string {
-  const dir = join(getDataRoot(), "auth");
+export function getSessionsRoot(): string {
+  const dir = join(getDataRoot(), "sessions");
   mkdirSync(dir, { recursive: true });
   return dir;
 }
 
-export function getDatabasePath(): string {
-  return join(getDataRoot(), "messages.db");
+export function getSessionRoot(key: string): string {
+  const slug = sessionSlug(key);
+  if (!slug) {
+    throw new Error("session key cannot be empty");
+  }
+  const dir = join(getSessionsRoot(), slug);
+  mkdirSync(dir, { recursive: true });
+  return dir;
 }
 
-export function getQrPngPath(): string {
-  return join(getDataRoot(), "qr.png");
+export function sessionSlug(key: string): string {
+  return key.trim().toLowerCase().replace(/[^a-z0-9._-]+/g, "_");
+}
+
+export function getAuthDir(root: string = getDataRoot()): string {
+  const dir = join(root, "auth");
+  mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+export function getDatabasePath(root: string = getDataRoot()): string {
+  return join(root, "messages.db");
+}
+
+export function getQrPngPath(root: string = getDataRoot()): string {
+  return join(root, "qr.png");
 }

@@ -33,6 +33,7 @@ The agent can also call `qr_code` to retrieve the pairing QR in `ascii`, `png` (
 | `send_text` | Send a text message. Supports replies via `quotedMessageId`. Brazilian numbers are normalized automatically. |
 | `send_media` | Send image, audio, video, or document via `filePath` (absolute path on disk) or `base64`. Audio defaults to push-to-talk. |
 | `send_reaction` | React to a message with an emoji. Pass an empty string to remove a previous reaction. |
+| `set_presence` | Set composing / paused / recording / available / unavailable for a chat. |
 | `mark_read` | Mark messages as read on WhatsApp and reset the local unread counter. |
 | `list_chats` | List recent chats with last message preview and unread count. |
 | `get_messages` | Fetch chat history (paginated by `beforeTimestamp`, oldest first). |
@@ -58,6 +59,29 @@ Brazilian mobile numbers are validated against WhatsApp via `onWhatsApp` to hand
 |---------|---------|-------------|
 | `WHATSAPP_MCP_DATA_DIR` | `~/.arvore-mcp/whatsapp` | Folder for auth state, SQLite DB, and QR PNG. |
 | `WHATSAPP_LOG_LEVEL` | `warn` | Pino log level for Baileys (`trace`, `debug`, `info`, `warn`, `error`). |
+| `MCP_TRANSPORT` | `stdio` | Set to `http` to serve the streamable-http transport instead. |
+
+## Multi-user mode (http)
+
+With `MCP_TRANSPORT=http` the server speaks the streamable-http transport on `/mcp` and
+serves more than one person: OAuth 2.1 sign-in identifies each user, every identity gets
+its own Baileys session and its own SQLite database under `<data dir>/sessions/<email>`,
+and pairing happens on a web page instead of the terminal.
+
+| Env var | Required | Description |
+|---------|----------|-------------|
+| `MCP_AUTH_TOKEN` | yes | at least 16 chars. Guards `/mcp`, signs the pairing links, keys the OAuth server. |
+| `MCP_PUBLIC_URL` | yes | Absolute public origin - the OAuth issuer and the base of the pairing links. |
+| `WHATSAPP_MCP_SIGNIN_CLIENT_ID` | yes | Google OAuth client (Web application) used only to identify the user (`openid email`). |
+| `WHATSAPP_MCP_SIGNIN_CLIENT_SECRET` | with the above | Secret of that client. |
+| `WHATSAPP_MCP_SIGNIN_DOMAINS` | with sign-in | Comma-separated email domains allowed to connect. |
+
+Without the sign-in vars the consent screen falls back to asking for `MCP_AUTH_TOKEN`
+and everyone shares a single `service` session - fine for a bot account, wrong for
+personal ones. Requests authenticated by the raw token (header or `/mcp/<token>`) carry
+no identity and land in that same shared session.
+
+State lives on disk, so the data directory has to survive restarts.
 
 ## MCP config
 
@@ -107,7 +131,7 @@ pnpm --filter @arvoretech/whatsapp-mcp dev
 
 ## Notes & gotchas
 
-- **Single connection only.** This MCP drives one WhatsApp account at a time and is intended for personal/agent use cases.
+- **One account per session.** On stdio the server drives a single WhatsApp account; in multi-user mode each signed-in person gets their own isolated session.
 - **Auth dir is per-machine.** Don't ship `~/.arvore-mcp/whatsapp/` — it contains your WhatsApp identity keys.
 - **Phone must stay online** occasionally for the multi-device session to stay healthy.
 - **Brazilian 9-digit gotcha:** Baileys sometimes returns a JID without the 9 even when you sent with it. The server uses `onWhatsApp` to resolve to the canonical JID before sending and before storing.
@@ -117,4 +141,4 @@ pnpm --filter @arvoretech/whatsapp-mcp dev
 
 ## Related
 
-- Drives one WhatsApp account from your local agent. For higher-volume server-side use cases, build a dedicated service.
+- Drives a person's own WhatsApp account. For high-volume messaging, build a dedicated service on the official API instead.

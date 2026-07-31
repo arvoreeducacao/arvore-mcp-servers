@@ -12,8 +12,7 @@ export async function renderQrToTerminal(qr: string): Promise<void> {
   });
 }
 
-export async function renderQrToPng(qr: string): Promise<string> {
-  const path = getQrPngPath();
+export async function renderQrToPng(qr: string, path: string = getQrPngPath()): Promise<string> {
   await QRCode.toFile(path, qr, { width: 512, margin: 2 });
   return path;
 }
