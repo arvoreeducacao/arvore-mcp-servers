@@ -4,7 +4,7 @@ MCP server for Google Slides: create decks, edit them, and **look at them** — 
 slide can be rendered to PNG and returned as an image, so the model closes the
 edit → inspect → fix loop without a human in the middle.
 
-Runs over **stdio** (local) or **streamable-http** (deployed, e.g. Dokploy).
+Runs over **stdio** (local) or **streamable-http** (remote).
 
 ## Tools
 
@@ -105,8 +105,6 @@ Clients that accept only a URL can use `https://<domain>/mcp/<MCP_AUTH_TOKEN>`, 
 claude.ai custom connectors use the built-in OAuth 2.1 flow (DCR + PKCE) — add the
 connector with the plain `/mcp` URL and no Client ID. With `GSLIDES_MCP_SIGNIN_*` set, the
 consent screen is Google sign-in restricted to your domains instead of a token prompt.
-
-See [`deploy/README.md`](./deploy/README.md) for the Dokploy setup and the full auth matrix.
 
 ## Notes
 
