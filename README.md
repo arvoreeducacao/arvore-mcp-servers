@@ -139,7 +139,7 @@ Google Slides integration — create, edit and visually inspect presentations.
 - Typed edits: add slide from layout, insert/replace text, insert image, speaker notes
 - Raw `batchUpdate` escape hatch for full Slides API styling and geometry
 - Export as pdf / pptx / txt
-- Runs over stdio or streamable-http (deployable to Dokploy)
+- Runs over stdio or streamable-http
 
 ### [@arvoretech/memory-mcp](./packages/memory)
 
