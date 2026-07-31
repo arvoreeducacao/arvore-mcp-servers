@@ -85,9 +85,9 @@ indices to seconds via `index_to_seconds` → `get_frames_at` for full-res frame
   yt-dlp sites work from the cloud. To enable YouTube on cloud you would need to
   supply cookies (`--cookies`) or route through a residential proxy.
 
-## Cloud (Dokploy)
+## Remote (http)
 
 The server also speaks the MCP **streamable-http** transport for remote hosting.
 Set `MCP_TRANSPORT=http` (default in the Docker image) and it serves `POST /mcp`
 plus `GET /health` on `PORT` (default 8080). Set `MCP_AUTH_TOKEN` to require
-`Authorization: Bearer <token>` on `/mcp`. See [`deploy/README.md`](./deploy/README.md).
+`Authorization: Bearer <token>` on `/mcp`.

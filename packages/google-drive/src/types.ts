@@ -156,7 +156,7 @@ export const FilesShareParamsSchema = z.object({
   domain: z
     .string()
     .optional()
-    .describe("Required when type=domain (e.g. 'arvore.com.br')"),
+    .describe("Required when type=domain (e.g. 'example.com')"),
   sendNotificationEmail: z
     .boolean()
     .optional()
