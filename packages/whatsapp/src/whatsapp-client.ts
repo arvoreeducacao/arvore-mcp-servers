@@ -13,9 +13,9 @@ import {
   type WASocket,
 } from "baileys";
 import pino from "pino";
-import { saveMessage, upsertContact, type Direction } from "./db.js";
+import { MessageStore, type Direction } from "./db.js";
 import { renderQrToAsciiString, renderQrToDataUrl, renderQrToPng, renderQrToTerminal } from "./qr.js";
-import { getAuthDir } from "./paths.js";
+import { getAuthDir, getDataRoot, getQrPngPath } from "./paths.js";
 import { stripJidSuffix, toJid } from "./jid.js";
 
 export type ConnectionState = "connecting" | "open" | "close" | "qr";
@@ -33,9 +33,20 @@ export type SendOptions = {
   quotedMessageId?: string;
 };
 
+export type WhatsAppClientOptions = {
+  root?: string;
+  store?: MessageStore;
+  label?: string;
+  renderTerminalQr?: boolean;
+};
+
 const logger = pino({ level: process.env.WHATSAPP_LOG_LEVEL || "warn" });
 
 export class WhatsAppClient {
+  readonly store: MessageStore;
+  private readonly root: string;
+  private readonly label: string;
+  private readonly renderTerminalQr: boolean;
   private sock: WASocket | null = null;
   private state: ConnectionState = "close";
   private phone: string | null = null;
@@ -46,6 +57,17 @@ export class WhatsAppClient {
   private connectingPromise: Promise<void> | null = null;
   private resolveConnecting: (() => void) | null = null;
   private rejectConnecting: ((err: Error) => void) | null = null;
+
+  constructor(options: WhatsAppClientOptions = {}) {
+    this.root = options.root ?? getDataRoot();
+    this.store = options.store ?? new MessageStore(this.root);
+    this.label = options.label ?? "default";
+    this.renderTerminalQr = options.renderTerminalQr ?? true;
+  }
+
+  hasAuthState(): boolean {
+    return existsSync(join(getAuthDir(this.root), "creds.json"));
+  }
 
   isConnected(): boolean {
     return this.state === "open" && this.sock !== null;
@@ -66,7 +88,13 @@ export class WhatsAppClient {
     if (this.state === "open" || this.state === "connecting" || this.state === "qr") {
       return this.getStatus();
     }
-    await this.startSocket();
+    this.state = "connecting";
+    try {
+      await this.startSocket();
+    } catch (error) {
+      this.state = "close";
+      throw error;
+    }
     return this.getStatus();
   }
 
@@ -115,7 +143,7 @@ export class WhatsAppClient {
   }
 
   private clearAuthDir(): void {
-    const dir = getAuthDir();
+    const dir = getAuthDir(this.root);
     if (!existsSync(dir)) return;
     for (const entry of readdirSync(dir)) {
       const path = join(dir, entry);
@@ -143,7 +171,7 @@ export class WhatsAppClient {
     const sent = await sock.sendMessage(jid, payload as never);
     const id = sent?.key?.id || `out-${Date.now()}`;
 
-    saveMessage({
+    this.store.saveMessage({
       id,
       jid,
       direction: "out",
@@ -216,7 +244,7 @@ export class WhatsAppClient {
     const sent = await sock.sendMessage(jid, payload as never);
     const id = sent?.key?.id || `out-${Date.now()}`;
 
-    saveMessage({
+    this.store.saveMessage({
       id,
       jid,
       direction: "out",
@@ -319,7 +347,7 @@ export class WhatsAppClient {
     this.qrPngPath = null;
     this.qrDataUrl = null;
 
-    const { state, saveCreds } = await useMultiFileAuthState(getAuthDir());
+    const { state, saveCreds } = await useMultiFileAuthState(getAuthDir(this.root));
     const { version } = await fetchLatestBaileysVersion();
 
     this.connectingPromise = new Promise<void>((resolve, reject) => {
@@ -356,7 +384,7 @@ export class WhatsAppClient {
           this.qrAscii = null;
         }
         try {
-          this.qrPngPath = await renderQrToPng(qr);
+          this.qrPngPath = await renderQrToPng(qr, getQrPngPath(this.root));
         } catch {
           this.qrPngPath = null;
         }
@@ -365,7 +393,9 @@ export class WhatsAppClient {
         } catch {
           this.qrDataUrl = null;
         }
-        await renderQrToTerminal(qr).catch(() => undefined);
+        if (this.renderTerminalQr) {
+          await renderQrToTerminal(qr).catch(() => undefined);
+        }
       }
 
       if (connection === "open") {
@@ -374,7 +404,7 @@ export class WhatsAppClient {
         this.state = "open";
         this.phone = phone;
         this.qr = null;
-        process.stderr.write(`\n[whatsapp-mcp] connected${phone ? ` as ${phone}` : ""}\n`);
+        process.stderr.write(`\n[whatsapp-mcp] ${this.label} connected${phone ? ` as ${phone}` : ""}\n`);
         this.resolveConnecting?.();
         this.connectingPromise = null;
       }
@@ -390,7 +420,7 @@ export class WhatsAppClient {
         this.sock = null;
 
         if (loggedOut) {
-          process.stderr.write("[whatsapp-mcp] logged out — clearing auth state\n");
+          process.stderr.write(`[whatsapp-mcp] ${this.label} logged out — clearing auth state\n`);
           this.clearAuthDir();
           this.phone = null;
           this.rejectConnecting?.(new Error("WhatsApp logged out"));
@@ -399,13 +429,13 @@ export class WhatsAppClient {
         }
 
         if (replaced) {
-          process.stderr.write("[whatsapp-mcp] connection replaced by another session\n");
+          process.stderr.write(`[whatsapp-mcp] ${this.label} connection replaced by another session\n`);
           this.rejectConnecting?.(new Error("WhatsApp connection replaced"));
           this.connectingPromise = null;
           return;
         }
 
-        process.stderr.write(`[whatsapp-mcp] disconnected (reason=${reason}) — reconnecting\n`);
+        process.stderr.write(`[whatsapp-mcp] ${this.label} disconnected (reason=${reason}) — reconnecting\n`);
         setTimeout(() => {
           this.startSocket().catch((err) => {
             process.stderr.write(`[whatsapp-mcp] reconnect failed: ${err}\n`);
@@ -432,7 +462,7 @@ export class WhatsAppClient {
     sock.ev.on("contacts.upsert", (contacts) => {
       for (const contact of contacts) {
         if (!contact.id) continue;
-        upsertContact({
+        this.store.upsertContact({
           jid: contact.id,
           pushName: contact.name || contact.notify || null,
           phone: contact.id.endsWith("@s.whatsapp.net") ? stripJidSuffix(contact.id) : null,
@@ -465,7 +495,7 @@ export class WhatsAppClient {
       (message as { audioMessage?: { contextInfo?: { stanzaId?: string } } }).audioMessage?.contextInfo;
     const quotedMessageId = contextInfo?.stanzaId ?? null;
 
-    saveMessage({
+    this.store.saveMessage({
       id: msg.key.id || `${direction}-${Date.now()}`,
       jid,
       direction,
@@ -479,7 +509,7 @@ export class WhatsAppClient {
     });
 
     if (msg.pushName) {
-      upsertContact({
+      this.store.upsertContact({
         jid,
         pushName: msg.pushName,
         phone: jid.endsWith("@s.whatsapp.net") ? stripJidSuffix(jid) : null,
