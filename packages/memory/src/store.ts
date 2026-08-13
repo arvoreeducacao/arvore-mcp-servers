@@ -58,6 +58,8 @@ function vectorRecord(entry: MemoryEntry, vector: number[], contentHash: string)
     title: entry.title,
     category: entry.category,
     date: entry.date,
+    updated: entry.updated || "",
+    author: entry.author || "",
     tags: entry.tags.join(","),
     status: entry.status,
     snippet: entry.content.length > 200 ? entry.content.slice(0, 200) + "..." : entry.content,
@@ -162,7 +164,7 @@ export class MemoryStore {
       const lines: string[] = [
         "# Team Memories Index",
         "",
-        `Total: ${active.length} active memories. Use \`get_memory(id)\` to read full content.`,
+        `Total: ${active.length} active memories. Use \`read_memories({ id })\` to read full content.`,
         "",
       ];
 
@@ -282,6 +284,7 @@ export class MemoryStore {
         title: fm.title || id,
         category,
         date: fm.date || new Date().toISOString().split("T")[0],
+        updated: fm.updated,
         author: fm.author,
         tags: Array.isArray(fm.tags) ? fm.tags : [],
         status: (fm.status as MemoryStatus) || "active",
@@ -303,7 +306,13 @@ export class MemoryStore {
 
   async search(
     query: string,
-    opts?: { category?: MemoryCategory; status?: MemoryStatus; limit?: number }
+    opts?: {
+      category?: MemoryCategory;
+      status?: MemoryStatus;
+      tags?: string[];
+      author?: string;
+      limit?: number;
+    }
   ): Promise<(MemoryCatalogEntry & { score: number })[]> {
     await this.ensureLoaded();
 
@@ -311,27 +320,77 @@ export class MemoryStore {
     const limit = opts?.limit || 10;
 
     if (this.embeddings.isReady() && this.table) {
-      return this.semanticSearch(query, { category: opts?.category, status, limit });
+      return this.semanticSearch(query, {
+        category: opts?.category,
+        status,
+        tags: opts?.tags,
+        author: opts?.author,
+        limit,
+      });
     }
 
-    let filtered = this.catalog.filter((m) => m.status === status);
-    if (opts?.category) {
+    const filtered = this.applyFilters(this.catalog, {
+      category: opts?.category,
+      status,
+      tags: opts?.tags,
+      author: opts?.author,
+    });
+    return this.keywordSearch(query, filtered, limit);
+  }
+
+  private applyFilters(
+    entries: MemoryEntry[],
+    opts: {
+      category?: MemoryCategory;
+      status?: MemoryStatus;
+      tags?: string[];
+      author?: string;
+    }
+  ): MemoryEntry[] {
+    let filtered = [...entries];
+
+    if (opts.category) {
       filtered = filtered.filter((m) => m.category === opts.category);
     }
-    return this.keywordSearch(query, filtered, limit);
+    if (opts.status) {
+      filtered = filtered.filter((m) => m.status === opts.status);
+    }
+    if (opts.tags?.length) {
+      const wanted = opts.tags.map((t) => t.toLowerCase());
+      filtered = filtered.filter((m) => {
+        const owned = m.tags.map((t) => t.toLowerCase());
+        return wanted.every((tag) => owned.includes(tag));
+      });
+    }
+    if (opts.author) {
+      const author = opts.author.toLowerCase();
+      filtered = filtered.filter((m) => (m.author || "").toLowerCase() === author);
+    }
+
+    return filtered;
   }
 
   private async semanticSearch(
     query: string,
-    opts: { category?: MemoryCategory; status?: string; limit: number }
+    opts: {
+      category?: MemoryCategory;
+      status?: string;
+      tags?: string[];
+      author?: string;
+      limit: number;
+    }
   ): Promise<(MemoryCatalogEntry & { score: number })[]> {
     const queryVector = await this.embeddings.embed(query);
 
     const filters: string[] = [];
-    if (opts.status) filters.push(`status = '${opts.status}'`);
-    if (opts.category) filters.push(`category = '${opts.category}'`);
+    if (opts.status) filters.push(`status = '${sqlLiteral(opts.status)}'`);
+    if (opts.category) filters.push(`category = '${sqlLiteral(opts.category)}'`);
+    if (opts.author) filters.push(`author = '${sqlLiteral(opts.author.toLowerCase())}'`);
 
-    const searchQuery = (this.table!.search(queryVector) as VectorQuery).distanceType("cosine").limit(opts.limit);
+    const overfetch = opts.tags?.length ? Math.min(opts.limit * 4, 200) : opts.limit;
+    const searchQuery = (this.table!.search(queryVector) as VectorQuery)
+      .distanceType("cosine")
+      .limit(overfetch);
 
     if (filters.length > 0) {
       searchQuery.where(filters.join(" AND "));
@@ -340,6 +399,8 @@ export class MemoryStore {
     const results = await searchQuery.toArray();
 
     const MIN_RELEVANCE_SCORE = -0.2;
+
+    const wantedTags = (opts.tags || []).map((t) => t.toLowerCase());
 
     return results
       .map((row: Record<string, unknown>) => {
@@ -351,6 +412,8 @@ export class MemoryStore {
           title: row.title as string,
           category: row.category as MemoryCategory,
           date,
+          updated: (row.updated as string) || undefined,
+          author: (row.author as string) || undefined,
           tags: (row.tags as string).split(",").filter(Boolean),
           status: row.status as MemoryStatus,
           snippet: row.snippet as string,
@@ -358,8 +421,14 @@ export class MemoryStore {
           needsReview: isStale(date),
         };
       })
+      .filter((r) => {
+        if (wantedTags.length === 0) return true;
+        const owned = r.tags.map((t) => t.toLowerCase());
+        return wantedTags.every((tag) => owned.includes(tag));
+      })
       .sort((a, b) => b.score - a.score)
-      .filter((r) => r.score >= MIN_RELEVANCE_SCORE);
+      .filter((r) => r.score >= MIN_RELEVANCE_SCORE)
+      .slice(0, opts.limit);
   }
 
   private keywordSearch(
@@ -393,21 +462,27 @@ export class MemoryStore {
   async list(opts?: {
     category?: MemoryCategory;
     status?: MemoryStatus;
+    tags?: string[];
+    author?: string;
     limit?: number;
   }): Promise<MemoryCatalogEntry[]> {
     await this.ensureLoaded();
 
-    let filtered = [...this.catalog];
-
-    if (opts?.category) {
-      filtered = filtered.filter((m) => m.category === opts.category);
-    }
-    if (opts?.status) {
-      filtered = filtered.filter((m) => m.status === opts.status);
-    }
+    const filtered = this.applyFilters(this.catalog, {
+      category: opts?.category,
+      status: opts?.status,
+      tags: opts?.tags,
+      author: opts?.author,
+    });
 
     const limit = opts?.limit || 50;
     return filtered.slice(0, limit).map((e) => this.toCatalogEntry(e));
+  }
+
+  async count(opts?: { status?: MemoryStatus }): Promise<number> {
+    await this.ensureLoaded();
+    if (!opts?.status) return this.catalog.length;
+    return this.catalog.filter((m) => m.status === opts.status).length;
   }
 
   async get(id: string): Promise<MemoryEntry | null> {
@@ -443,9 +518,11 @@ ${content}`;
     const date = new Date().toISOString().split("T")[0];
     const slug = params.title
       .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-|-$/g, "");
-    const id = `${date}-${slug}`;
+    const id = this.uniqueId(`${date}-${slug}`);
     const filePath = join(catDir, `${id}.md`);
 
     const fm: Record<string, unknown> = {
@@ -491,6 +568,95 @@ ${content}`;
     return entry;
   }
 
+  private uniqueId(base: string): string {
+    if (!this.catalog.some((m) => m.id === base)) return base;
+
+    for (let suffix = 2; suffix < 100; suffix++) {
+      const candidate = `${base}-${suffix}`;
+      if (!this.catalog.some((m) => m.id === candidate)) return candidate;
+    }
+
+    return `${base}-${Date.now()}`;
+  }
+
+  async update(
+    id: string,
+    patch: {
+      title?: string;
+      content?: string;
+      tags?: string[];
+      category?: MemoryCategory;
+      status?: MemoryStatus;
+      author?: string;
+    }
+  ): Promise<MemoryEntry> {
+    const current = await this.get(id);
+    if (!current) {
+      throw new MemoryMCPError(`Memory "${id}" not found`, "NOT_FOUND");
+    }
+
+    const raw = await readFile(current.path, "utf-8");
+    const { data } = this.parseFrontmatter(raw);
+
+    const entry: MemoryEntry = {
+      ...current,
+      title: patch.title ?? current.title,
+      content: patch.content ?? current.content,
+      tags: patch.tags ?? current.tags,
+      category: patch.category ?? current.category,
+      status: patch.status ?? current.status,
+      author: patch.author ?? current.author,
+      updated: new Date().toISOString().split("T")[0],
+    };
+
+    const fm: Record<string, unknown> = {
+      ...(data as Record<string, unknown>),
+      title: entry.title,
+      category: entry.category,
+      date: entry.date,
+      updated: entry.updated,
+      status: entry.status,
+    };
+    if (entry.author) fm.author = entry.author;
+    if (entry.tags.length > 0) fm.tags = entry.tags;
+    else delete fm.tags;
+
+    const targetDir = join(this.memoriesPath, entry.category);
+    await mkdir(targetDir, { recursive: true });
+    const targetPath = join(targetDir, `${id}.md`);
+
+    await writeFile(
+      targetPath,
+      `${this.buildFrontmatter(fm)}\n\n${entry.content}\n`,
+      "utf-8"
+    );
+
+    if (targetPath !== current.path) {
+      await rm(current.path).catch(() => undefined);
+    }
+    entry.path = targetPath;
+
+    const index = this.catalog.findIndex((m) => m.id === id);
+    if (index >= 0) this.catalog[index] = entry;
+
+    if (this.embeddings.isReady() && this.db) {
+      const text = this.buildEmbeddingText(entry);
+      const vector = await this.embeddings.embed(text);
+      const record = vectorRecord(entry, vector, this.contentHash(text));
+
+      if (this.table) {
+        await this.table.delete(`id = '${sqlLiteral(id)}'`);
+        await this.table.add([record]);
+      } else {
+        this.table = await this.db.createTable("memories", [record], { mode: "overwrite" });
+      }
+    }
+
+    await this.syncSteeringIndex();
+
+    return entry;
+  }
+
   async archive(id: string): Promise<MemoryEntry> {
     const entry = await this.get(id);
     if (!entry) {
@@ -506,7 +672,10 @@ ${content}`;
     await writeFile(entry.path, updated, "utf-8");
 
     if (this.table) {
-      await this.table.update({ where: `id = '${id}'`, values: { status: "archived" } });
+      await this.table.update({
+        where: `id = '${sqlLiteral(id)}'`,
+        values: { status: "archived" },
+      });
     }
 
     await this.syncSteeringIndex();
@@ -524,7 +693,7 @@ ${content}`;
     this.catalog = this.catalog.filter((m) => m.id !== id);
 
     if (this.table) {
-      await this.table.delete(`id = '${id}'`);
+      await this.table.delete(`id = '${sqlLiteral(id)}'`);
     }
 
     await this.syncSteeringIndex();
@@ -541,12 +710,17 @@ ${content}`;
       title: entry.title,
       category: entry.category,
       date: entry.date,
+      updated: entry.updated,
       author: entry.author,
       tags: entry.tags,
       status: entry.status,
       snippet,
     };
   }
+}
+
+function sqlLiteral(value: string): string {
+  return value.replace(/'/g, "''");
 }
 
 function round(n: number): number {

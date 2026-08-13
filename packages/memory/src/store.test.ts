@@ -274,6 +274,89 @@ describe("MemoryStore", () => {
       const dirs = await readdir(TEST_DIR);
       expect(dirs).toContain("gotchas");
     });
+
+    it("should not overwrite a memory with the same title on the same day", async () => {
+      await store.load();
+
+      const first = await store.add({
+        title: "Same Title",
+        category: "conventions",
+        content: "First version.",
+        author: "ana@arvore.com.br",
+      });
+      const second = await store.add({
+        title: "Same Title",
+        category: "conventions",
+        content: "Different memory, same title.",
+        author: "joao@arvore.com.br",
+      });
+
+      expect(second.id).toBe(`${first.id}-2`);
+      expect(existsSync(first.path)).toBe(true);
+      expect(await readFile(first.path, "utf-8")).toContain("First version.");
+    });
+
+    it("should slugify accented titles", async () => {
+      await store.load();
+
+      const entry = await store.add({
+        title: "Migração de índice",
+        category: "decisions",
+        content: "content",
+      });
+
+      expect(entry.id).toMatch(/^\d{4}-\d{2}-\d{2}-migracao-de-indice$/);
+    });
+  });
+
+  describe("update", () => {
+    beforeEach(async () => {
+      await createMemoryFile(
+        "decisions",
+        "2026-01-01-jwt",
+        {
+          title: "JWT",
+          category: "decisions",
+          date: "2026-01-01",
+          author: "ana@arvore.com.br",
+          tags: ["auth"],
+          status: "active",
+        },
+        "Original content."
+      );
+      await store.load();
+    });
+
+    it("should patch only the given fields and stamp updated", async () => {
+      const entry = await store.update("2026-01-01-jwt", {
+        content: "Rotation is now 15 minutes.",
+        author: "joao@arvore.com.br",
+      });
+
+      expect(entry.title).toBe("JWT");
+      expect(entry.date).toBe("2026-01-01");
+      expect(entry.author).toBe("joao@arvore.com.br");
+      expect(entry.updated).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+
+      const raw = await readFile(entry.path, "utf-8");
+      expect(raw).toContain("Rotation is now 15 minutes.");
+      expect(raw).toContain("tags: [auth]");
+      expect(raw).not.toContain("Original content.");
+    });
+
+    it("should keep a single file when the category changes", async () => {
+      const entry = await store.update("2026-01-01-jwt", { category: "gotchas" });
+
+      expect(entry.path).toBe(join(TEST_DIR, "gotchas", "2026-01-01-jwt.md"));
+      expect(existsSync(join(TEST_DIR, "decisions", "2026-01-01-jwt.md"))).toBe(false);
+
+      const reread = await store.get("2026-01-01-jwt");
+      expect(reread?.category).toBe("gotchas");
+    });
+
+    it("should throw for non-existent memory", async () => {
+      await expect(store.update("nope", { content: "x" })).rejects.toThrow("not found");
+    });
   });
 
   describe("archive", () => {

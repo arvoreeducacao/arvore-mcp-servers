@@ -13,34 +13,77 @@ describe("MemoryMCPTools", () => {
     search: ReturnType<typeof vi.fn>;
     get: ReturnType<typeof vi.fn>;
     add: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
     findSimilar: ReturnType<typeof vi.fn>;
     list: ReturnType<typeof vi.fn>;
+    count: ReturnType<typeof vi.fn>;
     remove: ReturnType<typeof vi.fn>;
     archive: ReturnType<typeof vi.fn>;
   };
 
+  const parse = (result: { content: Array<{ text: string }> }) =>
+    JSON.parse(result.content[0].text);
+
   beforeEach(() => {
     vi.clearAllMocks();
     mockStore = {
-      search: vi.fn(),
+      search: vi.fn().mockResolvedValue([]),
       get: vi.fn(),
       add: vi.fn(),
+      update: vi.fn(),
       findSimilar: vi.fn().mockResolvedValue(null),
-      list: vi.fn(),
+      list: vi.fn().mockResolvedValue([]),
+      count: vi.fn().mockResolvedValue(0),
       remove: vi.fn(),
       archive: vi.fn(),
     };
-    tools = new MemoryMCPTools(mockStore as unknown as MemoryStore);
+    tools = new MemoryMCPTools(mockStore as unknown as MemoryStore, {
+      author: "joao.barros@arvore.com.br",
+    });
   });
 
-  describe("searchMemories", () => {
-    it("should return search results with count", async () => {
+  describe("read_memories — index", () => {
+    it("groups the catalog by category and reports the total", async () => {
+      mockStore.list.mockResolvedValue([
+        { id: "m1", title: "Memory 1", category: "decisions", date: "2026-01-01", tags: [], status: "active", snippet: "..." },
+        { id: "m2", title: "Memory 2", category: "decisions", date: "2026-02-01", tags: ["db"], status: "active", snippet: "..." },
+        { id: "m3", title: "Memory 3", category: "gotchas", date: "2026-03-01", tags: [], status: "active", snippet: "..." },
+      ]);
+      mockStore.count.mockResolvedValue(10);
+
+      const result = await tools.readMemories({ limit: 30 });
+      const parsed = parse(result);
+
+      expect(parsed.mode).toBe("index");
+      expect(parsed.showing).toBe(3);
+      expect(parsed.total).toBe(10);
+      expect(parsed.truncated).toBe(true);
+      expect(parsed.categories).toHaveLength(2);
+      expect(parsed.categories[0]).toMatchObject({ category: "decisions", count: 2 });
+      expect(parsed.categories[1]).toMatchObject({ category: "gotchas", count: 1 });
+    });
+
+    it("forwards filters to the store and defaults to active", async () => {
+      await tools.readMemories({ category: "gotchas", tags: ["crm"], limit: 30 });
+
+      expect(mockStore.list).toHaveBeenCalledWith({
+        category: "gotchas",
+        status: "active",
+        tags: ["crm"],
+        author: undefined,
+        limit: 30,
+      });
+    });
+  });
+
+  describe("read_memories — search", () => {
+    it("returns scored results for a query", async () => {
       mockStore.search.mockResolvedValue([
         {
           id: "use-postgres",
           title: "Use PostgreSQL",
           category: "decisions",
-          date: "2024-06-01",
+          date: "2026-06-01",
           tags: ["database"],
           status: "active",
           snippet: "We chose PostgreSQL...",
@@ -48,217 +91,214 @@ describe("MemoryMCPTools", () => {
         },
       ]);
 
-      const result = await tools.searchMemories({
-        query: "database choice",
-        status: "active",
-        limit: 10,
-      });
+      const result = await tools.readMemories({ query: "database choice", limit: 30 });
+      const parsed = parse(result);
 
-      const parsed = JSON.parse(result.content[0].text);
-      expect(parsed.query).toBe("database choice");
+      expect(parsed.mode).toBe("search");
       expect(parsed.count).toBe(1);
       expect(parsed.results[0].title).toBe("Use PostgreSQL");
+      expect(mockStore.search).toHaveBeenCalledWith("database choice", {
+        category: undefined,
+        status: "active",
+        tags: undefined,
+        author: undefined,
+        limit: 30,
+      });
     });
 
-    it("should return empty results for no matches", async () => {
-      mockStore.search.mockResolvedValue([]);
+    it("comes back empty without breaking", async () => {
+      const parsed = parse(await tools.readMemories({ query: "nonexistent", limit: 30 }));
 
-      const result = await tools.searchMemories({
-        query: "nonexistent topic",
-        status: "active",
-        limit: 10,
-      });
-
-      const parsed = JSON.parse(result.content[0].text);
       expect(parsed.count).toBe(0);
       expect(parsed.results).toEqual([]);
-    });
-
-    it("should pass category filter to store", async () => {
-      mockStore.search.mockResolvedValue([]);
-
-      await tools.searchMemories({
-        query: "test",
-        category: "decisions",
-        status: "active",
-        limit: 10,
-      });
-
-      expect(mockStore.search).toHaveBeenCalledWith("test", {
-        category: "decisions",
-        status: "active",
-        limit: 10,
-      });
+      expect(parsed.next).toBeUndefined();
     });
   });
 
-  describe("getMemory", () => {
-    it("should return full memory content", async () => {
-      mockStore.get.mockReturnValue({
+  describe("read_memories — one memory", () => {
+    it("returns the full content when the id exists", async () => {
+      mockStore.get.mockResolvedValue({
         id: "use-postgres",
         title: "Use PostgreSQL",
         category: "decisions",
-        date: "2024-06-01",
+        date: "2026-06-01",
         tags: ["database"],
         status: "active",
-        content: "Full content about PostgreSQL decision.",
+        content: "Full content about the PostgreSQL decision.",
       });
 
-      const result = await tools.getMemory({ id: "use-postgres" });
-      const parsed = JSON.parse(result.content[0].text);
+      const parsed = parse(await tools.readMemories({ id: "use-postgres", limit: 30 }));
 
-      expect(parsed.title).toBe("Use PostgreSQL");
-      expect(parsed.content).toBe("Full content about PostgreSQL decision.");
+      expect(parsed.found).toBe(true);
+      expect(parsed.content).toBe("Full content about the PostgreSQL decision.");
+      expect(mockStore.search).not.toHaveBeenCalled();
     });
 
-    it("should return error for non-existent memory", async () => {
-      mockStore.get.mockReturnValue(null);
+    it("suggests neighbours when the id is unknown", async () => {
+      mockStore.get.mockResolvedValue(null);
+      mockStore.search.mockResolvedValue([{ id: "real-one", title: "Real One" }]);
 
-      const result = await tools.getMemory({ id: "nope" });
-      const parsed = JSON.parse(result.content[0].text);
+      const parsed = parse(await tools.readMemories({ id: "wrong-id", limit: 30 }));
 
-      expect(parsed.error).toContain("not found");
+      expect(parsed.found).toBe(false);
+      expect(parsed.didYouMean).toEqual([{ id: "real-one", title: "Real One" }]);
     });
   });
 
-  describe("addMemory", () => {
-    it("should create a new memory and return result", async () => {
+  describe("write_memory — create", () => {
+    it("creates the memory attributing it to the authenticated author", async () => {
       mockStore.add.mockResolvedValue({
-        id: "2024-06-01-jwt-auth",
-        path: "/memories/decisions/2024-06-01-jwt-auth.md",
+        id: "2026-06-01-jwt-auth",
         title: "JWT Auth Strategy",
         category: "decisions",
-      });
-
-      const result = await tools.addMemory({
-        title: "JWT Auth Strategy",
-        category: "decisions",
-        content: "We chose JWT with refresh tokens.",
+        date: "2026-06-01",
+        author: "joao.barros@arvore.com.br",
         tags: ["auth"],
       });
 
-      const parsed = JSON.parse(result.content[0].text);
-      expect(parsed.created).toBe(true);
-      expect(parsed.title).toBe("JWT Auth Strategy");
-    });
-
-    it("should return error on failure", async () => {
-      mockStore.add.mockRejectedValue(
-        new MemoryMCPError("Write failed", "WRITE_ERROR")
+      const parsed = parse(
+        await tools.writeMemory({
+          action: "save",
+          title: "JWT Auth Strategy",
+          category: "decisions",
+          content: "We chose JWT with refresh tokens.",
+          tags: ["auth"],
+        })
       );
 
-      const result = await tools.addMemory({
-        title: "Fail",
-        category: "decisions",
-        content: "content",
-        tags: [],
-      });
-
-      const parsed = JSON.parse(result.content[0].text);
-      expect(parsed.error).toContain("Memory Error");
+      expect(parsed.saved).toBe(true);
+      expect(parsed.created).toBe(true);
+      expect(mockStore.add).toHaveBeenCalledWith(
+        expect.objectContaining({ author: "joao.barros@arvore.com.br" })
+      );
     });
 
-    it("should not create when a highly similar memory exists", async () => {
+    it("asks for the missing fields instead of failing", async () => {
+      const parsed = parse(await tools.writeMemory({ action: "save", title: "Only a title" }));
+
+      expect(parsed.saved).toBe(false);
+      expect(parsed.reason).toBe("missing_fields");
+      expect(parsed.missing).toEqual(["category", "content"]);
+      expect(mockStore.add).not.toHaveBeenCalled();
+    });
+
+    it("refuses to duplicate a near-identical memory", async () => {
       mockStore.findSimilar.mockResolvedValue({
-        id: "2024-06-01-jwt-auth",
+        id: "2026-06-01-jwt-auth",
         title: "JWT Auth Strategy",
         category: "decisions",
         score: 0.92,
       });
 
-      const result = await tools.addMemory({
-        title: "JWT authentication approach",
-        category: "decisions",
-        content: "We use JWT with refresh tokens.",
-        tags: [],
-      });
+      const parsed = parse(
+        await tools.writeMemory({
+          action: "save",
+          title: "JWT authentication approach",
+          category: "decisions",
+          content: "We use JWT with refresh tokens.",
+        })
+      );
 
-      const parsed = JSON.parse(result.content[0].text);
-      expect(parsed.created).toBe(false);
+      expect(parsed.saved).toBe(false);
       expect(parsed.reason).toBe("similar_memory_exists");
-      expect(parsed.similar.id).toBe("2024-06-01-jwt-auth");
+      expect(parsed.similar.id).toBe("2026-06-01-jwt-auth");
       expect(mockStore.add).not.toHaveBeenCalled();
     });
 
-    it("should create despite similar memory when force is true", async () => {
-      mockStore.findSimilar.mockResolvedValue({
-        id: "existing",
-        title: "Existing",
-        category: "decisions",
-        score: 0.95,
-      });
-      mockStore.add.mockResolvedValue({
-        id: "new-one",
-        path: "/memories/decisions/new-one.md",
-        title: "New One",
-        category: "decisions",
-      });
+    it("creates anyway under force", async () => {
+      mockStore.findSimilar.mockResolvedValue({ id: "existing", title: "Existing", score: 0.95 });
+      mockStore.add.mockResolvedValue({ id: "new-one", title: "New One", category: "decisions", tags: [] });
 
-      const result = await tools.addMemory({
-        title: "New One",
-        category: "decisions",
-        content: "content",
-        tags: [],
-        force: true,
-      });
+      const parsed = parse(
+        await tools.writeMemory({
+          action: "save",
+          title: "New One",
+          category: "decisions",
+          content: "content",
+          force: true,
+        })
+      );
 
-      const parsed = JSON.parse(result.content[0].text);
       expect(parsed.created).toBe(true);
       expect(mockStore.findSimilar).not.toHaveBeenCalled();
       expect(mockStore.add).toHaveBeenCalled();
     });
   });
 
-  describe("listMemories", () => {
-    it("should return all memories with count", async () => {
-      mockStore.list.mockReturnValue([
-        { id: "m1", title: "Memory 1", category: "decisions", date: "2024-01-01", tags: [], status: "active", snippet: "..." },
-        { id: "m2", title: "Memory 2", category: "conventions", date: "2024-02-01", tags: [], status: "active", snippet: "..." },
-      ]);
+  describe("write_memory — update", () => {
+    it("patches an existing memory when an id is given", async () => {
+      mockStore.update.mockResolvedValue({
+        id: "2026-06-01-jwt-auth",
+        title: "JWT Auth Strategy",
+        category: "decisions",
+        status: "active",
+        updated: "2026-08-13",
+        tags: ["auth"],
+      });
 
-      const result = await tools.listMemories({ limit: 50 });
-      const parsed = JSON.parse(result.content[0].text);
-
-      expect(parsed.count).toBe(2);
-      expect(parsed.memories).toHaveLength(2);
-    });
-  });
-
-  describe("removeMemory", () => {
-    it("should confirm removal", async () => {
-      mockStore.remove.mockResolvedValue(undefined);
-
-      const result = await tools.removeMemory({ id: "old-memory" });
-      const parsed = JSON.parse(result.content[0].text);
-
-      expect(parsed.removed).toBe(true);
-      expect(parsed.id).toBe("old-memory");
-    });
-
-    it("should return error for non-existent", async () => {
-      mockStore.remove.mockRejectedValue(
-        new MemoryMCPError("not found", "NOT_FOUND")
+      const parsed = parse(
+        await tools.writeMemory({
+          action: "save",
+          id: "2026-06-01-jwt-auth",
+          content: "Rotation moved to 15 minutes.",
+        })
       );
 
-      const result = await tools.removeMemory({ id: "nope" });
-      const parsed = JSON.parse(result.content[0].text);
+      expect(parsed.saved).toBe(true);
+      expect(parsed.created).toBe(false);
+      expect(parsed.updated).toBe("2026-08-13");
+      expect(mockStore.update).toHaveBeenCalledWith("2026-06-01-jwt-auth", {
+        title: undefined,
+        content: "Rotation moved to 15 minutes.",
+        tags: undefined,
+        category: undefined,
+        status: undefined,
+        author: "joao.barros@arvore.com.br",
+      });
+      expect(mockStore.add).not.toHaveBeenCalled();
+    });
 
-      expect(parsed.error).toContain("Memory Error");
+    it("surfaces a store failure as a tool error", async () => {
+      mockStore.update.mockRejectedValue(new MemoryMCPError('Memory "nope" not found', "NOT_FOUND"));
+
+      const result = await tools.writeMemory({ action: "save", id: "nope", content: "x" });
+      const parsed = parse(result);
+
+      expect(result.isError).toBe(true);
+      expect(parsed.code).toBe("NOT_FOUND");
     });
   });
 
-  describe("archiveMemory", () => {
-    it("should confirm archival", async () => {
+  describe("write_memory — archive and delete", () => {
+    it("archives by id", async () => {
       mockStore.archive.mockResolvedValue({
         id: "old-decision",
         title: "Old Decision",
+        status: "archived",
       });
 
-      const result = await tools.archiveMemory({ id: "old-decision" });
-      const parsed = JSON.parse(result.content[0].text);
+      const parsed = parse(await tools.writeMemory({ action: "archive", id: "old-decision" }));
 
-      expect(parsed.archived).toBe(true);
-      expect(parsed.title).toBe("Old Decision");
+      expect(parsed.saved).toBe(true);
+      expect(parsed.status).toBe("archived");
+    });
+
+    it("deletes by id", async () => {
+      mockStore.remove.mockResolvedValue(undefined);
+
+      const parsed = parse(await tools.writeMemory({ action: "delete", id: "old-memory" }));
+
+      expect(parsed.saved).toBe(true);
+      expect(parsed.action).toBe("delete");
+      expect(mockStore.remove).toHaveBeenCalledWith("old-memory");
+    });
+
+    it("requires an id to archive", async () => {
+      const parsed = parse(await tools.writeMemory({ action: "archive" }));
+
+      expect(parsed.saved).toBe(false);
+      expect(parsed.missing).toEqual(["id"]);
+      expect(mockStore.archive).not.toHaveBeenCalled();
     });
   });
 });

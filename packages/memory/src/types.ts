@@ -17,6 +17,7 @@ export interface MemoryFrontmatter {
   title: string;
   category: MemoryCategory;
   date: string;
+  updated?: string;
   author?: string;
   tags?: string[];
   status?: MemoryStatus;
@@ -28,6 +29,7 @@ export interface MemoryEntry {
   title: string;
   category: MemoryCategory;
   date: string;
+  updated?: string;
   author?: string;
   tags: string[];
   status: MemoryStatus;
@@ -39,52 +41,55 @@ export interface MemoryCatalogEntry {
   title: string;
   category: MemoryCategory;
   date: string;
+  updated?: string;
   author?: string;
   tags: string[];
   status: MemoryStatus;
   snippet: string;
 }
 
-export const SearchMemoriesParamsSchema = z.object({
-  query: z.string().min(1, "Search query is required"),
+export const ReadMemoriesParamsSchema = z.object({
+  id: z
+    .string()
+    .optional()
+    .describe("Read one memory in full. Takes precedence over query."),
+  query: z
+    .string()
+    .optional()
+    .describe("Semantic search across the shared memories. Portuguese or English."),
   category: z.enum(VALID_CATEGORIES).optional(),
-  status: z.enum(VALID_STATUSES).optional().default("active"),
-  limit: z.number().int().positive().max(50).optional().default(10),
+  tags: z.array(z.string()).optional().describe("Only memories carrying all of these tags."),
+  author: z.string().optional().describe("Filter by the email of who wrote the memory."),
+  status: z
+    .enum(VALID_STATUSES)
+    .optional()
+    .describe("Defaults to active. Use archived to reach retired memories."),
+  limit: z.number().int().positive().max(200).optional().default(30),
 });
 
-export const GetMemoryParamsSchema = z.object({
-  id: z.string().min(1, "Memory ID is required"),
-});
-
-export const AddMemoryParamsSchema = z.object({
-  title: z.string().min(1, "Title is required"),
-  category: z.enum(VALID_CATEGORIES),
-  content: z.string().min(1, "Content is required"),
-  tags: z.array(z.string()).optional().default([]),
-  author: z.string().optional(),
-  force: z.boolean().optional(),
-});
-
-export const ListMemoriesParamsSchema = z.object({
+export const WriteMemoryParamsSchema = z.object({
+  action: z
+    .enum(["save", "archive", "delete"])
+    .optional()
+    .default("save")
+    .describe("save creates or updates, archive retires, delete removes for good."),
+  id: z
+    .string()
+    .optional()
+    .describe("Required for archive and delete. On save, updates that memory instead of creating."),
+  title: z.string().optional(),
   category: z.enum(VALID_CATEGORIES).optional(),
-  status: z.enum(VALID_STATUSES).optional(),
-  limit: z.number().int().positive().max(100).optional().default(50),
+  content: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+  status: z.enum(VALID_STATUSES).optional().describe("Only on save with id."),
+  force: z
+    .boolean()
+    .optional()
+    .describe("Create even when a near-duplicate memory already exists."),
 });
 
-export const RemoveMemoryParamsSchema = z.object({
-  id: z.string().min(1, "Memory ID is required"),
-});
-
-export const ArchiveMemoryParamsSchema = z.object({
-  id: z.string().min(1, "Memory ID is required"),
-});
-
-export type SearchMemoriesParams = z.infer<typeof SearchMemoriesParamsSchema>;
-export type GetMemoryParams = z.infer<typeof GetMemoryParamsSchema>;
-export type AddMemoryParams = z.infer<typeof AddMemoryParamsSchema>;
-export type ListMemoriesParams = z.infer<typeof ListMemoriesParamsSchema>;
-export type RemoveMemoryParams = z.infer<typeof RemoveMemoryParamsSchema>;
-export type ArchiveMemoryParams = z.infer<typeof ArchiveMemoryParamsSchema>;
+export type ReadMemoriesParams = z.infer<typeof ReadMemoriesParamsSchema>;
+export type WriteMemoryParams = z.infer<typeof WriteMemoryParamsSchema>;
 
 export interface McpToolResult {
   [key: string]: unknown;

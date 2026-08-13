@@ -1,8 +1,12 @@
 {
   "name": "@arvoretech/memory-mcp",
-  "version": "1.4.0",
-  "description": "MCP server for team memory — persistent knowledge base with semantic search for AI-assisted development",
+  "version": "2.0.0",
+  "description": "MCP server for Árvore shared memory — two tools (read/write) over a persistent knowledge base with semantic search, usable over stdio or as a remote OAuth connector",
   "main": "dist/index.js",
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "type": "module",
   "publishConfig": {
     "access": "public"
