@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { randomBytes } from "node:crypto";
 import { GoogleSlidesMCPServer } from "./server.js";
 import { DEFAULT_SCOPES, revokeRefreshToken, runAuthorizationFlow } from "./oauth.js";
 
@@ -44,6 +45,7 @@ const transport =
     : "stdio";
 
 const authToken = process.env.MCP_AUTH_TOKEN || "";
+let signingKey = process.env.MCP_TOKEN_SIGNING_KEY?.trim() || "";
 
 if (transport === "http" && authToken.length < 16) {
   console.error(
@@ -53,6 +55,33 @@ if (transport === "http" && authToken.length < 16) {
   );
   process.exit(1);
 }
+
+if (transport === "http") {
+  if (signingKey && signingKey.length < 32) {
+    process.stderr.write("Error: MCP_TOKEN_SIGNING_KEY must have at least 32 characters.\n");
+    process.exit(1);
+  }
+  if (signingKey && signingKey === authToken) {
+    process.stderr.write(
+      "Error: MCP_TOKEN_SIGNING_KEY must differ from MCP_AUTH_TOKEN.\n" +
+        "Sharing them lets anyone holding the bearer forge tokens for any identity.\n"
+    );
+    process.exit(1);
+  }
+  if (!signingKey) {
+    signingKey = randomBytes(32).toString("hex");
+    process.stderr.write(
+      "[google-slides-mcp] MCP_TOKEN_SIGNING_KEY is not set — generated an ephemeral one.\n" +
+        "Every restart invalidates the issued tokens and everyone signs in again.\n"
+    );
+  }
+}
+
+const allowedRedirectHosts = (process.env.MCP_OAUTH_ALLOWED_REDIRECT_HOSTS || "")
+  .split(",")
+  .map((host) => host.trim().toLowerCase())
+  .filter(Boolean);
+
 
 const signInClientId = process.env.GSLIDES_MCP_SIGNIN_CLIENT_ID;
 const signInClientSecret = process.env.GSLIDES_MCP_SIGNIN_CLIENT_SECRET;
@@ -87,6 +116,8 @@ try {
     host: process.env.HOST || "0.0.0.0",
     port: parsePort(process.env.PORT, 8080),
     authToken,
+    signingKey,
+    allowedRedirectHosts,
     publicUrl: process.env.MCP_PUBLIC_URL,
     googleSignIn:
       signInClientId && signInClientSecret
