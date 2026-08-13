@@ -60,7 +60,9 @@ encrypted inside the issued token, so decks belong to them. With the **static
 | `GSLIDES_MCP_REFRESH_TOKEN` | yes | from `auth login` — store as a secret |
 | `MCP_TRANSPORT` | no | `stdio` (default) or `http` |
 | `HOST` / `PORT` | no | http transport only, defaults `0.0.0.0:8080` |
-| `MCP_AUTH_TOKEN` | http only | ≥16 chars, **required** for http: guards `/mcp` and backs the built-in OAuth server |
+| `MCP_AUTH_TOKEN` | http only | ≥16 chars, **required** for http: service bearer for `/mcp` |
+| `MCP_TOKEN_SIGNING_KEY` | recommended | ≥32 chars, **must differ** from `MCP_AUTH_TOKEN`: seals OAuth codes and tokens. Unset means a random key per boot |
+| `MCP_OAUTH_ALLOWED_REDIRECT_HOSTS` | no | hosts allowed as OAuth redirect target (defaults to the known MCP clients) |
 | `MCP_PUBLIC_URL` | http only | public origin of the deployment, e.g. `https://slides-mcp.example.com` — used as the OAuth issuer |
 | `GSLIDES_MCP_SIGNIN_CLIENT_ID` | no | Web OAuth client id — turns the OAuth consent screen into Google sign-in |
 | `GSLIDES_MCP_SIGNIN_CLIENT_SECRET` | with the above | secret of that Web client |
@@ -101,7 +103,7 @@ Deployed (streamable-http) — header auth:
 }
 ```
 
-Clients that accept only a URL can use `https://<domain>/mcp/<MCP_AUTH_TOKEN>`, and
+Clients must send the token in the `Authorization` header — the `/mcp/<token>` URL form was removed because the token leaked into proxy logs and `Referer`. And
 claude.ai custom connectors use the built-in OAuth 2.1 flow (DCR + PKCE) — add the
 connector with the plain `/mcp` URL and no Client ID. With `GSLIDES_MCP_SIGNIN_*` set, the
 consent screen is Google sign-in restricted to your domains instead of a token prompt.

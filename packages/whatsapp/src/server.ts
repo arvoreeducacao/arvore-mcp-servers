@@ -52,8 +52,10 @@ export interface WhatsAppMcpServerOptions {
   host: string;
   port: number;
   authToken: string;
+  signingKey: string;
   publicUrl?: string;
   googleSignIn?: GoogleSignInConfig;
+  allowedRedirectHosts?: string[];
 }
 
 export class WhatsAppMcpServer {
@@ -77,6 +79,9 @@ export class WhatsAppMcpServer {
       options.transport === "http"
         ? new OAuthProvider({
             sharedSecret: options.authToken,
+            signingSecret: options.signingKey,
+            serviceName: "WhatsApp da Árvore",
+            allowedRedirectHosts: options.allowedRedirectHosts,
             issuer: () => this.publicUrl,
             googleSignIn: options.googleSignIn,
           })
@@ -478,17 +483,14 @@ export class WhatsAppMcpServer {
           return;
         }
 
-        const pathToken = readPathToken(url.pathname);
-        if (url.pathname !== "/mcp" && pathToken === null) {
+        if (url.pathname !== "/mcp") {
           res.writeHead(404, { "Content-Type": "text/plain" });
           res.end("Not found");
           return;
         }
 
         const bearer = readBearer(req);
-        const staticAuthorized =
-          matchesToken(bearer, authToken) ||
-          (pathToken !== null && matchesToken(pathToken, authToken));
+        const staticAuthorized = matchesToken(bearer, authToken);
         const identity = bearer === "" ? null : oauth.resolveIdentity(bearer);
         const authorized =
           staticAuthorized || (bearer !== "" && oauth.verifyAccessToken(bearer));
@@ -729,19 +731,12 @@ function readBearer(req: IncomingMessage): string {
   return header.toLowerCase().startsWith("bearer ") ? header.slice(7).trim() : "";
 }
 
-function readPathToken(pathname: string): string | null {
-  const match = /^\/mcp\/([^/]+)\/?$/.exec(pathname);
-  if (!match) return null;
-  try {
-    return decodeURIComponent(match[1]);
-  } catch {
-    return null;
-  }
-}
-
 function matchesToken(candidate: string, expected: string): boolean {
-  if (!candidate || !expected || candidate.length !== expected.length) return false;
-  return timingSafeEqual(Buffer.from(candidate), Buffer.from(expected));
+  if (!candidate || !expected) return false;
+  const given = Buffer.from(candidate);
+  const wanted = Buffer.from(expected);
+  if (given.length !== wanted.length) return false;
+  return timingSafeEqual(given, wanted);
 }
 
 const MAX_BODY_BYTES = 16 * 1024 * 1024;

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { randomBytes } from "node:crypto";
 import { WhatsAppMcpServer } from "./server.js";
 
 const HTTP_TRANSPORT_NAMES = ["http", "streamable-http", "streamable_http"];
@@ -20,11 +21,39 @@ const authToken = process.env.MCP_AUTH_TOKEN || "";
 if (transport === "http" && authToken.length < 16) {
   process.stderr.write(
     "Error: MCP_AUTH_TOKEN with at least 16 characters is required for the http transport.\n" +
-      "It guards /mcp, signs the pairing links and is the credential of the built-in OAuth server.\n" +
+      "It guards /mcp and signs the pairing links. Token signing uses MCP_TOKEN_SIGNING_KEY.\n" +
       'Generate one with: node -e "console.log(require(\'crypto\').randomBytes(24).toString(\'hex\'))"\n'
   );
   process.exit(1);
 }
+
+let signingKey = process.env.MCP_TOKEN_SIGNING_KEY?.trim() || "";
+
+if (transport === "http") {
+  if (signingKey && signingKey.length < 32) {
+    process.stderr.write("Error: MCP_TOKEN_SIGNING_KEY must have at least 32 characters.\n");
+    process.exit(1);
+  }
+  if (signingKey && signingKey === authToken) {
+    process.stderr.write(
+      "Error: MCP_TOKEN_SIGNING_KEY must differ from MCP_AUTH_TOKEN.\n" +
+        "Sharing them lets anyone holding the bearer forge tokens for any identity.\n"
+    );
+    process.exit(1);
+  }
+  if (!signingKey) {
+    signingKey = randomBytes(32).toString("hex");
+    process.stderr.write(
+      "[whatsapp-mcp] MCP_TOKEN_SIGNING_KEY is not set — generated an ephemeral one.\n" +
+        "Every restart invalidates the issued tokens and everyone signs in again.\n"
+    );
+  }
+}
+
+const allowedRedirectHosts = (process.env.MCP_OAUTH_ALLOWED_REDIRECT_HOSTS || "")
+  .split(",")
+  .map((host) => host.trim().toLowerCase())
+  .filter(Boolean);
 
 const signInClientId = process.env.WHATSAPP_MCP_SIGNIN_CLIENT_ID;
 const signInClientSecret = process.env.WHATSAPP_MCP_SIGNIN_CLIENT_SECRET;
@@ -63,7 +92,9 @@ try {
     host: process.env.HOST || "0.0.0.0",
     port: parsePort(process.env.PORT, 8080),
     authToken,
+    signingKey,
     publicUrl,
+    allowedRedirectHosts,
     googleSignIn:
       signInClientId && signInClientSecret
         ? {

@@ -32,6 +32,8 @@ export interface GoogleSlidesMCPServerOptions {
   host: string;
   port: number;
   authToken: string;
+  signingKey: string;
+  allowedRedirectHosts?: string[];
   publicUrl?: string;
   googleSignIn?: GoogleSignInConfig;
   signInCredentials?: { clientId: string; clientSecret: string };
@@ -54,6 +56,9 @@ export class GoogleSlidesMCPServer {
     );
     this.oauth = new OAuthProvider({
       sharedSecret: options.authToken,
+      signingSecret: options.signingKey,
+      serviceName: "Google Slides da Árvore",
+      allowedRedirectHosts: options.allowedRedirectHosts,
       issuer: () => this.publicUrl,
       googleSignIn: options.googleSignIn,
     });
@@ -302,8 +307,7 @@ export class GoogleSlidesMCPServer {
           return;
         }
 
-        const pathToken = readPathToken(url.pathname);
-        if (url.pathname !== "/mcp" && pathToken === null) {
+        if (url.pathname !== "/mcp") {
           res.writeHead(404, { "Content-Type": "text/plain" });
           res.end("Not found");
           return;
@@ -311,8 +315,7 @@ export class GoogleSlidesMCPServer {
 
         const bearer = readBearer(req);
         const staticAuthorized =
-          matchesToken(bearer, authToken) ||
-          (pathToken !== null && matchesToken(pathToken, authToken));
+          matchesToken(bearer, authToken);
         const identity = staticAuthorized || bearer === "" ? null : this.oauth.resolveIdentity(bearer);
         const authorized =
           staticAuthorized || (bearer !== "" && this.oauth.verifyAccessToken(bearer));
@@ -401,11 +404,6 @@ export class GoogleSlidesMCPServer {
 function readBearer(req: IncomingMessage): string {
   const header = req.headers.authorization || "";
   return header.toLowerCase().startsWith("bearer ") ? header.slice(7).trim() : "";
-}
-
-function readPathToken(pathname: string): string | null {
-  const match = /^\/mcp\/([^/]+)\/?$/.exec(pathname);
-  return match ? decodeURIComponent(match[1]) : null;
 }
 
 function matchesToken(candidate: string, expected: string): boolean {

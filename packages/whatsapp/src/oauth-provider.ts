@@ -3,11 +3,22 @@ import { IncomingMessage, ServerResponse } from "node:http";
 import { seal, unseal } from "./sealed.js";
 
 const CODE_TTL_MS = 5 * 60 * 1000;
+const CONSENT_TTL_MS = 5 * 60 * 1000;
 const ACCESS_TOKEN_TTL_MS = 8 * 60 * 60 * 1000;
-const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
+
+export const DEFAULT_ALLOWED_REDIRECT_HOSTS = [
+  "claude.ai",
+  "claude.com",
+  "anthropic.com",
+  "cursor.sh",
+  "cursor.com",
+  "localhost",
+  "127.0.0.1",
+];
 
 export interface GoogleSignInConfig {
   clientId: string;
@@ -21,17 +32,32 @@ export interface ResolvedIdentity {
 
 export interface OAuthProviderOptions {
   sharedSecret: string;
+  signingSecret: string;
+  serviceName?: string;
   issuer: () => string;
   googleSignIn?: GoogleSignInConfig;
+  allowedRedirectHosts?: string[];
 }
 
 interface ClientRecord {
   redirectUris: string[];
   issuedAt: number;
+  name?: string;
+}
+
+interface ConsentPayload {
+  clientId: string;
+  clientName?: string;
+  redirectUri: string;
+  state: string;
+  codeChallenge: string;
+  email: string;
+  issuedAt: number;
 }
 
 interface PendingAuthorization {
   clientId: string;
+  clientName?: string;
   redirectUri: string;
   state: string;
   codeChallenge: string;
@@ -56,15 +82,33 @@ interface TokenPayload {
 
 export class OAuthProvider {
   private readonly allowedDomains: string[];
+  private readonly allowedRedirectHosts: string[];
   private readonly redeemedCodes = new Map<string, number>();
 
   constructor(private options: OAuthProviderOptions) {
     if (!options.sharedSecret) {
       throw new Error("OAuthProvider requires a non-empty shared secret");
     }
+    if (!options.signingSecret) {
+      throw new Error("OAuthProvider requires a non-empty signing secret");
+    }
+    if (options.signingSecret === options.sharedSecret) {
+      throw new Error(
+        "OAuthProvider signing secret must differ from the bearer token: anyone holding the bearer would be able to forge tokens for any identity"
+      );
+    }
     this.allowedDomains = (options.googleSignIn?.allowedDomains ?? []).map((domain) =>
       domain.trim().toLowerCase().replace(/^@/, "")
     );
+    this.allowedRedirectHosts = (
+      options.allowedRedirectHosts?.length
+        ? options.allowedRedirectHosts
+        : DEFAULT_ALLOWED_REDIRECT_HOSTS
+    ).map((host) => host.trim().toLowerCase());
+  }
+
+  private isAllowedRedirectUri(uri: string): boolean {
+    return isSafeRedirectUri(uri) && matchesHost(uri, this.allowedRedirectHosts);
   }
 
   handles(pathname: string): boolean {
@@ -73,6 +117,7 @@ export class OAuthProvider {
       pathname.startsWith("/.well-known/oauth-authorization-server") ||
       pathname === "/oauth/register" ||
       pathname === "/oauth/authorize" ||
+      pathname === "/oauth/consent" ||
       pathname === "/oauth/google/callback" ||
       pathname === "/oauth/token"
     );
@@ -113,6 +158,11 @@ export class OAuthProvider {
 
     if (url.pathname === "/oauth/authorize") {
       await this.authorize(req, res, url);
+      return;
+    }
+
+    if (url.pathname === "/oauth/consent") {
+      await this.consent(req, res);
       return;
     }
 
@@ -162,16 +212,17 @@ export class OAuthProvider {
     }
 
     for (const uri of redirectUris) {
-      if (!isSafeRedirectUri(uri)) {
+      if (!this.isAllowedRedirectUri(uri)) {
         json(res, 400, {
           error: "invalid_redirect_uri",
-          error_description: `redirect_uri must be https or localhost: ${uri}`,
+          error_description: `redirect_uri host is not allowed: ${uri}. Allowed hosts: ${this.allowedRedirectHosts.join(", ")}`,
         });
         return;
       }
     }
 
-    const record: ClientRecord = { redirectUris, issuedAt: Date.now() };
+    const clientName = typeof body.client_name === "string" ? body.client_name : "mcp-client";
+    const record: ClientRecord = { redirectUris, issuedAt: Date.now(), name: clientName };
 
     json(res, 201, {
       client_id: this.encode(record, "client"),
@@ -180,7 +231,7 @@ export class OAuthProvider {
       grant_types: ["authorization_code", "refresh_token"],
       response_types: ["code"],
       token_endpoint_auth_method: "none",
-      client_name: typeof body.client_name === "string" ? body.client_name : "mcp-client",
+      client_name: clientName,
     });
   }
 
@@ -209,6 +260,14 @@ export class OAuthProvider {
       return;
     }
 
+    if (!this.isAllowedRedirectUri(redirectUri)) {
+      json(res, 400, {
+        error: "invalid_request",
+        error_description: `redirect_uri host is not allowed: ${redirectUri}`,
+      });
+      return;
+    }
+
     if (codeChallengeMethod !== "S256" || !codeChallenge) {
       redirectWithError(res, redirectUri, state, "invalid_request", "PKCE S256 is required");
       return;
@@ -216,6 +275,7 @@ export class OAuthProvider {
 
     const pending: PendingAuthorization = {
       clientId,
+      clientName: client.name,
       redirectUri,
       state,
       codeChallenge,
@@ -225,7 +285,7 @@ export class OAuthProvider {
     const google = this.options.googleSignIn;
     const submittedToken = req.method === "POST" ? params.get("token") || "" : "";
 
-    if (google && !submittedToken) {
+    if (google) {
       const target = new URL(GOOGLE_AUTH_URL);
       target.searchParams.set("client_id", google.clientId);
       target.searchParams.set("redirect_uri", `${this.options.issuer()}/oauth/google/callback`);
@@ -331,20 +391,76 @@ export class OAuthProvider {
       return;
     }
 
+    const consent: ConsentPayload = {
+      clientId: pending.clientId,
+      clientName: pending.clientName,
+      redirectUri: pending.redirectUri,
+      state: pending.state,
+      codeChallenge: pending.codeChallenge,
+      email,
+      issuedAt: Date.now(),
+    };
+
+    renderConsentPage(res, {
+      serviceName: this.options.serviceName || "este servidor MCP",
+      token: this.encode(consent, "consent"),
+      email,
+      clientName: consent.clientName || "Aplicativo não identificado",
+      redirectHost: hostOf(consent.redirectUri),
+      redirectUri: consent.redirectUri,
+    });
+  }
+
+  private async consent(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    if (req.method !== "POST") {
+      json(res, 405, { error: "invalid_request" });
+      return;
+    }
+
+    const params = new URLSearchParams(await readRawBody(req));
+    const payload = this.decode<ConsentPayload>(params.get("consent") || "", "consent");
+
+    if (!payload || Date.now() - payload.issuedAt > CONSENT_TTL_MS) {
+      renderDeniedPage(res, "A autorização expirou. Comece de novo pelo aplicativo.");
+      return;
+    }
+
+    if (!this.isAllowedRedirectUri(payload.redirectUri)) {
+      renderDeniedPage(res, "Destino não permitido.");
+      return;
+    }
+
+    const domain = (payload.email.split("@")[1] || "").toLowerCase();
+    if (!this.allowedDomains.includes(domain)) {
+      renderDeniedPage(res, `${payload.email} não tem acesso.`);
+      return;
+    }
+
+    if (params.get("decision") !== "allow") {
+      redirectWithError(
+        res,
+        payload.redirectUri,
+        payload.state,
+        "access_denied",
+        "user denied the request"
+      );
+      return;
+    }
+
     const authorizationCode = this.encode<CodePayload>(
       {
-        clientId: pending.clientId,
-        redirectUri: pending.redirectUri,
-        codeChallenge: pending.codeChallenge,
+        clientId: payload.clientId,
+        redirectUri: payload.redirectUri,
+        codeChallenge: payload.codeChallenge,
         issuedAt: Date.now(),
-        email,
+        email: payload.email,
       },
       "code"
     );
 
-    const target = new URL(pending.redirectUri);
+    const target = new URL(payload.redirectUri);
     target.searchParams.set("code", authorizationCode);
-    if (pending.state) target.searchParams.set("state", pending.state);
+    if (payload.state) target.searchParams.set("state", payload.state);
     res.writeHead(302, { Location: target.toString() });
     res.end();
   }
@@ -363,6 +479,16 @@ export class OAuthProvider {
       if (!payload || payload.kind !== "refresh" || payload.expiresAt <= Date.now()) {
         json(res, 400, { error: "invalid_grant" });
         return;
+      }
+      if (this.allowedDomains.length > 0) {
+        const domain = (payload.email?.split("@")[1] || "").toLowerCase();
+        if (!this.allowedDomains.includes(domain)) {
+          json(res, 400, {
+            error: "invalid_grant",
+            error_description: "identity is no longer allowed",
+          });
+          return;
+        }
       }
       json(res, 200, this.issueTokens(payload.clientId, payload.email));
       return;
@@ -431,17 +557,37 @@ export class OAuthProvider {
 
   private matchesSharedSecret(candidate: string): boolean {
     const expected = this.options.sharedSecret;
-    if (!candidate || !expected || candidate.length !== expected.length) return false;
-    return timingSafeEqual(Buffer.from(candidate), Buffer.from(expected));
+    if (!candidate || !expected) return false;
+    const given = Buffer.from(candidate);
+    const wanted = Buffer.from(expected);
+    if (given.length !== wanted.length) return false;
+    return timingSafeEqual(given, wanted);
   }
 
   private encode<T>(payload: T, context: string): string {
-    return seal(payload, this.options.sharedSecret, context);
+    return seal(payload, this.options.signingSecret, context);
   }
 
   private decode<T>(value: string, context: string): T | null {
-    return unseal<T>(value, this.options.sharedSecret, context);
+    return unseal<T>(value, this.options.signingSecret, context);
   }
+}
+
+function hostOf(uri: string): string {
+  try {
+    return new URL(uri).host.toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
+function matchesHost(uri: string, allowedHosts: string[]): boolean {
+  const host = hostOf(uri);
+  if (!host) return false;
+  const hostname = host.split(":")[0];
+  return allowedHosts.some(
+    (allowed) => hostname === allowed || hostname.endsWith(`.${allowed}`)
+  );
 }
 
 async function exchangeGoogleCode(
@@ -583,6 +729,54 @@ ${hidden}
 <input id="token" name="token" type="password" autocomplete="current-password" autofocus>
 ${params.error ? `<p class="error">${escapeHtml(params.error)}</p>` : ""}
 <button type="submit">Autorizar</button>
+</form>
+</main></body></html>`);
+}
+
+interface ConsentPageParams {
+  serviceName: string;
+  token: string;
+  email: string;
+  clientName: string;
+  redirectHost: string;
+  redirectUri: string;
+}
+
+function renderConsentPage(res: ServerResponse, params: ConsentPageParams): void {
+  res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+  res.end(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WhatsApp MCP</title>
+<style>
+:root{color-scheme:light dark}
+body{font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#0f172a;color:#e2e8f0}
+main{width:100%;max-width:460px;padding:40px;background:#1e293b;border-radius:16px;box-shadow:0 20px 50px rgba(0,0,0,.4)}
+h1{margin:0 0 8px;font-size:20px}
+p{margin:0 0 16px;color:#94a3b8;line-height:1.5;font-size:14px}
+dl{margin:0 0 20px;padding:16px;background:#0f172a;border-radius:10px;font-size:14px}
+dt{color:#94a3b8;font-size:12px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
+dd{margin:0 0 12px;color:#e2e8f0;word-break:break-all}
+dd:last-child{margin-bottom:0}
+.host{color:#fbbf24;font-weight:600}
+.warn{font-size:13px;color:#fca5a5;margin:0 0 20px;line-height:1.5}
+.row{display:flex;gap:12px}
+button{flex:1;padding:12px;border:0;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer}
+.allow{background:#22c55e;color:#052e16}
+.deny{background:#334155;color:#e2e8f0}
+</style></head>
+<body><main>
+<h1>Autorizar acesso a ${escapeHtml(params.serviceName)}</h1>
+<p>Você entrou como <strong>${escapeHtml(params.email)}</strong>. Confira para onde este acesso está indo antes de autorizar.</p>
+<dl>
+<dt>Aplicativo (nome informado por ele)</dt><dd>${escapeHtml(params.clientName)}</dd>
+<dt>O código de acesso será enviado para</dt><dd class="host">${escapeHtml(params.redirectHost)}</dd>
+<dt>Endereço completo</dt><dd>${escapeHtml(params.redirectUri)}</dd>
+</dl>
+<p class="warn">Se você não reconhece esse destino, cancele. Autorizar dá a esse aplicativo acesso a ${escapeHtml(params.serviceName)} em seu nome.</p>
+<form method="post" action="/oauth/consent" class="row">
+<input type="hidden" name="consent" value="${escapeHtml(params.token)}">
+<button class="deny" type="submit" name="decision" value="deny">Cancelar</button>
+<button class="allow" type="submit" name="decision" value="allow">Autorizar</button>
 </form>
 </main></body></html>`);
 }

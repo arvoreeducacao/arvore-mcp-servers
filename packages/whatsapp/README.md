@@ -70,7 +70,9 @@ and pairing happens on a web page instead of the terminal.
 
 | Env var | Required | Description |
 |---------|----------|-------------|
-| `MCP_AUTH_TOKEN` | yes | at least 16 chars. Guards `/mcp`, signs the pairing links, keys the OAuth server. |
+| `MCP_AUTH_TOKEN` | yes | at least 16 chars. Service bearer for `/mcp` and key of the pairing links. |
+| `MCP_TOKEN_SIGNING_KEY` | recommended | at least 32 chars, **must differ** from `MCP_AUTH_TOKEN`. Seals OAuth codes and tokens. Unset means a random key per boot, so everyone signs in again on each restart. |
+| `MCP_OAUTH_ALLOWED_REDIRECT_HOSTS` | no | comma-separated hosts allowed as OAuth redirect target. Defaults to claude.ai, claude.com, anthropic.com, cursor.sh, cursor.com, localhost, 127.0.0.1. |
 | `MCP_PUBLIC_URL` | yes | Absolute public origin - the OAuth issuer and the base of the pairing links. |
 | `WHATSAPP_MCP_SIGNIN_CLIENT_ID` | yes | Google OAuth client (Web application) used only to identify the user (`openid email`). |
 | `WHATSAPP_MCP_SIGNIN_CLIENT_SECRET` | with the above | Secret of that client. |
@@ -78,7 +80,7 @@ and pairing happens on a web page instead of the terminal.
 
 Without the sign-in vars the consent screen falls back to asking for `MCP_AUTH_TOKEN`
 and everyone shares a single `service` session - fine for a bot account, wrong for
-personal ones. Requests authenticated by the raw token (header or `/mcp/<token>`) carry
+personal ones. Requests authenticated by the raw token (`Authorization: Bearer <token>`) carry
 no identity and land in that same shared session.
 
 State lives on disk, so the data directory has to survive restarts.
