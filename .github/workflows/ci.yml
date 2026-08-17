@@ -5,6 +5,12 @@ on:
     branches: [main, develop]
   pull_request:
     branches: [main, develop]
+  workflow_dispatch:
+    inputs:
+      packages:
+        description: 'Pacotes para publicar (pastas de packages/, separados por espaço). Vazio = detectar por diff'
+        required: false
+        type: string
 
 jobs:
   test:
@@ -46,7 +52,7 @@ jobs:
   publish:
     needs: test
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     permissions:
       contents: read
       id-token: write
@@ -70,15 +76,19 @@ jobs:
       - name: Detect changed packages
         id: changed
         run: |
-          BEFORE="${{ github.event.before }}"
-          if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
-            echo "No valid previous commit, comparing against parent of HEAD"
-            BEFORE="HEAD~1"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.packages }}" ]; then
+            CHANGED=$(echo "${{ inputs.packages }}" | tr ' ' '\n' | sort -u)
+          else
+            BEFORE="${{ github.event.before }}"
+            if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+              echo "No valid previous commit, comparing against parent of HEAD"
+              BEFORE="HEAD~1"
+            fi
+            echo "Comparing $BEFORE...${{ github.sha }}"
+            CHANGED=$(git diff --name-only "$BEFORE" "${{ github.sha }}" -- 'packages/**' \
+              | sed -n 's#^packages/\([^/]*\)/.*#\1#p' \
+              | sort -u)
           fi
-          echo "Comparing $BEFORE...${{ github.sha }}"
-          CHANGED=$(git diff --name-only "$BEFORE" "${{ github.sha }}" -- 'packages/**' \
-            | sed -n 's#^packages/\([^/]*\)/.*#\1#p' \
-            | sort -u)
           echo "Changed packages:"
           echo "$CHANGED"
           echo "packages<<EOF" >> "$GITHUB_OUTPUT"
