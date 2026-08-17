@@ -31,11 +31,33 @@ export class Dashboard {
 
   start(): void {
     this.server = createServer((req, res) => {
-      if (req.url === "/api/status") {
+      const url = new URL(req.url || "/", `http://127.0.0.1:${this.port}`);
+
+      if (url.pathname === "/api/status") {
         res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
         res.end(JSON.stringify(this.getData()));
         return;
       }
+
+      if (url.pathname === "/api/authorize" && req.method === "POST") {
+        const name = url.searchParams.get("name") || "";
+        this.connector
+          .authorize(name)
+          .then(() => {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ ok: true }));
+          })
+          .catch((error) => {
+            res.writeHead(500, { "Content-Type": "application/json" });
+            res.end(
+              JSON.stringify({
+                error: error instanceof Error ? error.message : String(error),
+              }),
+            );
+          });
+        return;
+      }
+
       res.writeHead(200, { "Content-Type": "text/html" });
       res.end(this.getHtml());
     });
@@ -100,6 +122,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0f1117;color:#e1
 .idle{background:#30363d;color:#c9d1d9}
 .error{background:#da3633;color:#fff}
 .connecting,.activating{background:#d29922;color:#000}
+.needs-auth{background:#8250df;color:#fff}
 .tools{margin-top:8px}
 .tool{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:8px 10px;margin-top:6px;font-size:.85rem}
 .tool .name{color:#79c0ff;font-weight:600}
@@ -115,6 +138,9 @@ h3{font-size:.85rem;color:#8b949e;margin-top:12px;margin-bottom:4px}
 .audit .err{color:#f85149}
 .refresh{background:#21262d;color:#c9d1d9;border:1px solid #30363d;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:.85rem;margin-bottom:16px}
 .refresh:hover{background:#30363d}
+.auth-btn{background:#8250df;color:#fff;border:0;padding:4px 12px;border-radius:6px;cursor:pointer;font-size:.8rem;font-weight:600}
+.auth-btn:hover{background:#9a6ee8}
+.auth-btn:disabled{background:#30363d;color:#8b949e;cursor:wait}
 </style>
 </head>
 <body>
@@ -142,6 +168,7 @@ function render(d){
       <div class="card-header" onclick="toggle('\${esc(u.name)}')">
         <h2>\${esc(u.name)} <span class="badge \${u.status}">\${u.status}</span>
           <span class="tools-count">\${u.toolCount} tools</span></h2>
+        \${u.status==='needs-auth'&&u.authUrl?\`<button class="auth-btn" id="auth-\${esc(u.name)}" onclick="event.stopPropagation();authorize('\${esc(u.name)}')">Autorizar</button>\`:''}
         <span class="chevron \${isOpen?'open':''}">&#9654;</span>
       </div>
       \${isOpen?\`<div class="card-body open">
@@ -170,6 +197,18 @@ async function load(){
   const r=await fetch('/api/status');
   const d=await r.json();
   render(d);
+}
+async function authorize(name){
+  const u=(window._data?.upstreams||[]).find(x=>x.name===name);
+  const btn=document.getElementById('auth-'+name);
+  if(btn){btn.disabled=true;btn.textContent='Aguardando...'}
+  if(u&&u.authUrl)window.open(u.authUrl,'_blank');
+  try{
+    const r=await fetch('/api/authorize?name='+encodeURIComponent(name),{method:'POST'});
+    const d=await r.json();
+    if(!r.ok)alert('Falha na autorização: '+(d.error||r.status));
+  }catch(e){alert('Falha na autorização: '+e)}
+  load();
 }
 function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
 load();setInterval(load,5000);

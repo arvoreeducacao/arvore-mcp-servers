@@ -1,8 +1,14 @@
 import type { Readable } from "node:stream";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { UnauthorizedError } from "@modelcontextprotocol/sdk/client/auth.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import {
+  OAuthCallbackReceiver,
+  OAuthPendingError,
+  ProxyOAuthClientProvider,
+} from "./oauth.js";
 import type { ToolRegistry } from "./registry.js";
 import {
   ProxyError,
@@ -23,6 +29,15 @@ export class McpConnectorManager {
   private readonly configs = new Map<string, UpstreamServerConfig>();
   private readonly statuses = new Map<string, UpstreamStatus>();
   private readonly activating = new Map<string, Promise<void>>();
+  private readonly pendingOAuth = new Map<
+    string,
+    {
+      config: UpstreamServerConfig;
+      provider: ProxyOAuthClientProvider;
+      transport: StreamableHTTPClientTransport;
+    }
+  >();
+  private oauthReceiver: OAuthCallbackReceiver | null = null;
   private idleTimer: ReturnType<typeof setInterval> | null = null;
   private idleTimeoutMs = 5 * 60 * 1000;
 
@@ -40,59 +55,64 @@ export class McpConnectorManager {
   }
 
   async discoverAll(configs: UpstreamServerConfig[]): Promise<void> {
-    let discovered = 0;
-
-    for (const config of configs) {
-      this.configs.set(config.name, config);
-      this.statuses.set(config.name, {
-        name: config.name,
-        transport: config.transport,
-        status: "connecting",
-        toolCount: 0,
-        logs: [],
-      });
-      this.addLog(config.name, `Discovering tools via ${config.transport}...`);
-
-      try {
-        if (config.transport === "http") {
-          await this.connectHttp(config);
-        } else {
-          await this.connectStdio(config);
-        }
-
-        const client = this.upstreams.get(config.name)!.client;
-        await this.ingestTools(config.name, client);
-
-        const toolCount = this.registry.getByProvider(config.name).length;
-        const s = this.statuses.get(config.name)!;
-        s.toolCount = toolCount;
-        s.status = "idle";
-        this.addLog(config.name, `Discovered ${toolCount} tools, going idle`);
-        console.error(`[connector] ${config.name} — ${toolCount} tools (idle)`);
-
-        await this.disconnectOne(config.name);
-        discovered++;
-      } catch (error) {
-        const s = this.statuses.get(config.name)!;
-        s.status = "error";
-        const exMsg = error instanceof Error ? error.message : String(error);
-        this.addLog(config.name, `ERROR: ${exMsg}`);
-        if (error instanceof Error && error.stack) {
-          this.addLog(config.name, error.stack);
-        }
-        const stderrLines = s.logs
-          .map((l) => l.replace(/^\[.*?\]\s*/, ""))
-          .filter((l) => l !== `Discovering tools via ${config.transport}...`);
-        s.error = stderrLines.length > 0 ? stderrLines.join("\n") : exMsg;
-        console.error(
-          `[connector] Failed discovery for ${config.name}:`,
-          exMsg,
-        );
-      }
-    }
+    const results = await Promise.all(configs.map((c) => this.discoverOne(c)));
+    const discovered = results.filter(Boolean).length;
 
     if (discovered === 0) {
       throw new ProxyError("No upstreams discovered", "NO_UPSTREAMS");
+    }
+  }
+
+  private async discoverOne(config: UpstreamServerConfig): Promise<boolean> {
+    this.configs.set(config.name, config);
+    this.statuses.set(config.name, {
+      name: config.name,
+      transport: config.transport,
+      status: "connecting",
+      toolCount: 0,
+      logs: [],
+    });
+    this.addLog(config.name, `Discovering tools via ${config.transport}...`);
+
+    try {
+      if (config.transport === "http") {
+        await this.connectHttp(config);
+      } else {
+        await this.connectStdio(config);
+      }
+
+      const client = this.upstreams.get(config.name)!.client;
+      await this.ingestTools(config.name, client);
+
+      const toolCount = this.registry.getByProvider(config.name).length;
+      const s = this.statuses.get(config.name)!;
+      s.toolCount = toolCount;
+      s.status = "idle";
+      this.addLog(config.name, `Discovered ${toolCount} tools, going idle`);
+      console.error(`[connector] ${config.name} — ${toolCount} tools (idle)`);
+
+      await this.disconnectOne(config.name);
+      return true;
+    } catch (error) {
+      if (error instanceof OAuthPendingError) {
+        return true;
+      }
+      const s = this.statuses.get(config.name)!;
+      s.status = "error";
+      const exMsg = error instanceof Error ? error.message : String(error);
+      this.addLog(config.name, `ERROR: ${exMsg}`);
+      if (error instanceof Error && error.stack) {
+        this.addLog(config.name, error.stack);
+      }
+      const stderrLines = s.logs
+        .map((l) => l.replace(/^\[.*?\]\s*/, ""))
+        .filter((l) => l !== `Discovering tools via ${config.transport}...`);
+      s.error = stderrLines.length > 0 ? stderrLines.join("\n") : exMsg;
+      console.error(
+        `[connector] Failed discovery for ${config.name}:`,
+        exMsg,
+      );
+      return false;
     }
   }
 
@@ -147,6 +167,12 @@ export class McpConnectorManager {
       this.addLog(config.name, "Activated");
       console.error(`[connector] ${config.name} activated`);
     } catch (error) {
+      if (error instanceof OAuthPendingError) {
+        throw new ProxyError(
+          `${config.name} requires OAuth authorization — open the dashboard and click "Autorizar"`,
+          "OAUTH_REQUIRED",
+        );
+      }
       if (s) {
         s.status = "error";
         const exMsg = error instanceof Error ? error.message : String(error);
@@ -299,6 +325,11 @@ export class McpConnectorManager {
       );
     const baseUrl = new URL(config.url);
 
+    if (config.auth?.type === "oauth") {
+      await this.connectHttpOAuth(config, baseUrl);
+      return;
+    }
+
     const token = config.auth?.apiKey
       ? process.env[config.auth.apiKey] || config.auth.apiKey
       : undefined;
@@ -339,6 +370,152 @@ export class McpConnectorManager {
     }
   }
 
+  private async getOAuthReceiver(): Promise<OAuthCallbackReceiver> {
+    if (!this.oauthReceiver) {
+      this.oauthReceiver = new OAuthCallbackReceiver();
+      await this.oauthReceiver.start();
+    }
+    return this.oauthReceiver;
+  }
+
+  private async connectHttpOAuth(
+    config: UpstreamServerConfig,
+    baseUrl: URL,
+  ): Promise<void> {
+    const receiver = await this.getOAuthReceiver();
+    const provider = new ProxyOAuthClientProvider({
+      name: config.name,
+      serverUrl: config.url!,
+      scopes: config.auth?.scopes,
+      clientName: config.auth?.clientName,
+      receiver,
+      onEvent: (msg) => {
+        this.addLog(config.name, msg);
+        console.error(`[${config.name}] ${msg}`);
+      },
+    });
+
+    const transport = new StreamableHTTPClientTransport(baseUrl, {
+      authProvider: provider,
+    });
+    const client = new Client({
+      name: `mcp-proxy-${config.name}`,
+      version: "1.0.0",
+    });
+
+    try {
+      await client.connect(transport);
+      this.upstreams.set(config.name, { config, client });
+      return;
+    } catch (error) {
+      if (!(error instanceof UnauthorizedError)) throw error;
+    }
+
+    this.pendingOAuth.set(config.name, { config, provider, transport });
+
+    const s = this.statuses.get(config.name);
+    if (s) {
+      s.status = "needs-auth";
+      s.authUrl = provider.authorizationUrl || undefined;
+    }
+    this.addLog(
+      config.name,
+      'Needs OAuth authorization — open the dashboard and click "Autorizar"',
+    );
+    console.error(
+      `[connector] ${config.name} needs OAuth authorization (dashboard button)`,
+    );
+    throw new OAuthPendingError(config.name);
+  }
+
+  async authorize(name: string): Promise<void> {
+    const inflight = this.activating.get(name);
+    if (inflight) return inflight;
+
+    const run = this.doAuthorize(name);
+    this.activating.set(name, run);
+    try {
+      await run;
+    } finally {
+      this.activating.delete(name);
+    }
+  }
+
+  private async doAuthorize(name: string): Promise<void> {
+    if (!this.upstreams.has(name) && !this.pendingOAuth.has(name)) {
+      const config = this.configs.get(name);
+      if (!config || config.auth?.type !== "oauth" || !config.url) {
+        throw new ProxyError(
+          `No OAuth flow available for: ${name}`,
+          "OAUTH_NOT_CONFIGURED",
+        );
+      }
+      try {
+        await this.connectHttpOAuth(config, new URL(config.url));
+      } catch (error) {
+        if (!(error instanceof OAuthPendingError)) throw error;
+      }
+    }
+
+    if (this.upstreams.has(name)) {
+      await this.finalizeOAuthConnect(name);
+      return;
+    }
+
+    const pending = this.pendingOAuth.get(name)!;
+    const s = this.statuses.get(name);
+
+    try {
+      pending.provider.openAuthorizationUrl();
+      if (s) s.status = "activating";
+      this.addLog(name, "Browser opened — waiting for OAuth authorization...");
+
+      const code = await pending.provider.waitForCode();
+
+      await pending.transport.finishAuth(code);
+
+      const retryTransport = new StreamableHTTPClientTransport(
+        new URL(pending.config.url!),
+        { authProvider: pending.provider },
+      );
+      const retryClient = new Client({
+        name: `mcp-proxy-${name}`,
+        version: "1.0.0",
+      });
+      await retryClient.connect(retryTransport);
+      this.upstreams.set(name, { config: pending.config, client: retryClient });
+      this.pendingOAuth.delete(name);
+
+      await this.finalizeOAuthConnect(name);
+    } catch (error) {
+      this.pendingOAuth.delete(name);
+      if (s) {
+        s.status = "error";
+        s.authUrl = undefined;
+        const exMsg = error instanceof Error ? error.message : String(error);
+        s.error = exMsg;
+        this.addLog(name, `OAuth authorization failed: ${exMsg}`);
+      }
+      throw error;
+    }
+  }
+
+  private async finalizeOAuthConnect(name: string): Promise<void> {
+    const upstream = this.upstreams.get(name);
+    if (!upstream) return;
+    await this.ingestTools(name, upstream.client);
+    const s = this.statuses.get(name);
+    if (s) {
+      s.status = "connected";
+      s.toolCount = this.registry.getByProvider(name).length;
+      s.lastUsedAt = Date.now();
+      s.error = undefined;
+      s.authUrl = undefined;
+    }
+    this.addLog(name, `OAuth authorized — ${s?.toolCount ?? 0} tools`);
+    console.error(`[connector] ${name} OAuth authorized`);
+  }
+
   private async disconnectOne(name: string): Promise<void> {
     const upstream = this.upstreams.get(name);
     if (!upstream) return;
@@ -354,6 +531,10 @@ export class McpConnectorManager {
   }
 
   async disconnectAll(): Promise<void> {
+    if (this.oauthReceiver) {
+      await this.oauthReceiver.stop();
+      this.oauthReceiver = null;
+    }
     for (const [name, upstream] of this.upstreams) {
       try {
         await upstream.client.close();

@@ -109,6 +109,11 @@ export { AuditLogger } from "./logger.js";
 export { Dashboard } from "./dashboard.js";
 export { BridgeServer } from "./bridge.js";
 export {
+  OAuthCallbackReceiver,
+  OAuthPendingError,
+  ProxyOAuthClientProvider,
+} from "./oauth.js";
+export {
   tryAcquireLock,
   readLock,
   releaseLock,
