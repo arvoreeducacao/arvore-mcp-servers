@@ -1,8 +1,10 @@
 import { z } from "zod";
 
 export const UpstreamAuthSchema = z.object({
+  type: z.enum(["apiKey", "oauth"]).optional(),
   apiKey: z.string().optional(),
   scopes: z.array(z.string()).optional(),
+  clientName: z.string().optional(),
 });
 
 export type UpstreamAuth = z.infer<typeof UpstreamAuthSchema>;
@@ -129,9 +131,10 @@ export interface McpToolResult {
 export interface UpstreamStatus {
   name: string;
   transport: "stdio" | "http";
-  status: "connecting" | "connected" | "idle" | "activating" | "error";
+  status: "connecting" | "connected" | "idle" | "activating" | "needs-auth" | "error";
   toolCount: number;
   error?: string;
+  authUrl?: string;
   lastUsedAt?: number;
   logs: string[];
 }

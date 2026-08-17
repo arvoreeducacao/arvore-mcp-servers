@@ -72,6 +72,31 @@ MCP_PROXY_MAX_OUTPUT_TOKENS=8000  # Max output tokens (default: 8000)
 { "name": "remote", "transport": "http", "url": "https://mcp.example.com/mcp", "auth": { "apiKey": "REMOTE_TOKEN" } }
 ```
 
+**http + OAuth**: For upstreams protected by OAuth (MCP auth spec: authorization code + PKCE, dynamic client registration). Set `auth.type` to `"oauth"` — no static token needed.
+
+```json
+{ "name": "whatsapp", "transport": "http", "url": "https://whatsapp-mcp.example.com/mcp", "auth": { "type": "oauth" } }
+```
+
+How it works:
+
+1. On first connection, the proxy discovers the OAuth endpoints (RFC 9728/8414), registers itself as a client (RFC 7591) and marks the upstream as `needs-auth` — nothing blocks and no browser opens automatically.
+2. Open the dashboard (http://localhost:9100) and click **Autorizar** on the upstream's card. The authorization URL opens in your browser (it's also in the upstream's logs).
+3. After you authorize, the server redirects to the local callback receiver (`http://127.0.0.1:9321/oauth/callback`) and the proxy exchanges the code for tokens and discovers the tools.
+4. Tokens and client registration are persisted in `~/.mcp-proxy/oauth/` (mode `0600`), so restarts and idle reconnects reuse them; refresh tokens are handled automatically by the SDK. If a tool call hits a `needs-auth` upstream, it fails fast with a message pointing to the dashboard button.
+
+Optional fields: `auth.scopes` (array of OAuth scopes to request) and `auth.clientName` (name shown on the consent screen, default `"mcp-proxy"`).
+
+Tuning env vars:
+
+```bash
+MCP_PROXY_OAUTH_CALLBACK_PORT=9321   # Port of the local OAuth callback receiver
+MCP_PROXY_OAUTH_TIMEOUT_MS=300000    # How long to wait for browser authorization (default: 5min)
+MCP_PROXY_OAUTH_STORE_DIR=~/.mcp-proxy/oauth  # Where tokens/client registrations are persisted
+```
+
+To force re-authorization, delete the corresponding file in the store dir (named by the SHA-256 of the upstream URL).
+
 ### Kiro / VS Code Config (mcp.json)
 
 ```json
