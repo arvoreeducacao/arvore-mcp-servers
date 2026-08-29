@@ -141,6 +141,37 @@ Google Slides integration — create, edit and visually inspect presentations.
 - Export as pdf / pptx / txt
 - Runs over stdio or streamable-http
 
+### [@arvoretech/google-docs-mcp](./packages/google-docs)
+
+Google Docs integration — create, read and edit documents.
+
+**Features:**
+
+- Search documents in Drive, create from scratch or copy a template
+- Read a document as Markdown; map it as indexed blocks when editing
+- Whole formatted document from Markdown in one call, no index math
+- Typed edits: append styled paragraphs, insert text, tables, images, page breaks
+- Text and paragraph formatting: styles, colors, links, alignment, bullets
+- Raw `batchUpdate` escape hatch for the full Docs API
+- Export as pdf / docx / txt / md / html / odt / rtf / epub
+- Runs over stdio or streamable-http
+
+### [@arvoretech/google-sheets-mcp](./packages/google-sheets)
+
+Google Sheets integration — read, write, reshape and format spreadsheets.
+
+**Features:**
+
+- Search spreadsheets in Drive, create from scratch or copy a template
+- Describe every tab with its gid, size, named ranges and a preview of the first rows
+- Read and write A1 ranges, with formulas and locale-aware parsing
+- Append rows to a table without computing where the data ends
+- Manage tabs, insert and delete rows and columns, sort, find and replace
+- Cell formatting: fonts, colors, alignment, wrapping, number formats
+- Raw `batchUpdate` escape hatch for charts, borders, validation and filters
+- Export as pdf / xlsx / csv
+- Runs over stdio or streamable-http
+
 ### [@arvoretech/memory-mcp](./packages/memory)
 
 Team memory — persistent knowledge base with semantic search for AI-assisted development.
