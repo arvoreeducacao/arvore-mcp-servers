@@ -3,11 +3,16 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { LeafConnection } from "./database.js";
 import { LeafMCPTools } from "./tools.js";
 import {
+  CreateDocumentParams,
+  CreateDocumentParamsSchema,
   GetDatabaseParams,
   GetDatabaseParamsSchema,
   GetDocumentParams,
   GetDocumentParamsSchema,
+  InviteLinkParams,
+  InviteLinkParamsSchema,
   LeafConfigInput,
+  LeafConfigSchema,
   LeafMCPError,
   ListCommentsParams,
   ListCommentsParamsSchema,
@@ -15,6 +20,8 @@ import {
   ListDocumentsParamsSchema,
   SearchDocumentsParams,
   SearchDocumentsParamsSchema,
+  UpdateDocumentParams,
+  UpdateDocumentParamsSchema,
 } from "./types.js";
 
 export class LeafMCPServer {
@@ -28,8 +35,10 @@ export class LeafMCPServer {
       version: "1.0.0",
     });
 
-    this.db = new LeafConnection(config);
-    this.tools = new LeafMCPTools(this.db);
+    const parsed = LeafConfigSchema.parse(config);
+
+    this.db = new LeafConnection(parsed);
+    this.tools = new LeafMCPTools(this.db, parsed.baseUrl);
 
     this.setupTools();
   }
@@ -46,6 +55,7 @@ export class LeafMCPServer {
 
     return new LeafMCPServer({
       databaseUrl,
+      baseUrl: process.env.LEAF_BASE_URL || undefined,
       connectionTimeout: parseInt(
         process.env.LEAF_CONNECTION_TIMEOUT || "30000",
         10
@@ -134,6 +144,64 @@ export class LeafMCPServer {
       async (params) => {
         return this.tools.getDatabase(
           GetDatabaseParamsSchema.parse(params) as GetDatabaseParams
+        );
+      }
+    );
+
+    this.server.registerTool(
+      "create_document",
+      {
+        title: "Create Document",
+        description:
+          "Create a Leaf page from markdown, owned by a Leaf user (by email). With parentId it becomes a subpage and inherits the parent's organization and teamspace; otherwise it is private to the owner.",
+        inputSchema: {
+          title: CreateDocumentParamsSchema.shape.title,
+          markdown: CreateDocumentParamsSchema.shape.markdown,
+          ownerEmail: CreateDocumentParamsSchema.shape.ownerEmail,
+          parentId: CreateDocumentParamsSchema.shape.parentId,
+        },
+      },
+      async (params) => {
+        return this.tools.createDocument(
+          CreateDocumentParamsSchema.parse(params) as CreateDocumentParams
+        );
+      }
+    );
+
+    this.server.registerTool(
+      "update_document",
+      {
+        title: "Update Document",
+        description:
+          "Append markdown to a Leaf page or replace its body, recording a version snapshot. Refuses to write when the document was updated in the last seconds (probably open in a live collaboration session, where a direct write would be silently lost).",
+        inputSchema: {
+          documentId: UpdateDocumentParamsSchema.shape.documentId,
+          markdown: UpdateDocumentParamsSchema.shape.markdown,
+          mode: UpdateDocumentParamsSchema.shape.mode,
+          authorEmail: UpdateDocumentParamsSchema.shape.authorEmail,
+        },
+      },
+      async (params) => {
+        return this.tools.updateDocument(
+          UpdateDocumentParamsSchema.parse(params) as UpdateDocumentParams
+        );
+      }
+    );
+
+    this.server.registerTool(
+      "manage_invite_link",
+      {
+        title: "Manage Organization Invite Link",
+        description:
+          "Read, enable, reset or disable the invite link of a Leaf organization. Anyone with the link joins as a member; reset and disable revoke the current link.",
+        inputSchema: {
+          orgId: InviteLinkParamsSchema.shape.orgId,
+          action: InviteLinkParamsSchema.shape.action,
+        },
+      },
+      async (params) => {
+        return this.tools.manageInviteLink(
+          InviteLinkParamsSchema.parse(params) as InviteLinkParams
         );
       }
     );

@@ -11,6 +11,7 @@ export interface QueryRunner {
     sql: string,
     params?: ReadonlyArray<unknown>
   ): Promise<Array<T>>;
+  execute(sql: string, params?: ReadonlyArray<unknown>): Promise<number>;
   connect(): Promise<void>;
   disconnect(): Promise<void>;
 }
@@ -65,6 +66,28 @@ export class LeafConnection implements QueryRunner {
           error instanceof Error ? error.message : "Unknown error"
         }`,
         "QUERY_ERROR"
+      );
+    }
+  }
+
+  async execute(
+    sql: string,
+    params: ReadonlyArray<unknown> = []
+  ): Promise<number> {
+    if (!this.pool) {
+      throw new LeafMCPError("Not connected", "NOT_CONNECTED");
+    }
+
+    try {
+      const [result] = await this.pool.query(sql, params as unknown[]);
+
+      return (result as { affectedRows?: number }).affectedRows ?? 0;
+    } catch (error) {
+      throw new LeafMCPError(
+        `Write failed: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+        "WRITE_ERROR"
       );
     }
   }

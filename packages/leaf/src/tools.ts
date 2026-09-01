@@ -1,14 +1,32 @@
+import { randomBytes } from "node:crypto";
 import { QueryRunner } from "./database.js";
-import { contentToMarkdown } from "./markdown.js";
+import { contentToMarkdown, LeafBlock } from "./markdown.js";
 import {
+  markdownToBlocks,
+  plainTextOfMarkdown,
+} from "./markdown-to-blocks.js";
+import {
+  CreateDocumentParams,
   GetDatabaseParams,
   GetDocumentParams,
+  InviteLinkParams,
   LeafMCPError,
   ListCommentsParams,
   ListDocumentsParams,
   McpToolResult,
   SearchDocumentsParams,
+  UpdateDocumentParams,
 } from "./types.js";
+
+const liveSessionWindowSeconds = 15;
+
+function appId(): string {
+  return randomBytes(9).toString("base64url");
+}
+
+function inviteToken(): string {
+  return randomBytes(18).toString("base64url");
+}
 
 interface SelectOption {
   id: string;
@@ -53,7 +71,41 @@ function parseJson(raw: unknown): unknown {
 }
 
 export class LeafMCPTools {
-  constructor(private db: QueryRunner) {}
+  constructor(
+    private db: QueryRunner,
+    private baseUrl: string = "https://leaf.arvore.com.br"
+  ) {}
+
+  private async resolveUser(email: string): Promise<string> {
+    const rows = await this.db.query(
+      "SELECT id FROM user WHERE email = ? LIMIT 1",
+      [email.trim().toLowerCase()]
+    );
+    const user = rows[0];
+
+    if (!user) {
+      throw new LeafMCPError(
+        `No Leaf user with email ${email}`,
+        "USER_NOT_FOUND"
+      );
+    }
+
+    return user.id as string;
+  }
+
+  private async writeSearchIndex(
+    documentId: string,
+    title: string,
+    body: string
+  ): Promise<void> {
+    await this.db.execute(
+      `INSERT INTO documents_fts (document_id, title, body, indexed_at)
+       VALUES (?, ?, ?, NOW(3))
+       ON DUPLICATE KEY UPDATE title = VALUES(title), body = VALUES(body),
+                               indexed_at = VALUES(indexed_at)`,
+      [documentId, title, body]
+    );
+  }
 
   async searchDocuments(params: SearchDocumentsParams): Promise<McpToolResult> {
     try {
@@ -315,6 +367,200 @@ export class LeafMCPTools {
       });
     } catch (error) {
       return fail(error, { databaseId: params.databaseId });
+    }
+  }
+
+  async createDocument(params: CreateDocumentParams): Promise<McpToolResult> {
+    try {
+      const ownerId = await this.resolveUser(params.ownerEmail);
+
+      let orgId: string | null = null;
+      let teamspaceId: string | null = null;
+
+      if (params.parentId) {
+        const parents = await this.db.query(
+          `SELECT id, kind, org_id, teamspace_id FROM documents
+           WHERE id = ? AND deleted_at IS NULL`,
+          [params.parentId]
+        );
+        const parent = parents[0];
+
+        if (!parent) {
+          throw new LeafMCPError("Parent document not found", "NOT_FOUND");
+        }
+
+        if (parent.kind !== "page") {
+          throw new LeafMCPError(
+            "Parent must be a page (database children are rows)",
+            "INVALID_PARENT"
+          );
+        }
+
+        orgId = (parent.org_id as string | null) ?? null;
+        teamspaceId = (parent.teamspace_id as string | null) ?? null;
+      }
+
+      const id = appId();
+      const blocks = markdownToBlocks(params.markdown);
+
+      await this.db.execute(
+        `INSERT INTO documents
+           (id, owner_id, parent_id, org_id, teamspace_id, kind, title,
+            content, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, 'page', ?, ?, NOW(3), NOW(3))`,
+        [
+          id,
+          ownerId,
+          params.parentId ?? null,
+          orgId,
+          teamspaceId,
+          params.title,
+          JSON.stringify(blocks),
+        ]
+      );
+      await this.writeSearchIndex(
+        id,
+        params.title,
+        plainTextOfMarkdown(params.markdown)
+      );
+
+      return ok({
+        id,
+        title: params.title,
+        url: `${this.baseUrl}/doc/${id}`,
+        parentId: params.parentId ?? null,
+      });
+    } catch (error) {
+      return fail(error, { title: params.title });
+    }
+  }
+
+  async updateDocument(params: UpdateDocumentParams): Promise<McpToolResult> {
+    try {
+      const authorId = await this.resolveUser(params.authorEmail);
+      const rows = await this.db.query(
+        `SELECT id, kind, title, content, updated_at,
+                updated_at > NOW(3) - INTERVAL ? SECOND AS recently_updated
+         FROM documents
+         WHERE id = ? AND deleted_at IS NULL`,
+        [liveSessionWindowSeconds, params.documentId]
+      );
+      const document = rows[0];
+
+      if (!document) {
+        throw new LeafMCPError("Document not found", "NOT_FOUND");
+      }
+
+      if (document.kind !== "page") {
+        throw new LeafMCPError(
+          "Only pages can be edited (databases and rows are out of scope)",
+          "INVALID_KIND"
+        );
+      }
+
+      if (Number(document.recently_updated) === 1) {
+        throw new LeafMCPError(
+          `Document was updated in the last ${liveSessionWindowSeconds}s — it is probably open in a live collaboration session, and a direct write would be silently overwritten. Try again in a moment.`,
+          "DOCUMENT_LIVE"
+        );
+      }
+
+      const newBlocks = markdownToBlocks(params.markdown);
+      let blocks: Array<LeafBlock> = newBlocks;
+
+      if (params.mode === "append") {
+        const existing = parseJson(document.content);
+
+        if (Array.isArray(existing)) {
+          blocks = [...(existing as Array<LeafBlock>), ...newBlocks];
+        }
+      }
+
+      await this.db.execute(
+        `INSERT INTO document_versions
+           (id, document_id, title, content, author_id, created_at)
+         VALUES (?, ?, ?, ?, ?, NOW(3))`,
+        [
+          appId(),
+          document.id,
+          document.title,
+          document.content,
+          authorId,
+        ]
+      );
+
+      const affected = await this.db.execute(
+        `UPDATE documents SET content = ?, updated_at = NOW(3)
+         WHERE id = ? AND updated_at = ?`,
+        [JSON.stringify(blocks), document.id, document.updated_at]
+      );
+
+      if (affected === 0) {
+        throw new LeafMCPError(
+          "Document changed while writing (concurrent edit) — nothing was saved. Read it again and retry.",
+          "CONFLICT"
+        );
+      }
+
+      await this.writeSearchIndex(
+        document.id as string,
+        document.title as string,
+        contentToMarkdown(JSON.stringify(blocks))
+      );
+
+      return ok({
+        id: document.id,
+        mode: params.mode,
+        blockCount: blocks.length,
+        url: `${this.baseUrl}/doc/${document.id}`,
+      });
+    } catch (error) {
+      return fail(error, { documentId: params.documentId });
+    }
+  }
+
+  async manageInviteLink(params: InviteLinkParams): Promise<McpToolResult> {
+    try {
+      const rows = await this.db.query(
+        "SELECT id, name, invite_token FROM organizations WHERE id = ?",
+        [params.orgId]
+      );
+      const organization = rows[0];
+
+      if (!organization) {
+        throw new LeafMCPError("Organization not found", "NOT_FOUND");
+      }
+
+      let token = (organization.invite_token as string | null) ?? null;
+
+      if (params.action === "disable" && token !== null) {
+        await this.db.execute(
+          "UPDATE organizations SET invite_token = NULL WHERE id = ?",
+          [params.orgId]
+        );
+        token = null;
+      }
+
+      if (
+        (params.action === "enable" && token === null) ||
+        params.action === "reset"
+      ) {
+        token = inviteToken();
+        await this.db.execute(
+          "UPDATE organizations SET invite_token = ? WHERE id = ?",
+          [token, params.orgId]
+        );
+      }
+
+      return ok({
+        orgId: organization.id,
+        organization: organization.name,
+        action: params.action,
+        enabled: token !== null,
+        inviteUrl: token ? `${this.baseUrl}/join/${token}` : null,
+      });
+    } catch (error) {
+      return fail(error, { orgId: params.orgId });
     }
   }
 
