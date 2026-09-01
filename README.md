@@ -393,6 +393,18 @@ Drive a single WhatsApp account from your AI agent using [Baileys](https://githu
 - Set typing presence, mark messages as read, react, edit, and delete
 - Single connection — pair one WhatsApp account from your local agent
 
+### [@arvoretech/leaf-mcp](./packages/leaf)
+
+Read-only access to [Leaf](https://github.com/arvoreeducacao/leaf), Arvore's collaborative document editor.
+
+**Features:**
+
+- Full-text search over document titles and bodies
+- Read any document as markdown (headings, lists, tables, code, images)
+- Browse Notion-style databases: typed properties, views, and rows with resolved option names
+- List organizations with members and teamspaces
+- Read comment threads with replies, block anchors, and resolved state
+
 ## 🚀 Quick Start
 
 ### Installation
