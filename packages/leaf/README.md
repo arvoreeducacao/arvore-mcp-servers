@@ -16,6 +16,10 @@ MCP server for [Leaf](https://github.com/arvoreeducacao/leaf), Arvore's collabor
 | `update_document` | Append to or replace a page's body, with a version snapshot first |
 | `manage_invite_link` | Get, enable, reset or disable an organization's invite link |
 
+## Markdown
+
+Both write tools take markdown and convert it to Leaf blocks: headings, paragraphs, bullet/numbered/check lists, quotes, code fences, dividers, inline styles, links and **GFM tables** — a `| a | b |` header followed by a `| --- | --- |` row becomes a real table block (first row as header, rows padded or truncated to the header width), not a paragraph full of pipes. Reading gives the same markdown back.
+
 ## Write semantics
 
 Writes are deliberately fenced:
