@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { LeafBlock } from "./markdown.js";
+import { LeafBlock, TableContent } from "./markdown.js";
 
 type Inline = {
   type: "text" | "link";
@@ -68,6 +68,68 @@ function block(
   };
 }
 
+type TableRow = { cells: Array<Array<Inline>> };
+
+function tableBlock(rows: Array<TableRow>): LeafBlock {
+  return {
+    id: blockId(),
+    type: "table",
+    props: {},
+    content: { type: "tableContent", headerRows: 1, rows } as TableContent,
+    children: [],
+  };
+}
+
+export function parseTableRow(line: string): Array<string> | null {
+  const trimmed = line.trim();
+
+  if (!trimmed.startsWith("|")) {
+    return null;
+  }
+
+  const body = trimmed.slice(1).replace(/\|$/, "");
+  const cells: Array<string> = [];
+  let current = "";
+  let index = 0;
+
+  while (index < body.length) {
+    const char = body[index];
+
+    if (char === "\\" && body[index + 1] === "|") {
+      current += "|";
+      index += 2;
+      continue;
+    }
+
+    if (char === "|") {
+      cells.push(current.trim());
+      current = "";
+      index += 1;
+      continue;
+    }
+
+    current += char;
+    index += 1;
+  }
+
+  cells.push(current.trim());
+
+  return cells;
+}
+
+function isDelimiterRow(cells: Array<string>): boolean {
+  return cells.every((cell) => /^:?-+:?$/.test(cell));
+}
+
+function rowOfCells(cells: Array<string>, columns: number): TableRow {
+  const sized = Array.from(
+    { length: columns },
+    (_, column) => cells[column] ?? ""
+  );
+
+  return { cells: sized.map(parseInline) };
+}
+
 export function markdownToBlocks(markdown: string): Array<LeafBlock> {
   const blocks: Array<LeafBlock> = [];
   const lines = markdown.replace(/\r\n/g, "\n").split("\n");
@@ -120,6 +182,32 @@ export function markdownToBlocks(markdown: string): Array<LeafBlock> {
         block("heading", { level: heading[1].length }, parseInline(heading[2]))
       );
       index += 1;
+      continue;
+    }
+
+    const header = parseTableRow(line);
+    const delimiter = header && parseTableRow(lines[index + 1] ?? "");
+
+    if (header && delimiter && delimiter.length === header.length && isDelimiterRow(delimiter)) {
+      flushParagraph();
+
+      const columns = header.length;
+      const rows: Array<TableRow> = [rowOfCells(header, columns)];
+
+      index += 2;
+
+      while (index < lines.length) {
+        const cells = parseTableRow(lines[index]);
+
+        if (!cells) {
+          break;
+        }
+
+        rows.push(rowOfCells(cells, columns));
+        index += 1;
+      }
+
+      blocks.push(tableBlock(rows));
       continue;
     }
 
@@ -188,7 +276,7 @@ export function markdownToBlocks(markdown: string): Array<LeafBlock> {
 export function plainTextOfMarkdown(markdown: string): string {
   return markdown
     .replace(/```[\s\S]*?```/g, " ")
-    .replace(/[#>*_~`[\]()-]/g, " ")
+    .replace(/[#>*_~`[\]()|-]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }

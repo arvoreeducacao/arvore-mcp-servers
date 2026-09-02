@@ -39,7 +39,13 @@ export const ListCommentsParamsSchema = z.object({
 
 export const CreateDocumentParamsSchema = z.object({
   title: z.string().min(1).max(500),
-  markdown: z.string().max(400_000).default(""),
+  markdown: z
+    .string()
+    .max(400_000)
+    .default("")
+    .describe(
+      "Headings, paragraphs, bullet/numbered/check lists, quotes, code fences, dividers and GFM tables (| a | b | with a | --- | --- | row under the header)"
+    ),
   ownerEmail: z
     .string()
     .email()
@@ -54,7 +60,13 @@ export const CreateDocumentParamsSchema = z.object({
 
 export const UpdateDocumentParamsSchema = z.object({
   documentId: z.string().min(1).max(21),
-  markdown: z.string().min(1).max(400_000),
+  markdown: z
+    .string()
+    .min(1)
+    .max(400_000)
+    .describe(
+      "Headings, paragraphs, bullet/numbered/check lists, quotes, code fences, dividers and GFM tables (| a | b | with a | --- | --- | row under the header)"
+    ),
   mode: z
     .enum(["replace", "append"])
     .default("append")

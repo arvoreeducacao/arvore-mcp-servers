@@ -3,6 +3,7 @@ import { blocksToMarkdown } from "./markdown.js";
 import {
   markdownToBlocks,
   parseInline,
+  parseTableRow,
   plainTextOfMarkdown,
 } from "./markdown-to-blocks.js";
 
@@ -72,11 +73,89 @@ describe("markdownToBlocks", () => {
     expect(blocksToMarkdown(markdownToBlocks(source))).toBe(source);
   });
 
+  it("parses a markdown table into a table block", () => {
+    const blocks = markdownToBlocks(
+      [
+        "| Camada | **Hoje** |",
+        "| --- | :---: |",
+        "| Editor | BlockNote |",
+        "| Banco | MySQL |",
+      ].join("\n")
+    );
+
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0].type).toBe("table");
+    expect(blocks[0].content).toEqual({
+      type: "tableContent",
+      headerRows: 1,
+      rows: [
+        {
+          cells: [
+            [{ type: "text", text: "Camada", styles: {} }],
+            [{ type: "text", text: "Hoje", styles: { bold: true } }],
+          ],
+        },
+        {
+          cells: [
+            [{ type: "text", text: "Editor", styles: {} }],
+            [{ type: "text", text: "BlockNote", styles: {} }],
+          ],
+        },
+        {
+          cells: [
+            [{ type: "text", text: "Banco", styles: {} }],
+            [{ type: "text", text: "MySQL", styles: {} }],
+          ],
+        },
+      ],
+    });
+  });
+
+  it("pads and truncates rows to the header width", () => {
+    const blocks = markdownToBlocks(
+      ["| a | b |", "| --- | --- |", "| so um |", "| um | dois | tres |"].join(
+        "\n"
+      )
+    );
+    const rows = (blocks[0].content as { rows: Array<{ cells: Array<unknown> }> })
+      .rows;
+
+    expect(rows.map((row) => row.cells.length)).toEqual([2, 2, 2]);
+    expect(rows[1].cells[1]).toEqual([]);
+  });
+
+  it("keeps a pipe line without a delimiter row as a paragraph", () => {
+    const blocks = markdownToBlocks("| isto nao e tabela |");
+
+    expect(blocks.map((block) => block.type)).toEqual(["paragraph"]);
+  });
+
+  it("round-trips a table through the markdown renderer", () => {
+    const source = [
+      "| Tool | O que faz |",
+      "| --- | --- |",
+      "| get_document | Le um documento |",
+      "| update_document | Escreve com \\| escapado |",
+    ].join("\n");
+
+    expect(blocksToMarkdown(markdownToBlocks(source))).toBe(source);
+  });
+
   it("produces one empty paragraph for empty input", () => {
     const blocks = markdownToBlocks("");
 
     expect(blocks).toHaveLength(1);
     expect(blocks[0].type).toBe("paragraph");
+  });
+});
+
+describe("parseTableRow", () => {
+  it("splits cells and unescapes pipes", () => {
+    expect(parseTableRow("| a | b \\| c |")).toEqual(["a", "b | c"]);
+  });
+
+  it("ignores a line that is not a table row", () => {
+    expect(parseTableRow("nao e linha")).toBeNull();
   });
 });
 

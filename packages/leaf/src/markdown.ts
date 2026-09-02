@@ -24,11 +24,18 @@ interface TableCell {
   cells?: Array<Array<Inline>>;
 }
 
+export interface TableContent {
+  type: "tableContent";
+  headerRows?: number;
+  headerCols?: number;
+  rows?: Array<TableCell>;
+}
+
 export interface LeafBlock {
   id?: string;
   type?: string;
   props?: Record<string, unknown>;
-  content?: Array<Inline> | { type: "tableContent"; rows?: Array<TableCell> };
+  content?: Array<Inline> | TableContent;
   children?: Array<LeafBlock>;
 }
 

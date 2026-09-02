@@ -1,6 +1,6 @@
 {
   "name": "@arvoretech/leaf-mcp",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Leaf MCP Server for read-only access to Arvore's Leaf documents, databases and comments",
   "main": "dist/index.js",
   "type": "module",
