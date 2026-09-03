@@ -1,5 +1,13 @@
 # @arvoretech/leaf-mcp
 
+> **Aviso: só para desenvolvimento local, contra um banco de dev.** Este pacote
+> roda via stdio e fala **direto com o MySQL** usando a senha do banco, sem
+> identidade nem controle de acesso por pessoa. Nunca aponte para o banco de
+> produção. O caminho recomendado é o **MCP remoto do próprio Leaf**, em
+> `${BETTER_AUTH_URL}/api/mcp` (na Árvore, `https://leaf.arvore.com.br/api/mcp`):
+> OAuth 2.1 com login e consentimento no Leaf, e cada tool rodando com a ACL da
+> pessoa que autorizou. Veja a seção "MCP" do README do repositório `leaf`.
+
 MCP server for [Leaf](https://github.com/arvoreeducacao/leaf), Arvore's collaborative document editor: search and read documents as markdown, browse Notion-style databases, organizations and comment threads — plus a small, fenced write surface (create pages, append/replace markdown, manage the organization invite link).
 
 ## Tools
