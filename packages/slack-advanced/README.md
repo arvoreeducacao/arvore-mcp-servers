@@ -1,50 +1,43 @@
 # @arvoretech/slack-advanced-mcp
 
-Advanced Slack MCP Server -- sends messages as the authenticated user, with fuzzy user search, smart DMs, writing style analysis, thread extraction, audio transcription (ElevenLabs), and image analysis.
+Advanced Slack MCP server: semantic user search, smart DMs, style analysis, thread extraction, audio transcription and image analysis. Every call runs as the authenticated user (`SLACK_USER_TOKEN`, an `xoxp-` token).
 
-## Setup
+## Text formatting
 
-### Env vars
+Every tool that carries text takes a `format`:
 
-| Variable | Required | Description |
-|---|---|---|
-| `SLACK_USER_TOKEN` | Yes | Slack user OAuth token (`xoxp-...`) |
-| `ELEVENLABS_API_KEY` | No | ElevenLabs API key for audio transcription |
-| `SLACK_USERS_CACHE_PATH` | No | Path to users cache JSON (default: `~/.slack-advanced-mcp/users_cache.json`) |
-| `SLACK_USERS_CACHE_TTL_MINUTES` | No | Cache TTL in minutes (default: 240) |
+| format | what happens |
+| --- | --- |
+| `markdown` | `**bold**`, `*italic*`, `[label](url)`, lists and quotes are converted to Slack mrkdwn |
+| `mrkdwn` | the text reaches Slack exactly as written, for callers that already speak `*bold*` and `<url\|label>` |
 
-### Slack App Scopes (User Token Scopes)
+The default is `markdown` for the text-only tools (`send_dm`, `send_channel_message`, `edit_message`, `create_group_dm`) and `mrkdwn` for the caption of the upload tools (`send_image`, `send_file`, `send_audio`), which is the behaviour each of them already had.
 
-`chat:write`, `users:read`, `users.profile:read`, `channels:history`, `groups:history`, `im:history`, `mpim:history`, `im:write`, `files:read`, `search:read`
+Two things the markdown converter protects that a plain markdown-to-mrkdwn pass destroys:
 
-### MCP Config
+- **links with a scheme other than http, https or mailto.** `[RFC](hive://shelf/x)` used to come out as the bare word `RFC`, with the address dropped and nothing to notice it by.
+- **links already written in mrkdwn.** `<https://x|PR>` used to be converted a second time into `<https://x%7CPR|https://x|PR>`, which renders as a link to a 404.
 
-```json
-{
-  "mcpServers": {
-    "slack-advanced": {
-      "command": "npx",
-      "args": ["-y", "@arvoretech/slack-advanced-mcp"],
-      "env": {
-        "SLACK_USER_TOKEN": "xoxp-...",
-        "ELEVENLABS_API_KEY": "sk_..."
-      }
-    }
-  }
-}
-```
+`send_dm`, `send_channel_message` and `edit_message` echo `sent_text`: the exact string Slack stored, so a caller can check the result without reading the channel back.
 
-## Tools
+`content_type` is still accepted on `send_channel_message` and maps to `format` (`text/plain` to `mrkdwn`, `text/markdown` to `markdown`).
 
-| Tool | Description |
-|---|---|
-| `search_users` | Fuzzy search users by name, email, or display name with disk cache |
-| `get_user_profile` | Full user profile (title, status, timezone, avatar) |
-| `send_dm` | Send DM resolving user by name/email/ID. Messages sent as you |
-| `get_dm_history` | DM history with a user, with pagination |
-| `list_channel_messages` | Recent messages from a channel (by ID or #name), with cursor and time-range filters |
-| `analyze_writing_style` | Writing style metrics (emoji usage, formality, vocabulary, etc.) |
-| `get_thread_from_link` | Extract messages from a Slack thread URL |
-| `transcribe_audio` | Transcribe audio files shared in Slack (ElevenLabs STT) |
-| `analyze_image` | Download and return Slack images for model analysis |
-| `get_file_info` | File metadata (name, type, size, permalink) |
+## Reading messages back
+
+Slack rewrites a message's top-level `text` field into a single flat line whenever the message carries blocks, which is every message this server sends. The readers (`get_dm_history`, `list_channel_messages`, `get_thread_from_link`) therefore return the text of the message block instead, so line breaks survive the round trip.
+
+## Drafts
+
+`create_draft` leaves a message in the user's Slack composer instead of sending it. Bold, italic, strikethrough, inline code, code blocks, links, lists and quotes are carried over as real formatting.
+
+Slack's API only lets a user token create a draft. Reading, editing and deleting one are not available, so a draft can only be changed from the Slack app, and Slack keeps at most one draft per conversation.
+
+## Environment
+
+| variable | required | what for |
+| --- | --- | --- |
+| `SLACK_USER_TOKEN` | yes | Slack user token (`xoxp-...`) |
+| `ELEVENLABS_API_KEY` | no | audio transcription and text to speech |
+| `ELEVENLABS_DEFAULT_VOICE_ID` | no | default voice for `send_audio` |
+| `SLACK_USERS_CACHE_PATH` | no | where the user directory is cached |
+| `SLACK_USERS_CACHE_TTL_MINUTES` | no | cache lifetime, 240 by default |

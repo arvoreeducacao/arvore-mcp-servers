@@ -40,11 +40,15 @@ export const SendDmParamsSchema = z.object({
   text: z
     .string()
     .min(1, "Message text is required")
-    .describe("Message content (supports Slack mrkdwn)"),
+    .describe("Message content, written in markdown by default (see format)"),
   thread_ts: z
     .string()
     .optional()
     .describe("Thread timestamp to reply in a thread"),
+  format: z
+    .enum(["markdown", "mrkdwn"])
+    .optional()
+    .describe("How to read the text. markdown (default) converts **bold**, [label](url) and lists to Slack mrkdwn, keeping non-web links such as hive:// intact. mrkdwn sends the text untouched, for callers that already wrote *bold* and <url|label> by hand"),
   metadata: MessageMetadataSchema
     .optional()
     .describe("Structured metadata to attach to the message. Used for app-to-app communication via Slack message metadata"),
@@ -202,15 +206,19 @@ export const SendChannelMessageParamsSchema = z.object({
   text: z
     .string()
     .min(1, "Message text is required")
-    .describe("Message content (supports Slack mrkdwn)"),
+    .describe("Message content, written in markdown by default (see format)"),
   thread_ts: z
     .string()
     .optional()
     .describe("Thread timestamp to reply in a thread"),
+  format: z
+    .enum(["markdown", "mrkdwn"])
+    .optional()
+    .describe("How to read the text. markdown (default) converts **bold**, [label](url) and lists to Slack mrkdwn, keeping non-web links such as hive:// intact. mrkdwn sends the text untouched, for callers that already wrote *bold* and <url|label> by hand"),
   content_type: z
     .enum(["text/plain", "text/markdown"])
     .optional()
-    .describe("Content type for link formatting. Use text/markdown for [text](url) links"),
+    .describe("Legacy alias for format: text/plain means mrkdwn, text/markdown means markdown. Prefer format"),
   metadata: MessageMetadataSchema
     .optional()
     .describe("Structured metadata to attach to the message. Used for app-to-app communication via Slack message metadata"),
@@ -253,6 +261,11 @@ export const SendAudioParamsSchema = z.object({
     .string()
     .optional()
     .describe("Optional text message to accompany the audio"),
+  format: z
+    .enum(["markdown", "mrkdwn"])
+    .optional()
+    .describe("How to read the message text. Unlike the text-only tools, uploads default to mrkdwn: the caption is sent exactly as written, so *bold* and <url|label> already work. Pass markdown to write **bold** and [label](url) instead"),
+
   thread_ts: z
     .string()
     .optional()
@@ -284,6 +297,10 @@ export const SendImageParamsSchema = z.object({
     .string()
     .optional()
     .describe("Optional text message to accompany the image"),
+  format: z
+    .enum(["markdown", "mrkdwn"])
+    .optional()
+    .describe("How to read the message text. Unlike the text-only tools, uploads default to mrkdwn: the caption is sent exactly as written, so *bold* and <url|label> already work. Pass markdown to write **bold** and [label](url) instead"),
   thread_ts: z
     .string()
     .optional()
@@ -318,6 +335,11 @@ export const SendFileParamsSchema = z.object({
     .string()
     .optional()
     .describe("Optional text message to accompany the file"),
+  format: z
+    .enum(["markdown", "mrkdwn"])
+    .optional()
+    .describe("How to read the message text. Unlike the text-only tools, uploads default to mrkdwn: the caption is sent exactly as written, so *bold* and <url|label> already work. Pass markdown to write **bold** and [label](url) instead"),
+
   thread_ts: z
     .string()
     .optional()
@@ -336,7 +358,11 @@ export const EditMessageParamsSchema = z.object({
   text: z
     .string()
     .min(1, "New message text is required")
-    .describe("New message content (supports Slack mrkdwn)"),
+    .describe("New message content, written in markdown by default (see format)"),
+  format: z
+    .enum(["markdown", "mrkdwn"])
+    .optional()
+    .describe("How to read the text. markdown (default) converts **bold**, [label](url) and lists to Slack mrkdwn, keeping non-web links such as hive:// intact. mrkdwn sends the text untouched, for callers that already wrote *bold* and <url|label> by hand"),
 });
 
 export const DeleteMessageParamsSchema = z.object({
@@ -419,7 +445,11 @@ export const CreateGroupDmParamsSchema = z.object({
   message: z
     .string()
     .optional()
-    .describe("Optional message to post in the group DM right after opening it (supports Slack mrkdwn)"),
+    .describe("Optional message to post in the group DM right after opening it, written in markdown by default (see format)"),
+  format: z
+    .enum(["markdown", "mrkdwn"])
+    .optional()
+    .describe("How to read the text. markdown (default) converts **bold**, [label](url) and lists to Slack mrkdwn, keeping non-web links such as hive:// intact. mrkdwn sends the text untouched, for callers that already wrote *bold* and <url|label> by hand"),
 });
 
 export const WaitForReplyParamsSchema = z.object({
@@ -457,6 +487,24 @@ export const WaitForReplyParamsSchema = z.object({
     .describe("How often to poll Slack for new messages. Defaults to 5 seconds"),
 });
 
+export const CreateDraftParamsSchema = z.object({
+  target: z
+    .string()
+    .min(1, "Target is required")
+    .describe("User (name, email, or ID) or channel (ID or #channel-name) the draft is addressed to"),
+  target_type: z
+    .enum(["user", "channel"])
+    .describe("Whether the target is a user (DM) or a channel"),
+  text: z
+    .string()
+    .min(1, "Draft text is required")
+    .describe("Draft content in markdown. Bold, italic, strikethrough, inline code, code blocks, links, lists and quotes are carried into the Slack composer"),
+  thread_ts: z
+    .string()
+    .optional()
+    .describe("Thread timestamp when the draft is a reply inside a thread"),
+});
+
 export type SearchUsersParams = z.infer<typeof SearchUsersParamsSchema>;
 export type GetUserProfileParams = z.infer<typeof GetUserProfileParamsSchema>;
 export type GetUserInfoParams = z.infer<typeof GetUserInfoParamsSchema>;
@@ -481,6 +529,7 @@ export type EditMessageParams = z.infer<typeof EditMessageParamsSchema>;
 export type DeleteMessageParams = z.infer<typeof DeleteMessageParamsSchema>;
 export type AddReactionParams = z.infer<typeof AddReactionParamsSchema>;
 export type RemoveReactionParams = z.infer<typeof RemoveReactionParamsSchema>;
+export type CreateDraftParams = z.infer<typeof CreateDraftParamsSchema>;
 
 export type McpTextContent = {
   type: "text";
@@ -528,6 +577,7 @@ export interface SlackMessage {
   type: string;
   user?: string;
   text: string;
+  blocks?: Array<Record<string, unknown>>;
   ts: string;
   thread_ts?: string;
   reply_count?: number;

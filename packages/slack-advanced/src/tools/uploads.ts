@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { SlackClient } from "../slack-client.js";
 import { ElevenLabsSTTClient } from "../elevenlabs-client.js";
+import { toSlackText } from "../formatting.js";
 import type {
   SendAudioParams,
   SendImageParams,
@@ -14,6 +15,11 @@ export class UploadTools {
     private readonly slack: SlackClient,
     private readonly elevenlabs: ElevenLabsSTTClient | null
   ) {}
+
+  private caption(params: { message?: string; format?: "markdown" | "mrkdwn" }): string | undefined {
+    if (!params.message) return undefined;
+    return toSlackText(params.message, params.format ?? "mrkdwn");
+  }
 
   async sendAudio(params: SendAudioParams): Promise<McpToolResult> {
     try {
@@ -62,7 +68,7 @@ export class UploadTools {
         channelId,
         fileBuffer,
         filename: params.filename,
-        initialComment: params.message,
+        initialComment: this.caption(params),
         threadTs: params.thread_ts,
       });
 
@@ -103,7 +109,7 @@ export class UploadTools {
       channelId,
       fileBuffer: audioBuffer,
       filename,
-      initialComment: params.message,
+      initialComment: this.caption(params),
       threadTs: params.thread_ts,
     });
 
@@ -150,7 +156,7 @@ export class UploadTools {
       channelId,
       fileBuffer,
       filename: params.filename,
-      initialComment: params.message,
+      initialComment: this.caption(params),
       threadTs: params.thread_ts,
     });
 
