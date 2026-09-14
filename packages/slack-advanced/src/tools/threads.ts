@@ -1,4 +1,5 @@
 import { SlackClient } from "../slack-client.js";
+import { extractMessageText } from "../formatting.js";
 import type {
   GetThreadFromLinkParams,
   McpToolResult,
@@ -63,7 +64,7 @@ export class ThreadTools {
       const messages = repliesRes.messages.map((m) => ({
         user_id: m.user,
         user_name: m.user ? userNames.get(m.user) ?? m.user : "unknown",
-        text: m.text,
+        text: extractMessageText(m),
         ts: m.ts,
         has_files: (m.files?.length ?? 0) > 0,
         files: m.files?.map((f) => ({
@@ -78,7 +79,7 @@ export class ThreadTools {
       return this.ok({
         channel_id: channelId,
         thread_ts: threadTs,
-        parent_text: parentMessage?.text ?? null,
+        parent_text: parentMessage ? extractMessageText(parentMessage) : null,
         message_count: messages.length,
         participants: [...userNames.entries()].map(([id, name]) => ({ id, name })),
         messages,

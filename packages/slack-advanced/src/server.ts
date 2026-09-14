@@ -32,6 +32,7 @@ import {
   RemoveReactionParamsSchema,
   CreateChannelParamsSchema,
   CreateGroupDmParamsSchema,
+  CreateDraftParamsSchema,
   WaitForReplyParamsSchema,
 } from "./types.js";
 
@@ -112,7 +113,7 @@ export class SlackAdvancedMCPServer {
     this.server.registerTool("send_dm", {
       title: "Send DM",
       description:
-        "Send a direct message to a user. Resolves user by name, email, or ID automatically. Opens DM channel if needed. Messages are sent as the authenticated user. Supports optional message metadata for app-to-app communication.",
+        "Send a direct message to a user. Resolves user by name, email, or ID automatically. Opens DM channel if needed. Messages are sent as the authenticated user, and support optional message metadata. Text is markdown by default and can be sent as raw Slack mrkdwn with format. The reply echoes sent_text, which is exactly what Slack stored.",
       inputSchema: SendDmParamsSchema.shape,
     }, async (params) => {
       return this.messagingTools.sendDm(SendDmParamsSchema.parse(params));
@@ -121,7 +122,7 @@ export class SlackAdvancedMCPServer {
     this.server.registerTool("send_channel_message", {
       title: "Send Channel Message",
       description:
-        "Send a message to a Slack channel. Accepts channel ID or #channel-name. Supports thread replies, markdown link conversion, and optional message metadata for app-to-app communication.",
+        "Send a message to a Slack channel. Accepts channel ID or #channel-name, and supports thread replies and optional message metadata. Text is markdown by default: **bold**, [label](url), lists and quotes are converted to Slack mrkdwn, and links with a non-web scheme such as hive:// survive the conversion. Text already written in Slack mrkdwn (*bold*, <url|label>) passes through untouched when format is mrkdwn. The reply echoes sent_text, which is exactly what Slack stored.",
       inputSchema: SendChannelMessageParamsSchema.shape,
     }, async (params) => {
       return this.messagingTools.sendChannelMessage(SendChannelMessageParamsSchema.parse(params));
@@ -211,7 +212,7 @@ export class SlackAdvancedMCPServer {
     this.server.registerTool("send_image", {
       title: "Send Image",
       description:
-        "Upload and send an image to a Slack user (DM) or channel. Accepts a file path on disk or base64-encoded content. Supports thread replies.",
+        "Upload and send an image to a Slack user (DM) or channel. Accepts a file path on disk or base64-encoded content. Supports thread replies. The caption is sent as raw Slack mrkdwn by default, so write *bold* and <url|label>; pass format markdown to write **bold** and [label](url) instead.",
       inputSchema: SendImageParamsSchema.shape,
     }, async (params) => {
       return this.uploadTools.sendImage(SendImageParamsSchema.parse(params));
@@ -278,6 +279,15 @@ export class SlackAdvancedMCPServer {
       inputSchema: CreateGroupDmParamsSchema.shape,
     }, async (params) => {
       return this.messagingTools.createGroupDm(CreateGroupDmParamsSchema.parse(params));
+    });
+
+    this.server.registerTool("create_draft", {
+      title: "Create Draft",
+      description:
+        "Leave a message as a draft in the user's Slack composer instead of sending it, so a human reviews and presses send. Addresses a user (DM) or a channel, and a thread when thread_ts is given. Text is markdown: bold, italic, strikethrough, inline code, code blocks, links, lists and quotes are carried into the composer as real formatting. Slack exposes no user-token API to read, edit or delete a draft afterwards, so a draft can only be changed from the Slack app.",
+      inputSchema: CreateDraftParamsSchema.shape,
+    }, async (params) => {
+      return this.messagingTools.createDraft(CreateDraftParamsSchema.parse(params));
     });
 
     this.server.registerTool("wait_for_reply", {

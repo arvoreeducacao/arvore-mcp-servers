@@ -1,5 +1,7 @@
-import { slackifyMarkdown } from "slackify-markdown";
+import { randomUUID } from "node:crypto";
 import { SlackClient } from "../slack-client.js";
+import { extractMessageText, resolveFormat, toSlackText } from "../formatting.js";
+import { markdownToRichText } from "../rich-text.js";
 import type {
   SendDmParams,
   GetDmHistoryParams,
@@ -11,6 +13,7 @@ import type {
   RemoveReactionParams,
   CreateChannelParams,
   CreateGroupDmParams,
+  CreateDraftParams,
   WaitForReplyParams,
   McpToolResult,
   SlackMessage,
@@ -22,8 +25,8 @@ export class MessagingTools {
 
   constructor(private readonly slack: SlackClient) {}
 
-  private toMrkdwn(text: string): string {
-    return slackifyMarkdown(text);
+  private toMrkdwn(text: string, format?: "markdown" | "mrkdwn", contentType?: string): string {
+    return toSlackText(text, resolveFormat(format, contentType));
   }
 
   private buildBlocks(text: string): Array<Record<string, unknown>> {
@@ -41,7 +44,7 @@ export class MessagingTools {
       const userId = await this.slack.resolveUserId(params.user);
       const channelId = await this.slack.openDm(userId);
 
-      const mrkdwn = this.toMrkdwn(params.text);
+      const mrkdwn = this.toMrkdwn(params.text, params.format);
       const blocks = this.buildBlocks(mrkdwn);
       const msgParams: Record<string, unknown> = {
         channel: channelId,
@@ -71,6 +74,7 @@ export class MessagingTools {
         channel: res.channel,
         ts: res.ts,
         to_user_id: userId,
+        sent_text: mrkdwn,
       });
     } catch (error) {
       return this.formatError(error);
@@ -101,7 +105,7 @@ export class MessagingTools {
       return this.ok({
         messages: res.messages.map((m) => ({
           user: m.user,
-          text: m.text,
+          text: extractMessageText(m),
           ts: m.ts,
           thread_ts: m.thread_ts,
           reply_count: m.reply_count,
@@ -165,7 +169,7 @@ export class MessagingTools {
         messages: res.messages.map((m) => ({
           user_id: m.user,
           user_name: m.user ? userNames.get(m.user) ?? m.user : null,
-          text: m.text,
+          text: extractMessageText(m),
           ts: m.ts,
           thread_ts: m.thread_ts,
           reply_count: m.reply_count,
@@ -191,7 +195,7 @@ export class MessagingTools {
     try {
       const channelId = await this.slack.resolveChannelId(params.channel);
 
-      const mrkdwn = this.toMrkdwn(params.text);
+      const mrkdwn = this.toMrkdwn(params.text, params.format, params.content_type);
       const blocks = this.buildBlocks(mrkdwn);
       const msgParams: Record<string, unknown> = {
         channel: channelId,
@@ -220,6 +224,7 @@ export class MessagingTools {
         sent: true,
         channel: res.channel,
         ts: res.ts,
+        sent_text: mrkdwn,
       });
     } catch (error) {
       return this.formatError(error);
@@ -228,7 +233,7 @@ export class MessagingTools {
 
   async editMessage(params: EditMessageParams): Promise<McpToolResult> {
     try {
-      const mrkdwn = this.toMrkdwn(params.text);
+      const mrkdwn = this.toMrkdwn(params.text, params.format);
       const blocks = this.buildBlocks(mrkdwn);
 
       const res = await this.slack.request<{
@@ -247,6 +252,7 @@ export class MessagingTools {
         edited: true,
         channel: res.channel,
         ts: res.ts,
+        sent_text: mrkdwn,
       });
     } catch (error) {
       return this.formatError(error);
@@ -419,7 +425,7 @@ export class MessagingTools {
       let messageTs: string | null = null;
 
       if (params.message) {
-        const mrkdwn = this.toMrkdwn(params.message);
+        const mrkdwn = this.toMrkdwn(params.message, params.format);
         const blocks = this.buildBlocks(mrkdwn);
         const res = await this.slack.request<{ ok: boolean; ts: string }>("chat.postMessage", {
           channel: channelId,
@@ -437,6 +443,58 @@ export class MessagingTools {
         members: resolved,
         ...(messageTs && { message_ts: messageTs }),
         ...(resolveErrors.length > 0 && { resolve_errors: resolveErrors }),
+      });
+    } catch (error) {
+      return this.formatError(error);
+    }
+  }
+
+  async createDraft(params: CreateDraftParams): Promise<McpToolResult> {
+    try {
+      const channelId =
+        params.target_type === "user"
+          ? await this.slack.openDm(await this.slack.resolveUserId(params.target))
+          : await this.slack.resolveChannelId(params.target);
+
+      const blocks = markdownToRichText(params.text);
+      if (blocks.length === 0) {
+        return this.ok({ error: "Draft text produced no content" });
+      }
+
+      const destination: Record<string, unknown> = { channel_id: channelId };
+      if (params.thread_ts) destination.thread_ts = params.thread_ts;
+
+      let res: { ok: boolean; draft: { id: string; date_created: number } };
+      try {
+        res = await this.slack.request<{
+          ok: boolean;
+          draft: { id: string; date_created: number };
+        }>("drafts.create", {
+          client_msg_id: randomUUID(),
+          destinations: JSON.stringify([destination]),
+          blocks: JSON.stringify(blocks),
+          file_ids: JSON.stringify([]),
+          is_from_composer: false,
+        });
+      } catch (error) {
+        if (error instanceof SlackAdvancedMCPError && error.message.includes("attached_draft_exists")) {
+          return this.ok({
+            created: false,
+            channel: channelId,
+            error:
+              "Slack keeps only one draft per conversation and this one already has an unsent draft. Ask the user to send or discard it in the Slack app, then try again",
+          });
+        }
+        throw error;
+      }
+
+      return this.ok({
+        created: true,
+        draft_id: res.draft.id,
+        channel: channelId,
+        target: params.target,
+        target_type: params.target_type,
+        note: "The draft is waiting in Slack for the user to review and send. Slack offers no API to read, edit or delete a draft with a user token, so it can only be changed from the Slack app",
       });
     } catch (error) {
       return this.formatError(error);
