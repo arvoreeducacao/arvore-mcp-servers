@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { markdownToRichText } from "./rich-text.js";
+import { markdownToRichText, mrkdwnToRichText } from "./rich-text.js";
 
 const elements = (markdown: string): Array<Record<string, unknown>> =>
   (markdownToRichText(markdown)[0]?.elements ?? []) as Array<Record<string, unknown>>;
@@ -90,5 +90,62 @@ describe("markdownToRichText", () => {
 
   it("returns nothing for empty text", () => {
     expect(markdownToRichText("")).toEqual([]);
+  });
+});
+
+describe("mrkdwnToRichText", () => {
+  const mrkdwnElements = (mrkdwn: string): Array<Record<string, unknown>> =>
+    (mrkdwnToRichText(mrkdwn)[0]?.elements ?? []) as Array<Record<string, unknown>>;
+
+  it("reads single asterisks as bold, the way Slack does", () => {
+    const [section] = mrkdwnElements("*bold* rest");
+    expect(section.elements).toEqual([
+      { type: "text", text: "bold", style: { bold: true } },
+      { type: "text", text: " rest" },
+    ]);
+  });
+
+  it("reads single tildes as strikethrough", () => {
+    const [section] = mrkdwnElements("~gone~ rest");
+    expect(section.elements).toEqual([
+      { type: "text", text: "gone", style: { strike: true } },
+      { type: "text", text: " rest" },
+    ]);
+  });
+
+  it("turns a mrkdwn link into a link element", () => {
+    const [section] = mrkdwnElements("<https://arvore.com.br|Árvore>");
+    expect(section.elements).toEqual([
+      { type: "link", url: "https://arvore.com.br", text: "Árvore" },
+    ]);
+  });
+
+  it("keeps a non web scheme link clickable", () => {
+    const [section] = mrkdwnElements("<hive://shelf/lente|Lente>");
+    expect(section.elements).toEqual([{ type: "link", url: "hive://shelf/lente", text: "Lente" }]);
+  });
+
+  it("keeps user mentions, channel links and emoji as their own elements", () => {
+    const [section] = mrkdwnElements("oi <@U123ABC> em <#C456DEF> :wave:");
+    expect(section.elements).toEqual([
+      { type: "text", text: "oi " },
+      { type: "user", user_id: "U123ABC" },
+      { type: "text", text: " em " },
+      { type: "channel", channel_id: "C456DEF" },
+      { type: "text", text: " " },
+      { type: "emoji", name: "wave" },
+    ]);
+  });
+
+  it("leaves asterisks inside code untouched", () => {
+    const [section] = mrkdwnElements("`a * b`");
+    expect(section.elements).toEqual([{ type: "text", text: "a * b", style: { code: true } }]);
+  });
+
+  it("keeps a code block as preformatted", () => {
+    const blocks = mrkdwnToRichText("```\nconst a = 1;\n```");
+    expect(blocks[0].elements).toEqual([
+      { type: "rich_text_preformatted", elements: [{ type: "text", text: "const a = 1;" }] },
+    ]);
   });
 });
