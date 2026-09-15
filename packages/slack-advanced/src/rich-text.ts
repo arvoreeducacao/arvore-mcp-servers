@@ -7,6 +7,35 @@ type RichTextElement = Record<string, unknown>;
 type MdastNode = { type: string; value?: string; url?: string; depth?: number; ordered?: boolean; children?: MdastNode[] };
 
 const TOKEN = /<@([UW][A-Z0-9]+)>|<#([CG][A-Z0-9]+)(?:\|[^>]*)?>|:([a-z0-9_+-]+):/gi;
+const MRKDWN_PROTECTED = /```[\s\S]*?```|`[^`\n]*`|<[^<>\n]+>/g;
+const MRKDWN_LINK_CHUNK = /^<([a-z][a-z0-9+.-]*:[^|>\s]+)(?:\|([^>]*))?>$/i;
+const MRKDWN_BOLD = /(^|[^*\w])\*([^*\n]+)\*(?!\w)/g;
+const MRKDWN_STRIKE = /(^|[^~\w])~([^~\n]+)~(?!\w)/g;
+const MASK = "\u0000";
+
+export function mrkdwnToRichText(mrkdwn: string): RichTextElement[] {
+  return markdownToRichText(mrkdwnToMarkdown(mrkdwn));
+}
+
+function mrkdwnToMarkdown(mrkdwn: string): string {
+  const protectedChunks: string[] = [];
+  const masked = mrkdwn.replace(MRKDWN_PROTECTED, (chunk) => {
+    protectedChunks.push(chunk);
+    return `${MASK}${protectedChunks.length - 1}${MASK}`;
+  });
+
+  const converted = masked
+    .replace(MRKDWN_BOLD, "$1**$2**")
+    .replace(MRKDWN_STRIKE, "$1~~$2~~");
+
+  return converted.replace(new RegExp(`${MASK}(\\d+)${MASK}`, "g"), (match, index: string) => {
+    const chunk = protectedChunks[Number(index)];
+    if (chunk === undefined) return match;
+    const link = MRKDWN_LINK_CHUNK.exec(chunk);
+    if (!link) return chunk;
+    return link[2] ? `[${link[2]}](${link[1]})` : `<${link[1]}>`;
+  });
+}
 
 export function markdownToRichText(markdown: string): RichTextElement[] {
   const tree = unified().use(remarkParse).use(remarkGfm).parse(markdown) as MdastNode;
