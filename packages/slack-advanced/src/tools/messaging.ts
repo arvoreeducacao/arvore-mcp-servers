@@ -21,10 +21,17 @@ import type {
 } from "../types.js";
 import { SlackAdvancedMCPError } from "../types.js";
 
+export function isAiAttributionEnabled(value: string | undefined): boolean {
+  return !["false", "0", "off", "no"].includes((value ?? "").trim().toLowerCase());
+}
+
 export class MessagingTools {
   private readonly ATTRIBUTION_TEXT = "Mensagem gerada e enviada por um agente de IA";
 
-  constructor(private readonly slack: SlackClient) {}
+  constructor(
+    private readonly slack: SlackClient,
+    private readonly attribution: boolean = true
+  ) {}
 
   private compose(
     text: string,
@@ -41,17 +48,16 @@ export class MessagingTools {
     mrkdwn: string,
     format: MessageFormat
   ): Array<Record<string, unknown>> {
-    const attribution = {
-      type: "context",
-      elements: [{ type: "mrkdwn", text: this.ATTRIBUTION_TEXT }],
-    };
+    const header = this.attribution
+      ? [{ type: "context", elements: [{ type: "mrkdwn", text: this.ATTRIBUTION_TEXT }] }]
+      : [];
 
     const body = format === "mrkdwn" ? mrkdwnToRichText(text) : markdownToRichText(text);
     if (body.length === 0) {
-      return [attribution, { type: "section", block_id: "msg", text: { type: "mrkdwn", text: mrkdwn } }];
+      return [...header, { type: "section", block_id: "msg", text: { type: "mrkdwn", text: mrkdwn } }];
     }
 
-    return [attribution, ...body];
+    return [...header, ...body];
   }
 
   async sendDm(params: SendDmParams): Promise<McpToolResult> {

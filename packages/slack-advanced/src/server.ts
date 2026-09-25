@@ -3,7 +3,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { SlackClient } from "./slack-client.js";
 import { ElevenLabsSTTClient } from "./elevenlabs-client.js";
 import { UserTools } from "./tools/users.js";
-import { MessagingTools } from "./tools/messaging.js";
+import { MessagingTools, isAiAttributionEnabled } from "./tools/messaging.js";
 import { StyleAnalysisTools } from "./tools/style-analysis.js";
 import { ThreadTools } from "./tools/threads.js";
 import { AudioTools } from "./tools/audio.js";
@@ -72,7 +72,7 @@ export class SlackAdvancedMCPServer {
     }
 
     this.userTools = new UserTools(slack);
-    this.messagingTools = new MessagingTools(slack);
+    this.messagingTools = new MessagingTools(slack, isAiAttributionEnabled(process.env.SLACK_AI_ATTRIBUTION));
     this.styleTools = new StyleAnalysisTools(slack);
     this.threadTools = new ThreadTools(slack);
     this.audioTools = new AudioTools(slack, elevenlabs);

@@ -41,3 +41,4 @@ Slack's API only lets a user token create a draft. Reading, editing and deleting
 | `ELEVENLABS_DEFAULT_VOICE_ID` | no | default voice for `send_audio` |
 | `SLACK_USERS_CACHE_PATH` | no | where the user directory is cached |
 | `SLACK_USERS_CACHE_TTL_MINUTES` | no | cache lifetime, 240 by default |
+| `SLACK_AI_ATTRIBUTION` | no | `false` removes the "Mensagem gerada e enviada por um agente de IA" line from sent messages; on by default |
