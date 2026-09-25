@@ -5,7 +5,7 @@ import type {
   McpToolResult,
   SlackMessage,
 } from "../types.js";
-import { SlackAdvancedMCPError } from "../types.js";
+import { toolError, toolOk } from "./result.js";
 
 export class ThreadTools {
   constructor(private readonly slack: SlackClient) {}
@@ -15,39 +15,27 @@ export class ThreadTools {
       const parsed = this.slack.parseThreadLink(params.url);
 
       if (!parsed) {
-        return this.ok({
-          error: "Invalid Slack thread URL. Expected format: https://workspace.slack.com/archives/CHANNEL_ID/pTIMESTAMP",
-        });
+        return toolError("Invalid Slack thread URL. Expected format: https://workspace.slack.com/archives/CHANNEL_ID/pTIMESTAMP");
       }
 
-      const { channelId, threadTs } = parsed;
-
-      const parentRes = await this.slack.request<{
-        ok: boolean;
-        messages: SlackMessage[];
-      }>("conversations.history", {
-        channel: channelId,
-        latest: threadTs,
-        inclusive: true,
-        limit: 1,
-        include_all_metadata: true,
-      });
-
-      const parentMessage = parentRes.messages?.[0];
-
-      const repliesParams: Record<string, unknown> = {
-        channel: channelId,
-        ts: threadTs,
-        limit: params.limit,
-        include_all_metadata: true,
-      };
+      const { channelId, threadTs, messageTs } = parsed;
 
       const repliesRes = await this.slack.request<{
         ok: boolean;
         messages: SlackMessage[];
         has_more: boolean;
         response_metadata?: { next_cursor?: string };
-      }>("conversations.replies", repliesParams);
+      }>("conversations.replies", {
+        channel: channelId,
+        ts: threadTs,
+        limit: params.limit,
+        cursor: params.cursor,
+        include_all_metadata: true,
+      });
+
+      const parentMessage = params.cursor
+        ? undefined
+        : repliesRes.messages.find((m) => m.ts === threadTs);
 
       const userIds = new Set<string>();
       for (const m of repliesRes.messages) {
@@ -76,36 +64,19 @@ export class ThreadTools {
         ...(m.metadata && { metadata: m.metadata }),
       }));
 
-      return this.ok({
+      return toolOk({
         channel_id: channelId,
         thread_ts: threadTs,
+        linked_message_ts: messageTs,
         parent_text: parentMessage ? extractMessageText(parentMessage) : null,
         message_count: messages.length,
         participants: [...userNames.entries()].map(([id, name]) => ({ id, name })),
         messages,
         has_more: repliesRes.has_more,
+        next_cursor: repliesRes.response_metadata?.next_cursor || null,
       });
     } catch (error) {
-      return this.formatError(error);
+      return toolError(error);
     }
-  }
-
-  private ok(data: unknown): McpToolResult {
-    return {
-      content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
-    };
-  }
-
-  private formatError(error: unknown): McpToolResult {
-    const message =
-      error instanceof SlackAdvancedMCPError
-        ? `Slack Error: ${error.message}`
-        : error instanceof Error
-          ? `Unexpected error: ${error.message}`
-          : "Unexpected error: Unknown error";
-
-    return {
-      content: [{ type: "text", text: JSON.stringify({ error: message }, null, 2) }],
-    };
   }
 }

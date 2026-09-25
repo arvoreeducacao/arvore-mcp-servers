@@ -136,14 +136,18 @@ export const GetThreadFromLinkParamsSchema = z.object({
     .max(200)
     .optional()
     .default(100)
-    .describe("Maximum number of replies to fetch"),
+    .describe("Maximum number of replies to fetch per page"),
+  cursor: z
+    .string()
+    .optional()
+    .describe("Pagination cursor: pass the next_cursor from the previous call to read the rest of a long thread"),
 });
 
 export const TranscribeAudioParamsSchema = z.object({
   file_url: z
     .string()
     .optional()
-    .describe("Slack file URL (url_private from files.info). Either file_url or file_id is required"),
+    .describe("Slack file URL (url_private from files.info), https on slack.com only; other hosts are refused so the token never leaves Slack. Either file_url or file_id is required"),
   file_id: z
     .string()
     .optional()
@@ -159,7 +163,7 @@ export const AnalyzeImageParamsSchema = z.object({
   file_url: z
     .string()
     .optional()
-    .describe("Slack file URL (url_private from files.info). Either file_url or file_id is required"),
+    .describe("Slack file URL (url_private from files.info), https on slack.com only; other hosts are refused so the token never leaves Slack. Either file_url or file_id is required"),
   file_id: z
     .string()
     .optional()
@@ -185,7 +189,7 @@ export const DownloadFileParamsSchema = z.object({
   file_url: z
     .string()
     .optional()
-    .describe("Slack file URL (url_private). If provided, skips files.info lookup"),
+    .describe("Slack file URL (url_private), https on slack.com only. Overrides the url_private from files.info"),
   max_size_mb: z
     .number()
     .positive()
@@ -350,7 +354,7 @@ export const EditMessageParamsSchema = z.object({
   channel: z
     .string()
     .min(1, "Channel is required")
-    .describe("Channel ID where the message was posted"),
+    .describe("Channel ID (e.g. C01EXAMPLE, or a DM ID starting with D) or #channel-name where the message was posted"),
   ts: z
     .string()
     .min(1, "Message timestamp is required")
@@ -369,7 +373,7 @@ export const DeleteMessageParamsSchema = z.object({
   channel: z
     .string()
     .min(1, "Channel is required")
-    .describe("Channel ID where the message was posted"),
+    .describe("Channel ID (e.g. C01EXAMPLE, or a DM ID starting with D) or #channel-name where the message was posted"),
   ts: z
     .string()
     .min(1, "Message timestamp is required")
@@ -380,7 +384,7 @@ export const AddReactionParamsSchema = z.object({
   channel: z
     .string()
     .min(1, "Channel is required")
-    .describe("Channel ID where the message was posted"),
+    .describe("Channel ID (e.g. C01EXAMPLE, or a DM ID starting with D) or #channel-name where the message was posted"),
   ts: z
     .string()
     .min(1, "Message timestamp is required")
@@ -395,7 +399,7 @@ export const RemoveReactionParamsSchema = z.object({
   channel: z
     .string()
     .min(1, "Channel is required")
-    .describe("Channel ID where the message was posted"),
+    .describe("Channel ID (e.g. C01EXAMPLE, or a DM ID starting with D) or #channel-name where the message was posted"),
   ts: z
     .string()
     .min(1, "Message timestamp is required")
@@ -505,6 +509,104 @@ export const CreateDraftParamsSchema = z.object({
     .describe("Thread timestamp when the draft is a reply inside a thread"),
 });
 
+export const SearchMessagesParamsSchema = z.object({
+  query: z
+    .string()
+    .min(1, "Search query is required")
+    .describe("Slack search query. Supports Slack modifiers such as in:#channel, from:@user, has:link, before:2026-01-31 and after:2026-01-01"),
+  sort: z
+    .enum(["score", "timestamp"])
+    .optional()
+    .default("score")
+    .describe("Order by relevance (score) or by date (timestamp)"),
+  sort_dir: z
+    .enum(["asc", "desc"])
+    .optional()
+    .default("desc")
+    .describe("Sort direction"),
+  count: z
+    .number()
+    .int()
+    .positive()
+    .max(100)
+    .optional()
+    .default(20)
+    .describe("Results per page, up to 100"),
+  page: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .default(1)
+    .describe("Page number, starting at 1"),
+});
+
+export const ListChannelsParamsSchema = z.object({
+  types: z
+    .array(z.enum(["public_channel", "private_channel", "mpim", "im"]))
+    .optional()
+    .default(["public_channel", "private_channel"])
+    .describe("Conversation types to list"),
+  name_contains: z
+    .string()
+    .optional()
+    .describe("Only return channels whose name contains this text (case-insensitive), applied to the page Slack returned"),
+  exclude_archived: z
+    .boolean()
+    .optional()
+    .default(true)
+    .describe("Leave archived channels out"),
+  limit: z
+    .number()
+    .int()
+    .positive()
+    .max(1000)
+    .optional()
+    .default(200)
+    .describe("Channels per page, up to 1000"),
+  cursor: z
+    .string()
+    .optional()
+    .describe("Pagination cursor: pass the next_cursor from the previous call"),
+});
+
+export const ScheduleMessageParamsSchema = z.object({
+  channel: z
+    .string()
+    .min(1, "Channel is required")
+    .describe("Channel ID or #channel-name. For a DM, pass the DM channel ID (starts with D)"),
+  text: z
+    .string()
+    .min(1, "Message text is required")
+    .describe("Message content, written in markdown by default (see format)"),
+  post_at: z
+    .union([z.number().int().positive(), z.string().min(1)])
+    .describe("When to post: Unix timestamp in seconds, or an ISO 8601 date with timezone (e.g. 2026-10-01T09:00:00-03:00). Must be in the future and at most 120 days ahead"),
+  thread_ts: z
+    .string()
+    .optional()
+    .describe("Thread timestamp to schedule a reply in a thread"),
+  format: z
+    .enum(["markdown", "mrkdwn"])
+    .optional()
+    .describe("How to read the text. markdown (default) converts **bold**, [label](url) and lists to Slack mrkdwn. mrkdwn sends the text untouched"),
+});
+
+export const DeleteScheduledMessageParamsSchema = z.object({
+  channel: z
+    .string()
+    .min(1, "Channel is required")
+    .describe("Channel ID or #channel-name the message was scheduled in"),
+  scheduled_message_id: z
+    .string()
+    .min(1, "Scheduled message ID is required")
+    .describe("The scheduled_message_id returned by schedule_message"),
+});
+
+export type SearchMessagesParams = z.infer<typeof SearchMessagesParamsSchema>;
+export type ListChannelsParams = z.infer<typeof ListChannelsParamsSchema>;
+export type ScheduleMessageParams = z.infer<typeof ScheduleMessageParamsSchema>;
+export type DeleteScheduledMessageParams = z.infer<typeof DeleteScheduledMessageParamsSchema>;
 export type SearchUsersParams = z.infer<typeof SearchUsersParamsSchema>;
 export type GetUserProfileParams = z.infer<typeof GetUserProfileParamsSchema>;
 export type GetUserInfoParams = z.infer<typeof GetUserInfoParamsSchema>;

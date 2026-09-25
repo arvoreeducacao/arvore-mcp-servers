@@ -4,7 +4,7 @@ import type {
   TranscribeAudioParams,
   McpToolResult,
 } from "../types.js";
-import { SlackAdvancedMCPError } from "../types.js";
+import { toolError, toolOk } from "./result.js";
 
 export class AudioTools {
   constructor(
@@ -14,14 +14,12 @@ export class AudioTools {
 
   async transcribeAudio(params: TranscribeAudioParams): Promise<McpToolResult> {
     if (!this.elevenlabs) {
-      return this.ok({
-        error: "ELEVENLABS_API_KEY not configured. Audio transcription is unavailable.",
-      });
+      return toolError("ELEVENLABS_API_KEY not configured. Audio transcription is unavailable.");
     }
 
     try {
       if (!params.file_url && !params.file_id) {
-        return this.ok({ error: "Either file_url or file_id is required" });
+        return toolError("Either file_url or file_id is required");
       }
 
       let fileUrl: string;
@@ -46,32 +44,13 @@ export class AudioTools {
 
       const lastWord = (result.words ?? []).at(-1);
 
-      return this.ok({
+      return toolOk({
         text: result.text,
         language: result.languageCode,
         duration_seconds: lastWord?.end ?? null,
       });
     } catch (error) {
-      return this.formatError(error);
+      return toolError(error);
     }
-  }
-
-  private ok(data: unknown): McpToolResult {
-    return {
-      content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
-    };
-  }
-
-  private formatError(error: unknown): McpToolResult {
-    const message =
-      error instanceof SlackAdvancedMCPError
-        ? `Slack Error: ${error.message}`
-        : error instanceof Error
-          ? `Unexpected error: ${error.message}`
-          : "Unexpected error: Unknown error";
-
-    return {
-      content: [{ type: "text", text: JSON.stringify({ error: message }, null, 2) }],
-    };
   }
 }

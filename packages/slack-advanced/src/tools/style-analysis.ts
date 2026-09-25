@@ -5,7 +5,7 @@ import type {
   SlackMessage,
   WritingStyleProfile,
 } from "../types.js";
-import { SlackAdvancedMCPError } from "../types.js";
+import { toolError, toolOk } from "./result.js";
 
 export class StyleAnalysisTools {
   constructor(private readonly slack: SlackClient) {}
@@ -18,10 +18,7 @@ export class StyleAnalysisTools {
       const messages = await this.collectUserMessages(channelId, userId, params.sample_size);
 
       if (messages.length === 0) {
-        return this.ok({
-          error: "No messages found for this user in the specified channel",
-          user_id: userId,
-        });
+        return toolError("No messages found for this user in the specified channel", { user_id: userId });
       }
 
       const users = await this.slack.getAllUsers();
@@ -29,9 +26,9 @@ export class StyleAnalysisTools {
 
       const profile = this.buildProfile(messages, userId, userInfo?.real_name ?? userInfo?.name ?? userId);
 
-      return this.ok(profile);
+      return toolOk(profile);
     } catch (error) {
-      return this.formatError(error);
+      return toolError(error);
     }
   }
 
@@ -194,25 +191,6 @@ export class StyleAnalysisTools {
         messages_in_threads: threadMessages,
         messages_in_channels: messages.length - threadMessages,
       },
-    };
-  }
-
-  private ok(data: unknown): McpToolResult {
-    return {
-      content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
-    };
-  }
-
-  private formatError(error: unknown): McpToolResult {
-    const message =
-      error instanceof SlackAdvancedMCPError
-        ? `Slack Error: ${error.message}`
-        : error instanceof Error
-          ? `Unexpected error: ${error.message}`
-          : "Unexpected error: Unknown error";
-
-    return {
-      content: [{ type: "text", text: JSON.stringify({ error: message }, null, 2) }],
     };
   }
 }

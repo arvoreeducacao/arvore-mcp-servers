@@ -5,7 +5,7 @@ import type {
   GetUserInfoParams,
   McpToolResult,
 } from "../types.js";
-import { SlackAdvancedMCPError } from "../types.js";
+import { toolError, toolOk } from "./result.js";
 
 export class UserTools {
   constructor(private readonly slack: SlackClient) {}
@@ -51,9 +51,9 @@ export class UserTools {
         score: r.score,
       }));
 
-      return this.ok(results);
+      return toolOk(results);
     } catch (error) {
-      return this.formatError(error);
+      return toolError(error);
     }
   }
 
@@ -63,12 +63,12 @@ export class UserTools {
       const user = users.find((u) => u.id === params.user_id);
 
       if (!user) {
-        return this.ok({ error: `User not found: ${params.user_id}` });
+        return toolError(`User not found: ${params.user_id}`);
       }
 
       const profile = user.profile as Record<string, unknown>;
 
-      return this.ok({
+      return toolOk({
         id: user.id,
         name: user.name,
         real_name: user.real_name,
@@ -82,7 +82,7 @@ export class UserTools {
         image: profile.image_192 ?? profile.image_72 ?? null,
       });
     } catch (error) {
-      return this.formatError(error);
+      return toolError(error);
     }
   }
 
@@ -96,7 +96,7 @@ export class UserTools {
 
       const profile = (userInfo.profile ?? {}) as Record<string, unknown>;
 
-      return this.ok({
+      return toolOk({
         id: userInfo.id,
         name: userInfo.name,
         real_name: userInfo.real_name ?? null,
@@ -129,7 +129,7 @@ export class UserTools {
         image_512: profile.image_512 ?? null,
       });
     } catch (error) {
-      return this.formatError(error);
+      return toolError(error);
     }
   }
 
@@ -158,24 +158,5 @@ export class UserTools {
     const consecutiveBonus = maxConsecutive / query.length;
 
     return Math.round((coverage * 30 + consecutiveBonus * 20) * (matched >= query.length ? 1 : 0.5));
-  }
-
-  private ok(data: unknown): McpToolResult {
-    return {
-      content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
-    };
-  }
-
-  private formatError(error: unknown): McpToolResult {
-    const message =
-      error instanceof SlackAdvancedMCPError
-        ? `Slack Error: ${error.message}`
-        : error instanceof Error
-          ? `Unexpected error: ${error.message}`
-          : "Unexpected error: Unknown error";
-
-    return {
-      content: [{ type: "text", text: JSON.stringify({ error: message }, null, 2) }],
-    };
   }
 }

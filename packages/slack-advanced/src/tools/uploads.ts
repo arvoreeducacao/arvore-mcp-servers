@@ -8,12 +8,14 @@ import type {
   SendFileParams,
   McpToolResult,
 } from "../types.js";
-import { SlackAdvancedMCPError } from "../types.js";
+import { toolError, toolOk } from "./result.js";
+import { FileAccessPolicy } from "../file-access.js";
 
 export class UploadTools {
   constructor(
     private readonly slack: SlackClient,
-    private readonly elevenlabs: ElevenLabsSTTClient | null
+    private readonly elevenlabs: ElevenLabsSTTClient | null,
+    private readonly files: FileAccessPolicy = new FileAccessPolicy()
   ) {}
 
   private caption(params: { message?: string; format?: "markdown" | "mrkdwn" }): string | undefined {
@@ -24,26 +26,26 @@ export class UploadTools {
   async sendAudio(params: SendAudioParams): Promise<McpToolResult> {
     try {
       if (params.text) {
-        return this.generateAndSend(params);
+        return await this.generateAndSend(params);
       }
-      return this.uploadAndSend(params, "audio");
+      return await this.uploadAndSend(params, "audio");
     } catch (error) {
-      return this.formatError(error);
+      return toolError(error);
     }
   }
 
   async sendImage(params: SendImageParams): Promise<McpToolResult> {
     try {
-      return this.uploadAndSend(params, "image");
+      return await this.uploadAndSend(params, "image");
     } catch (error) {
-      return this.formatError(error);
+      return toolError(error);
     }
   }
 
   async sendFile(params: SendFileParams): Promise<McpToolResult> {
     try {
       if (!params.file_path && !params.file_base64 && !params.content) {
-        return this.ok({ error: "Either file_path, file_base64, or content is required" });
+        return toolError("Either file_path, file_base64, or content is required");
       }
 
       let fileBuffer: Buffer;
@@ -54,11 +56,9 @@ export class UploadTools {
         fileBuffer = Buffer.from(params.file_base64, "base64");
       } else {
         try {
-          fileBuffer = readFileSync(params.file_path!);
+          fileBuffer = readFileSync(this.files.check(params.file_path!, "read"));
         } catch (err) {
-          return this.ok({
-            error: `Failed to read file: ${err instanceof Error ? err.message : String(err)}`,
-          });
+          return toolError(`Failed to read file: ${err instanceof Error ? err.message : String(err)}`);
         }
       }
 
@@ -72,7 +72,7 @@ export class UploadTools {
         threadTs: params.thread_ts,
       });
 
-      return this.ok({
+      return toolOk({
         sent: true,
         type: "file",
         channel: channelId,
@@ -84,15 +84,13 @@ export class UploadTools {
         size_bytes: fileBuffer.length,
       });
     } catch (error) {
-      return this.formatError(error);
+      return toolError(error);
     }
   }
 
   private async generateAndSend(params: SendAudioParams): Promise<McpToolResult> {
     if (!this.elevenlabs) {
-      return this.ok({
-        error: "ELEVENLABS_API_KEY not configured. TTS audio generation is unavailable.",
-      });
+      return toolError("ELEVENLABS_API_KEY not configured. TTS audio generation is unavailable.");
     }
 
     const audioBuffer = await this.elevenlabs.textToSpeech({
@@ -113,7 +111,7 @@ export class UploadTools {
       threadTs: params.thread_ts,
     });
 
-    return this.ok({
+    return toolOk({
       sent: true,
       type: "tts_audio",
       channel: channelId,
@@ -133,7 +131,7 @@ export class UploadTools {
     type: "audio" | "image"
   ): Promise<McpToolResult> {
     if (!params.file_path && !params.file_base64) {
-      return this.ok({ error: "Either text (for TTS), file_path, or file_base64 is required" });
+      return toolError("Either text (for TTS), file_path, or file_base64 is required");
     }
 
     let fileBuffer: Buffer;
@@ -142,11 +140,9 @@ export class UploadTools {
       fileBuffer = Buffer.from(params.file_base64, "base64");
     } else {
       try {
-        fileBuffer = readFileSync(params.file_path!);
+        fileBuffer = readFileSync(this.files.check(params.file_path!, "read"));
       } catch (err) {
-        return this.ok({
-          error: `Failed to read file: ${err instanceof Error ? err.message : String(err)}`,
-        });
+        return toolError(`Failed to read file: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
 
@@ -160,7 +156,7 @@ export class UploadTools {
       threadTs: params.thread_ts,
     });
 
-    return this.ok({
+    return toolOk({
       sent: true,
       type,
       channel: channelId,
@@ -179,24 +175,5 @@ export class UploadTools {
       return this.slack.openDm(userId);
     }
     return this.slack.resolveChannelId(target);
-  }
-
-  private ok(data: unknown): McpToolResult {
-    return {
-      content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
-    };
-  }
-
-  private formatError(error: unknown): McpToolResult {
-    const message =
-      error instanceof SlackAdvancedMCPError
-        ? `Slack Error: ${error.message}`
-        : error instanceof Error
-          ? `Unexpected error: ${error.message}`
-          : "Unexpected error: Unknown error";
-
-    return {
-      content: [{ type: "text", text: JSON.stringify({ error: message }, null, 2) }],
-    };
   }
 }
