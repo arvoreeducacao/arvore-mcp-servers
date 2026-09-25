@@ -397,18 +397,19 @@ export class MessagingTools {
         }
       }
 
-      if (params.topic) {
-        await this.slack.request<{ ok: boolean }>("conversations.setTopic", {
-          channel: channelId,
-          topic: params.topic,
-        });
-      }
+      const setupErrors: Array<{ step: string; error: string }> = [];
+      const settings: Array<[string, string | undefined, string]> = [
+        ["conversations.setTopic", params.topic, "topic"],
+        ["conversations.setPurpose", params.purpose, "purpose"],
+      ];
 
-      if (params.purpose) {
-        await this.slack.request<{ ok: boolean }>("conversations.setPurpose", {
-          channel: channelId,
-          purpose: params.purpose,
-        });
+      for (const [method, value, field] of settings) {
+        if (!value) continue;
+        try {
+          await this.slack.request<{ ok: boolean }>(method, { channel: channelId, [field]: value });
+        } catch (error) {
+          setupErrors.push({ step: field, error: error instanceof Error ? error.message : `Failed to set ${field}` });
+        }
       }
 
       return toolOk({
@@ -418,6 +419,7 @@ export class MessagingTools {
         is_private: createRes.channel.is_private,
         invited,
         ...(inviteErrors.length > 0 && { invite_errors: inviteErrors }),
+        ...(setupErrors.length > 0 && { setup_errors: setupErrors }),
       });
     } catch (error) {
       return toolError(error);

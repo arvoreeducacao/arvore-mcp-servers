@@ -52,6 +52,11 @@ function describeNetworkError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+function startsAWord(field: string, query: string): boolean {
+  if (field.startsWith(query)) return true;
+  return field.split(/[\s._-]+/).some((word, index) => index > 0 && word.startsWith(query));
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -290,7 +295,7 @@ export class SlackClient {
     if (exact.length === 1) return exact[0].id;
     if (exact.length > 1) throw this.ambiguousUser(identifier, exact);
 
-    const partial = users.filter((u) => fields(u).some((f) => f.includes(query)));
+    const partial = users.filter((u) => fields(u).some((f) => startsAWord(f, query)));
     if (partial.length === 1) return partial[0].id;
     if (partial.length > 1) throw this.ambiguousUser(identifier, partial);
 

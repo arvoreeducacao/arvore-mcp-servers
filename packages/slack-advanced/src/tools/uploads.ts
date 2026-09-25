@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { SlackClient } from "../slack-client.js";
 import { ElevenLabsSTTClient } from "../elevenlabs-client.js";
 import { toSlackText } from "../formatting.js";
@@ -56,7 +55,7 @@ export class UploadTools {
         fileBuffer = Buffer.from(params.file_base64, "base64");
       } else {
         try {
-          fileBuffer = readFileSync(this.files.check(params.file_path!, "read"));
+          fileBuffer = this.files.read(params.file_path!);
         } catch (err) {
           return toolError(`Failed to read file: ${err instanceof Error ? err.message : String(err)}`);
         }
@@ -140,7 +139,7 @@ export class UploadTools {
       fileBuffer = Buffer.from(params.file_base64, "base64");
     } else {
       try {
-        fileBuffer = readFileSync(this.files.check(params.file_path!, "read"));
+        fileBuffer = this.files.read(params.file_path!);
       } catch (err) {
         return toolError(`Failed to read file: ${err instanceof Error ? err.message : String(err)}`);
       }

@@ -90,6 +90,7 @@ describe("resolveUserId", () => {
     { id: "U003", name: "anabela", real_name: "Anabela Reis" },
     { id: "U004", name: "joao.silva", real_name: "João Silva" },
     { id: "U005", name: "joao.santos", real_name: "João Santos" },
+    { id: "U006", name: "fabiana", real_name: "Fabiana Souza" },
   ];
 
   it("prefers the one exact match over partial ones", async () => {
@@ -111,6 +112,12 @@ describe("resolveUserId", () => {
   it("accepts a single partial match", async () => {
     fetchMock.mockResolvedValue(users(people));
     await expect(newClient().resolveUserId("santos")).resolves.toBe("U005");
+  });
+
+  it("does not match a name hidden in the middle of another word", async () => {
+    fetchMock.mockResolvedValue(users(people));
+    const error = await newClient().resolveUserId("bia").catch((e) => e);
+    expect(error.code).toBe("USER_NOT_FOUND");
   });
 
   it("takes Enterprise Grid W ids as they are", async () => {

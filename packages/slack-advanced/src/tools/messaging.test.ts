@@ -113,3 +113,22 @@ describe("channel names on message actions", () => {
     expect(request).toHaveBeenCalledWith("reactions.add", { channel: "C0123ABCD", timestamp: "1.2", name: "eyes" });
   });
 });
+
+describe("createChannel", () => {
+  it("reports the channel as created when only the topic fails, so the agent does not retry into name_taken", async () => {
+    const request = vi.fn(async (method: string) => {
+      if (method === "conversations.create") return { ok: true, channel: { id: "C0NEWCHAN", name: "novo", is_private: false } };
+      throw new SlackAdvancedMCPError("Slack API error: too_long", "SLACK_API_ERROR");
+    });
+    const slack = { request } as unknown as SlackClient;
+
+    const result = await new MessagingTools(slack).createChannel({ name: "novo", is_private: false, topic: "x".repeat(300) });
+
+    expect(result.isError).toBeUndefined();
+    expect(JSON.parse((result.content[0] as { text: string }).text)).toMatchObject({
+      created: true,
+      channel_id: "C0NEWCHAN",
+      setup_errors: [{ step: "topic" }],
+    });
+  });
+});

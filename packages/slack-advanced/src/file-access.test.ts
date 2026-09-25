@@ -14,6 +14,12 @@ beforeAll(() => {
   mkdirSync(join(home, "shots"), { recursive: true });
   writeFileSync(join(home, ".ssh", "id_ed25519"), "secret");
   writeFileSync(join(home, "shots", "tela.png"), "png");
+  mkdirSync(join(home, ".aws"), { recursive: true });
+  writeFileSync(join(home, ".aws", "credentials"), "secret");
+  mkdirSync(join(home, ".hive", "shots"), { recursive: true });
+  writeFileSync(join(home, ".hive", "key-rafael"), "-----BEGIN OPENSSH PRIVATE KEY-----\nabc\n-----END OPENSSH PRIVATE KEY-----\n");
+  writeFileSync(join(home, ".hive", "shots", "chave.png"), "-----BEGIN RSA PRIVATE KEY-----\nabc\n");
+  writeFileSync(join(home, ".hive", "shots", "print.png"), "png");
   symlinkSync(join(home, ".ssh", "id_ed25519"), join(home, "shots", "innocent.png"));
 });
 
@@ -44,6 +50,32 @@ describe("FileAccessPolicy without an allowlist", () => {
     expect(() => policy().check("/etc/hosts", "write")).toThrow(/credential or system/);
   });
 
+  it("blocks a credential folder written in another case, which macOS opens anyway", () => {
+    expect(() => policy().check(join(home, ".AWS", "credentials"), "read")).toThrow(/credential/);
+    expect(() => policy().check(join(home, "project", ".ENV"), "read")).toThrow(/credential/);
+  });
+
+  it("blocks a private key by its content, whatever the name", () => {
+    expect(() => policy().check(join(home, ".hive", "shots", "chave.png"), "read")).toThrow(/private key/);
+    expect(() => policy().check(join(home, ".hive", "key-rafael"), "read")).toThrow(/credential|private key/);
+  });
+
+  it("still lets the Hive screenshots through", () => {
+    expect(policy().check(join(home, ".hive", "shots", "print.png"), "read")).toBe(join(home, ".hive", "shots", "print.png"));
+  });
+
+  it("refuses writes that could run code", () => {
+    for (const target of [
+      join(home, ".zshrc"),
+      join(home, "Library", "LaunchAgents", "x.plist"),
+      join(home, ".claude", "settings.json"),
+      join(home, "repo", ".git", "hooks", "pre-commit"),
+    ]) {
+      expect(() => policy().check(target, "write")).toThrow();
+    }
+    expect(policy().check(join(home, "Downloads", "report.pdf"), "write")).toBe(join(home, "Downloads", "report.pdf"));
+  });
+
   it("requires an absolute path", () => {
     expect(() => policy().check("shots/tela.png", "read")).toThrow(/absolute/);
   });
@@ -55,6 +87,11 @@ describe("FileAccessPolicy with an allowlist", () => {
 
     expect(policy.check(join(home, "shots", "tela.png"), "read")).toBe(join(home, "shots", "tela.png"));
     expect(() => policy.check(join(home, "other.png"), "read")).toThrow(/SLACK_FILE_ALLOWED_DIRS/);
+  });
+
+  it("still refuses a private key inside an allowed folder", () => {
+    const policy = new FileAccessPolicy(parseAllowedDirs(join(home, ".hive")), home);
+    expect(() => policy.check(join(home, ".hive", "shots", "chave.png"), "read")).toThrow(/private key/);
   });
 
   it("does not treat a sibling with the same prefix as inside", () => {
