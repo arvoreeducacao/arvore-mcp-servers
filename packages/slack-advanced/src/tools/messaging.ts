@@ -16,10 +16,24 @@ import type {
   CreateGroupDmParams,
   CreateDraftParams,
   WaitForReplyParams,
+  ScheduleMessageParams,
+  DeleteScheduledMessageParams,
   McpToolResult,
   SlackMessage,
 } from "../types.js";
 import { SlackAdvancedMCPError } from "../types.js";
+import { toolError, toolOk } from "./result.js";
+
+const MAX_SCHEDULE_AHEAD_SECONDS = 120 * 24 * 60 * 60;
+
+export function parsePostAt(value: number | string): number | null {
+  if (typeof value === "number") return Math.floor(value);
+  if (/^\d+$/.test(value.trim())) return parseInt(value.trim(), 10);
+  const hasTimezone = /(Z|[+-]\d{2}:?\d{2})$/i.test(value.trim());
+  if (!hasTimezone) return null;
+  const ms = Date.parse(value);
+  return Number.isNaN(ms) ? null : Math.floor(ms / 1000);
+}
 
 export function isAiAttributionEnabled(value: string | undefined): boolean {
   return !["false", "0", "off", "no"].includes((value ?? "").trim().toLowerCase());
@@ -89,7 +103,7 @@ export class MessagingTools {
         message: { text: string; ts: string };
       }>("chat.postMessage", msgParams);
 
-      return this.ok({
+      return toolOk({
         sent: true,
         channel: res.channel,
         ts: res.ts,
@@ -97,7 +111,7 @@ export class MessagingTools {
         sent_text: mrkdwn,
       });
     } catch (error) {
-      return this.formatError(error);
+      return toolError(error);
     }
   }
 
@@ -122,7 +136,7 @@ export class MessagingTools {
         response_metadata?: { next_cursor?: string };
       }>("conversations.history", historyParams);
 
-      return this.ok({
+      return toolOk({
         messages: res.messages.map((m) => ({
           user: m.user,
           text: extractMessageText(m),
@@ -144,7 +158,7 @@ export class MessagingTools {
         with_user_id: userId,
       });
     } catch (error) {
-      return this.formatError(error);
+      return toolError(error);
     }
   }
 
@@ -184,7 +198,7 @@ export class MessagingTools {
         }
       }
 
-      return this.ok({
+      return toolOk({
         channel_id: channelId,
         messages: res.messages.map((m) => ({
           user_id: m.user,
@@ -207,7 +221,7 @@ export class MessagingTools {
         next_cursor: res.response_metadata?.next_cursor || null,
       });
     } catch (error) {
-      return this.formatError(error);
+      return toolError(error);
     }
   }
 
@@ -239,14 +253,14 @@ export class MessagingTools {
         message: { text: string; ts: string };
       }>("chat.postMessage", msgParams);
 
-      return this.ok({
+      return toolOk({
         sent: true,
         channel: res.channel,
         ts: res.ts,
         sent_text: mrkdwn,
       });
     } catch (error) {
-      return this.formatError(error);
+      return toolError(error);
     }
   }
 
@@ -254,26 +268,27 @@ export class MessagingTools {
     try {
       const { mrkdwn, blocks } = this.compose(params.text, params.format);
 
+      const channelId = await this.slack.resolveChannelId(params.channel);
       const res = await this.slack.request<{
         ok: boolean;
         channel: string;
         ts: string;
         text: string;
       }>("chat.update", {
-        channel: params.channel,
+        channel: channelId,
         ts: params.ts,
         text: mrkdwn,
         blocks: JSON.stringify(blocks),
       });
 
-      return this.ok({
+      return toolOk({
         edited: true,
         channel: res.channel,
         ts: res.ts,
         sent_text: mrkdwn,
       });
     } catch (error) {
-      return this.formatError(error);
+      return toolError(error);
     }
   }
 
@@ -284,55 +299,57 @@ export class MessagingTools {
         channel: string;
         ts: string;
       }>("chat.delete", {
-        channel: params.channel,
+        channel: await this.slack.resolveChannelId(params.channel),
         ts: params.ts,
       });
 
-      return this.ok({
+      return toolOk({
         deleted: true,
         channel: res.channel,
         ts: res.ts,
       });
     } catch (error) {
-      return this.formatError(error);
+      return toolError(error);
     }
   }
 
   async addReaction(params: AddReactionParams): Promise<McpToolResult> {
     try {
+      const channelId = await this.slack.resolveChannelId(params.channel);
       await this.slack.request<{ ok: boolean }>("reactions.add", {
-        channel: params.channel,
+        channel: channelId,
         timestamp: params.ts,
         name: params.emoji,
       });
 
-      return this.ok({
+      return toolOk({
         reacted: true,
-        channel: params.channel,
+        channel: channelId,
         ts: params.ts,
         emoji: params.emoji,
       });
     } catch (error) {
-      return this.formatError(error);
+      return toolError(error);
     }
   }
 
   async removeReaction(params: RemoveReactionParams): Promise<McpToolResult> {
     try {
+      const channelId = await this.slack.resolveChannelId(params.channel);
       await this.slack.request<{ ok: boolean }>("reactions.remove", {
-        channel: params.channel,
+        channel: channelId,
         timestamp: params.ts,
         name: params.emoji,
       });
 
-      return this.ok({
+      return toolOk({
         removed: true,
-        channel: params.channel,
+        channel: channelId,
         ts: params.ts,
         emoji: params.emoji,
       });
     } catch (error) {
-      return this.formatError(error);
+      return toolError(error);
     }
   }
 
@@ -380,30 +397,32 @@ export class MessagingTools {
         }
       }
 
-      if (params.topic) {
-        await this.slack.request<{ ok: boolean }>("conversations.setTopic", {
-          channel: channelId,
-          topic: params.topic,
-        });
+      const setupErrors: Array<{ step: string; error: string }> = [];
+      const settings: Array<[string, string | undefined, string]> = [
+        ["conversations.setTopic", params.topic, "topic"],
+        ["conversations.setPurpose", params.purpose, "purpose"],
+      ];
+
+      for (const [method, value, field] of settings) {
+        if (!value) continue;
+        try {
+          await this.slack.request<{ ok: boolean }>(method, { channel: channelId, [field]: value });
+        } catch (error) {
+          setupErrors.push({ step: field, error: error instanceof Error ? error.message : `Failed to set ${field}` });
+        }
       }
 
-      if (params.purpose) {
-        await this.slack.request<{ ok: boolean }>("conversations.setPurpose", {
-          channel: channelId,
-          purpose: params.purpose,
-        });
-      }
-
-      return this.ok({
+      return toolOk({
         created: true,
         channel_id: channelId,
         name: createRes.channel.name,
         is_private: createRes.channel.is_private,
         invited,
         ...(inviteErrors.length > 0 && { invite_errors: inviteErrors }),
+        ...(setupErrors.length > 0 && { setup_errors: setupErrors }),
       });
     } catch (error) {
-      return this.formatError(error);
+      return toolError(error);
     }
   }
 
@@ -424,10 +443,10 @@ export class MessagingTools {
         }
       }
 
-      if (resolved.length === 0) {
-        return this.ok({
+      if (resolveErrors.length > 0) {
+        return toolError("Some users could not be resolved, so the group DM was not opened", {
           created: false,
-          error: "No users could be resolved",
+          resolved,
           resolve_errors: resolveErrors,
         });
       }
@@ -454,7 +473,7 @@ export class MessagingTools {
         messageTs = res.ts;
       }
 
-      return this.ok({
+      return toolOk({
         created: true,
         channel_id: channelId,
         members: resolved,
@@ -462,7 +481,7 @@ export class MessagingTools {
         ...(resolveErrors.length > 0 && { resolve_errors: resolveErrors }),
       });
     } catch (error) {
-      return this.formatError(error);
+      return toolError(error);
     }
   }
 
@@ -475,7 +494,7 @@ export class MessagingTools {
 
       const blocks = markdownToRichText(params.text);
       if (blocks.length === 0) {
-        return this.ok({ error: "Draft text produced no content" });
+        return toolError("Draft text produced no content");
       }
 
       const destination: Record<string, unknown> = { channel_id: channelId };
@@ -495,17 +514,15 @@ export class MessagingTools {
         });
       } catch (error) {
         if (error instanceof SlackAdvancedMCPError && error.message.includes("attached_draft_exists")) {
-          return this.ok({
-            created: false,
-            channel: channelId,
-            error:
-              "Slack keeps only one draft per conversation and this one already has an unsent draft. Ask the user to send or discard it in the Slack app, then try again",
-          });
+          return toolError(
+            "Slack keeps only one draft per conversation and this one already has an unsent draft. Ask the user to send or discard it in the Slack app, then try again",
+            { created: false, channel: channelId }
+          );
         }
         throw error;
       }
 
-      return this.ok({
+      return toolOk({
         created: true,
         draft_id: res.draft.id,
         channel: channelId,
@@ -514,7 +531,71 @@ export class MessagingTools {
         note: "The draft is waiting in Slack for the user to review and send. Slack offers no API to read, edit or delete a draft with a user token, so it can only be changed from the Slack app",
       });
     } catch (error) {
-      return this.formatError(error);
+      return toolError(error);
+    }
+  }
+
+  async scheduleMessage(params: ScheduleMessageParams): Promise<McpToolResult> {
+    try {
+      const postAt = parsePostAt(params.post_at);
+      if (postAt === null) {
+        return toolError(`Could not read post_at: ${params.post_at}. Use Unix seconds or an ISO 8601 date with timezone`);
+      }
+
+      const nowSeconds = Math.floor(Date.now() / 1000);
+      if (postAt <= nowSeconds) {
+        return toolError(`post_at must be in the future (got ${new Date(postAt * 1000).toISOString()})`);
+      }
+      if (postAt > nowSeconds + MAX_SCHEDULE_AHEAD_SECONDS) {
+        return toolError("post_at must be at most 120 days ahead, the Slack limit");
+      }
+
+      const channelId = await this.slack.resolveChannelId(params.channel);
+      const { mrkdwn, blocks } = this.compose(params.text, params.format);
+
+      const res = await this.slack.request<{
+        ok: boolean;
+        channel: string;
+        scheduled_message_id: string;
+        post_at: number;
+      }>("chat.scheduleMessage", {
+        channel: channelId,
+        text: mrkdwn,
+        blocks: JSON.stringify(blocks),
+        post_at: postAt,
+        thread_ts: params.thread_ts,
+        unfurl_links: false,
+        unfurl_media: false,
+      });
+
+      return toolOk({
+        scheduled: true,
+        channel: res.channel,
+        scheduled_message_id: res.scheduled_message_id,
+        post_at: res.post_at,
+        post_at_iso: new Date(res.post_at * 1000).toISOString(),
+        sent_text: mrkdwn,
+      });
+    } catch (error) {
+      return toolError(error);
+    }
+  }
+
+  async deleteScheduledMessage(params: DeleteScheduledMessageParams): Promise<McpToolResult> {
+    try {
+      const channelId = await this.slack.resolveChannelId(params.channel);
+      await this.slack.request<{ ok: boolean }>("chat.deleteScheduledMessage", {
+        channel: channelId,
+        scheduled_message_id: params.scheduled_message_id,
+      });
+
+      return toolOk({
+        deleted: true,
+        channel: channelId,
+        scheduled_message_id: params.scheduled_message_id,
+      });
+    } catch (error) {
+      return toolError(error);
     }
   }
 
@@ -536,7 +617,7 @@ export class MessagingTools {
 
       while (Date.now() < deadline) {
         if (signal?.aborted) {
-          return this.ok({
+          return toolOk({
             replied: false,
             cancelled: true,
             channel_id: channelId,
@@ -561,7 +642,7 @@ export class MessagingTools {
           .sort((a, b) => Number(a.ts) - Number(b.ts))[0];
 
         if (reply) {
-          return this.ok({
+          return toolOk({
             replied: true,
             text: reply.text,
             ts: reply.ts,
@@ -576,7 +657,7 @@ export class MessagingTools {
         await this.sleep(Math.min(pollMs, remaining), signal);
       }
 
-      return this.ok({
+      return toolOk({
         replied: false,
         timed_out: true,
         channel_id: channelId,
@@ -584,7 +665,7 @@ export class MessagingTools {
         waited_seconds: params.timeout_seconds,
       });
     } catch (error) {
-      return this.formatError(error);
+      return toolError(error);
     }
   }
 
@@ -602,24 +683,5 @@ export class MessagingTools {
         );
       }
     });
-  }
-
-  private ok(data: unknown): McpToolResult {
-    return {
-      content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
-    };
-  }
-
-  private formatError(error: unknown): McpToolResult {
-    const message =
-      error instanceof SlackAdvancedMCPError
-        ? `Slack Error: ${error.message}`
-        : error instanceof Error
-          ? `Unexpected error: ${error.message}`
-          : "Unexpected error: Unknown error";
-
-    return {
-      content: [{ type: "text", text: JSON.stringify({ error: message }, null, 2) }],
-    };
   }
 }

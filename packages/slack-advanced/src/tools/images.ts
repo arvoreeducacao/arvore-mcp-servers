@@ -1,5 +1,5 @@
 import { writeFileSync, mkdirSync } from "node:fs";
-import { dirname, isAbsolute } from "node:path";
+import { dirname } from "node:path";
 import { SlackClient } from "../slack-client.js";
 import type {
   AnalyzeImageParams,
@@ -9,15 +9,19 @@ import type {
   McpTextContent,
   McpImageContent,
 } from "../types.js";
-import { SlackAdvancedMCPError } from "../types.js";
+import { toolError, toolOk } from "./result.js";
+import { FileAccessPolicy } from "../file-access.js";
 
 export class ImageTools {
-  constructor(private readonly slack: SlackClient) {}
+  constructor(
+    private readonly slack: SlackClient,
+    private readonly files: FileAccessPolicy = new FileAccessPolicy()
+  ) {}
 
   async analyzeImage(params: AnalyzeImageParams): Promise<McpToolResult> {
     try {
       if (!params.file_url && !params.file_id) {
-        return this.ok({ error: "Either file_url or file_id is required" });
+        return toolError("Either file_url or file_id is required");
       }
 
       let fileUrl: string;
@@ -59,7 +63,7 @@ export class ImageTools {
         content: [imageContent, textContent],
       };
     } catch (error) {
-      return this.formatError(error);
+      return toolError(error);
     }
   }
 
@@ -67,7 +71,7 @@ export class ImageTools {
     try {
       const file = await this.slack.getFileInfo(params.file_id);
 
-      return this.ok({
+      return toolOk({
         id: file.id,
         name: file.name,
         mimetype: file.mimetype,
@@ -77,7 +81,7 @@ export class ImageTools {
         url_private: file.url_private,
       });
     } catch (error) {
-      return this.formatError(error);
+      return toolError(error);
     }
   }
 
@@ -96,32 +100,25 @@ export class ImageTools {
 
       const maxBytes = (params.max_size_mb ?? 10) * 1024 * 1024;
       if (fileSize > maxBytes) {
-        return this.ok({
-          error: `File too large: ${(fileSize / 1024 / 1024).toFixed(1)}MB exceeds limit of ${params.max_size_mb}MB`,
-          file: { id: params.file_id, name: filename, size: fileSize, mimetype },
-        });
+        return toolError(
+          `File too large: ${(fileSize / 1024 / 1024).toFixed(1)}MB exceeds limit of ${params.max_size_mb}MB`,
+          { file: { id: params.file_id, name: filename, size: fileSize, mimetype } }
+        );
       }
 
       const buffer = await this.slack.downloadFile(fileUrl);
       const isText = this.isTextMime(mimetype) || this.isTextFiletype(filename);
 
       if (params.output_path) {
-        if (!isAbsolute(params.output_path)) {
-          return this.ok({
-            error: `output_path must be an absolute path, got: ${params.output_path}`,
-          });
-        }
-
         try {
-          mkdirSync(dirname(params.output_path), { recursive: true });
-          writeFileSync(params.output_path, buffer);
+          const outputPath = this.files.check(params.output_path, "write");
+          mkdirSync(dirname(outputPath), { recursive: true });
+          writeFileSync(outputPath, buffer);
         } catch (err) {
-          return this.ok({
-            error: `Failed to write file: ${err instanceof Error ? err.message : String(err)}`,
-          });
+          return toolError(`Failed to write file: ${err instanceof Error ? err.message : String(err)}`);
         }
 
-        return this.ok({
+        return toolOk({
           file: { id: params.file_id, name: filename, size: buffer.length, mimetype },
           written_to: params.output_path,
           encoding: isText ? "utf-8" : "binary",
@@ -129,20 +126,20 @@ export class ImageTools {
       }
 
       if (isText) {
-        return this.ok({
+        return toolOk({
           file: { id: params.file_id, name: filename, size: buffer.length, mimetype },
           encoding: "utf-8",
           content: buffer.toString("utf-8"),
         });
       }
 
-      return this.ok({
+      return toolOk({
         file: { id: params.file_id, name: filename, size: buffer.length, mimetype },
         encoding: "base64",
         content: buffer.toString("base64"),
       });
     } catch (error) {
-      return this.formatError(error);
+      return toolError(error);
     }
   }
 
@@ -179,24 +176,5 @@ export class ImageTools {
       bmp: "image/bmp",
     };
     return types[ext ?? ""] ?? "image/png";
-  }
-
-  private ok(data: unknown): McpToolResult {
-    return {
-      content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
-    };
-  }
-
-  private formatError(error: unknown): McpToolResult {
-    const message =
-      error instanceof SlackAdvancedMCPError
-        ? `Slack Error: ${error.message}`
-        : error instanceof Error
-          ? `Unexpected error: ${error.message}`
-          : "Unexpected error: Unknown error";
-
-    return {
-      content: [{ type: "text", text: JSON.stringify({ error: message }, null, 2) }],
-    };
   }
 }

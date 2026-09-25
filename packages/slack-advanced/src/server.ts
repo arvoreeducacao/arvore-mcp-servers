@@ -9,6 +9,8 @@ import { ThreadTools } from "./tools/threads.js";
 import { AudioTools } from "./tools/audio.js";
 import { ImageTools } from "./tools/images.js";
 import { UploadTools } from "./tools/uploads.js";
+import { DiscoveryTools } from "./tools/discovery.js";
+import { FileAccessPolicy, parseAllowedDirs } from "./file-access.js";
 import {
   SearchUsersParamsSchema,
   GetUserProfileParamsSchema,
@@ -34,6 +36,10 @@ import {
   CreateGroupDmParamsSchema,
   CreateDraftParamsSchema,
   WaitForReplyParamsSchema,
+  SearchMessagesParamsSchema,
+  ListChannelsParamsSchema,
+  ScheduleMessageParamsSchema,
+  DeleteScheduledMessageParamsSchema,
 } from "./types.js";
 
 export class SlackAdvancedMCPServer {
@@ -45,6 +51,7 @@ export class SlackAdvancedMCPServer {
   private readonly audioTools: AudioTools;
   private readonly imageTools: ImageTools;
   private readonly uploadTools: UploadTools;
+  private readonly discoveryTools: DiscoveryTools;
 
   constructor() {
     const slackToken = process.env.SLACK_USER_TOKEN;
@@ -75,9 +82,12 @@ export class SlackAdvancedMCPServer {
     this.messagingTools = new MessagingTools(slack, isAiAttributionEnabled(process.env.SLACK_AI_ATTRIBUTION));
     this.styleTools = new StyleAnalysisTools(slack);
     this.threadTools = new ThreadTools(slack);
+    const files = new FileAccessPolicy(parseAllowedDirs(process.env.SLACK_FILE_ALLOWED_DIRS));
+
     this.audioTools = new AudioTools(slack, elevenlabs);
-    this.imageTools = new ImageTools(slack);
-    this.uploadTools = new UploadTools(slack, elevenlabs);
+    this.imageTools = new ImageTools(slack, files);
+    this.uploadTools = new UploadTools(slack, elevenlabs, files);
+    this.discoveryTools = new DiscoveryTools(slack);
 
     this.setupTools();
   }
@@ -113,7 +123,7 @@ export class SlackAdvancedMCPServer {
     this.server.registerTool("send_dm", {
       title: "Send DM",
       description:
-        "Send a direct message to a user. Resolves user by name, email, or ID automatically. Opens DM channel if needed. Messages are sent as the authenticated user, and support optional message metadata. Text is markdown by default and can be sent as raw Slack mrkdwn with format. The reply echoes sent_text, which is exactly what Slack stored.",
+        "Send a direct message to a user. Resolves user by name, email, or ID automatically; a name that matches more than one person returns an AMBIGUOUS_USER error with the candidates instead of guessing. Opens DM channel if needed. Messages are sent as the authenticated user, and support optional message metadata. Text is markdown by default and can be sent as raw Slack mrkdwn with format. The reply echoes sent_text, which is exactly what Slack stored.",
       inputSchema: SendDmParamsSchema.shape,
     }, async (params) => {
       return this.messagingTools.sendDm(SendDmParamsSchema.parse(params));
@@ -158,7 +168,7 @@ export class SlackAdvancedMCPServer {
     this.server.registerTool("get_thread_from_link", {
       title: "Get Thread From Link",
       description:
-        "Extract all messages from a Slack thread given its URL. Resolves user names and returns structured message data with participants.",
+        "Extract the messages of a Slack thread given the link to its first message or to any reply in it. Resolves user names and returns structured message data with participants. Long threads paginate: pass next_cursor back as cursor.",
       inputSchema: GetThreadFromLinkParamsSchema.shape,
     }, async (params) => {
       return this.threadTools.getThreadFromLink(GetThreadFromLinkParamsSchema.parse(params));
@@ -230,7 +240,7 @@ export class SlackAdvancedMCPServer {
     this.server.registerTool("edit_message", {
       title: "Edit Message",
       description:
-        "Edit a message that was previously sent by the authenticated user. Requires the channel ID and message timestamp (ts). Only your own messages can be edited.",
+        "Edit a message that was previously sent by the authenticated user. Requires the channel (ID or #channel-name) and message timestamp (ts). Only your own messages can be edited.",
       inputSchema: EditMessageParamsSchema.shape,
     }, async (params) => {
       return this.messagingTools.editMessage(EditMessageParamsSchema.parse(params));
@@ -266,7 +276,7 @@ export class SlackAdvancedMCPServer {
     this.server.registerTool("create_channel", {
       title: "Create Channel",
       description:
-        "Create a new Slack channel (public or private) and optionally invite users to it. Users can be referenced by ID, email, or display name. Optionally sets a topic and purpose. Returns the new channel ID, invited users, and any invite errors. Requires channels:manage and/or groups:write scopes, plus channels:write.invites for inviting members.",
+        "Create a new Slack channel (public or private) and optionally invite users to it. Users can be referenced by ID, email, or display name; a name that matches more than one person is reported in invite_errors instead of guessing. Optionally sets a topic and purpose. Returns the new channel ID, invited users, and any invite errors. Requires channels:manage and/or groups:write scopes, plus channels:write.invites for inviting members.",
       inputSchema: CreateChannelParamsSchema.shape,
     }, async (params) => {
       return this.messagingTools.createChannel(CreateChannelParamsSchema.parse(params));
@@ -275,7 +285,7 @@ export class SlackAdvancedMCPServer {
     this.server.registerTool("create_group_dm", {
       title: "Create Group DM",
       description:
-        "Open a multi-person direct message (MPDM / group DM) with multiple users and optionally post a message in it. Users can be referenced by ID, email, or display name (the authenticated user is added automatically, up to 8 other members). Users that cannot be resolved are reported in resolve_errors without aborting the operation. Requires the mpim:write scope.",
+        "Open a multi-person direct message (MPDM / group DM) with multiple users and optionally post a message in it. Users can be referenced by ID, email, or display name (the authenticated user is added automatically, up to 8 other members). If any user cannot be resolved, or a name matches more than one person, nothing is opened and resolve_errors lists what to fix. Requires the mpim:write scope.",
       inputSchema: CreateGroupDmParamsSchema.shape,
     }, async (params) => {
       return this.messagingTools.createGroupDm(CreateGroupDmParamsSchema.parse(params));
@@ -288,6 +298,42 @@ export class SlackAdvancedMCPServer {
       inputSchema: CreateDraftParamsSchema.shape,
     }, async (params) => {
       return this.messagingTools.createDraft(CreateDraftParamsSchema.parse(params));
+    });
+
+    this.server.registerTool("search_messages", {
+      title: "Search Messages",
+      description:
+        "Search messages across the workspace the authenticated user can see, with Slack's own search. Supports modifiers such as in:#channel, from:@user, has:link, before: and after:. Returns channel, author, text, ts and permalink for each match. Requires the search:read scope.",
+      inputSchema: SearchMessagesParamsSchema.shape,
+    }, async (params) => {
+      return this.discoveryTools.searchMessages(SearchMessagesParamsSchema.parse(params));
+    });
+
+    this.server.registerTool("list_channels", {
+      title: "List Channels",
+      description:
+        "List conversations the token can see (public and private channels by default; also group DMs and DMs via types). Returns id, name, privacy, membership, member count, topic and purpose. Paginate with next_cursor; name_contains filters each page.",
+      inputSchema: ListChannelsParamsSchema.shape,
+    }, async (params) => {
+      return this.discoveryTools.listChannels(ListChannelsParamsSchema.parse(params));
+    });
+
+    this.server.registerTool("schedule_message", {
+      title: "Schedule Message",
+      description:
+        "Schedule a message to be posted later in a channel, DM channel or thread, as the authenticated user. post_at is Unix seconds or an ISO 8601 date with timezone, up to 120 days ahead. Returns scheduled_message_id, which delete_scheduled_message uses to cancel it. Text follows the same markdown rules as send_channel_message.",
+      inputSchema: ScheduleMessageParamsSchema.shape,
+    }, async (params) => {
+      return this.messagingTools.scheduleMessage(ScheduleMessageParamsSchema.parse(params));
+    });
+
+    this.server.registerTool("delete_scheduled_message", {
+      title: "Delete Scheduled Message",
+      description:
+        "Cancel a message scheduled with schedule_message before it is posted, using its channel and scheduled_message_id.",
+      inputSchema: DeleteScheduledMessageParamsSchema.shape,
+    }, async (params) => {
+      return this.messagingTools.deleteScheduledMessage(DeleteScheduledMessageParamsSchema.parse(params));
     });
 
     this.server.registerTool("wait_for_reply", {
