@@ -96,7 +96,7 @@ export class SlackAdvancedMCPServer {
     this.server.registerTool("search_users", {
       title: "Search Users",
       description:
-        "Fuzzy search for Slack users by name, email, or display name. Returns ranked results with match scores.",
+        "Fuzzy search for Slack users by name, real name, display name, username or email, ignoring accents and punctuation. Includes people from other organizations connected by Slack Connect who share a channel or a DM with the user, marked external. Returns ranked results with match scores.",
       inputSchema: SearchUsersParamsSchema.shape,
     }, async (params) => {
       return this.userTools.searchUsers(SearchUsersParamsSchema.parse(params));
@@ -123,7 +123,7 @@ export class SlackAdvancedMCPServer {
     this.server.registerTool("send_dm", {
       title: "Send DM",
       description:
-        "Send a direct message to a user. Resolves user by name, email, or ID automatically; a name that matches more than one person returns an AMBIGUOUS_USER error with the candidates instead of guessing. Opens DM channel if needed. Messages are sent as the authenticated user, and support optional message metadata. Text is markdown by default and can be sent as raw Slack mrkdwn with format. The reply echoes sent_text, which is exactly what Slack stored.",
+        "Send a direct message to a user. Resolves user by name, email, or ID automatically, and also takes an existing DM id (D...) or its link, which is the sure way to reach someone from another organization over Slack Connect; a name that matches more than one person returns an AMBIGUOUS_USER error with the candidates instead of guessing. Opens DM channel if needed. Messages are sent as the authenticated user, and support optional message metadata. Text is markdown by default and can be sent as raw Slack mrkdwn with format. The reply echoes sent_text, which is exactly what Slack stored.",
       inputSchema: SendDmParamsSchema.shape,
     }, async (params) => {
       return this.messagingTools.sendDm(SendDmParamsSchema.parse(params));
@@ -141,7 +141,7 @@ export class SlackAdvancedMCPServer {
     this.server.registerTool("get_dm_history", {
       title: "Get DM History",
       description:
-        "Get DM conversation history with a user. Resolves user by name, email, or ID. Supports pagination.",
+        "Get DM conversation history with a user. Resolves user by name, email, or ID, or takes the DM id (D...) directly. Supports pagination.",
       inputSchema: GetDmHistoryParamsSchema.shape,
     }, async (params) => {
       return this.messagingTools.getDmHistory(GetDmHistoryParamsSchema.parse(params));

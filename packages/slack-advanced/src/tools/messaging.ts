@@ -76,8 +76,7 @@ export class MessagingTools {
 
   async sendDm(params: SendDmParams): Promise<McpToolResult> {
     try {
-      const userId = await this.slack.resolveUserId(params.user);
-      const channelId = await this.slack.openDm(userId);
+      const { channelId, userId } = await this.slack.resolveDm(params.user);
 
       const { mrkdwn, blocks } = this.compose(params.text, params.format);
       const msgParams: Record<string, unknown> = {
@@ -117,8 +116,7 @@ export class MessagingTools {
 
   async getDmHistory(params: GetDmHistoryParams): Promise<McpToolResult> {
     try {
-      const userId = await this.slack.resolveUserId(params.user);
-      const channelId = await this.slack.openDm(userId);
+      const { channelId, userId } = await this.slack.resolveDm(params.user);
 
       const historyParams: Record<string, unknown> = {
         channel: channelId,
@@ -489,7 +487,7 @@ export class MessagingTools {
     try {
       const channelId =
         params.target_type === "user"
-          ? await this.slack.openDm(await this.slack.resolveUserId(params.target))
+          ? (await this.slack.resolveDm(params.target)).channelId
           : await this.slack.resolveChannelId(params.target);
 
       const blocks = markdownToRichText(params.text);

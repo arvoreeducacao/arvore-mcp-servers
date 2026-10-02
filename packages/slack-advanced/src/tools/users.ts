@@ -6,6 +6,7 @@ import type {
   McpToolResult,
 } from "../types.js";
 import { toolError, toolOk } from "./result.js";
+import { rankUsers } from "../user-match.js";
 
 export class UserTools {
   constructor(private readonly slack: SlackClient) {}
@@ -13,43 +14,18 @@ export class UserTools {
   async searchUsers(params: SearchUsersParams): Promise<McpToolResult> {
     try {
       const users = await this.slack.getAllUsers();
-      const query = params.query.toLowerCase();
 
-      const scored = users
-        .map((u) => {
-          const fields = [u.name, u.real_name, u.display_name, u.email].map((f) =>
-            f.toLowerCase()
-          );
-
-          let score = 0;
-
-          for (const field of fields) {
-            if (field === query) {
-              score = Math.max(score, 100);
-            } else if (field.startsWith(query)) {
-              score = Math.max(score, 80);
-            } else if (field.includes(query)) {
-              score = Math.max(score, 60);
-            } else {
-              const fuzzyScore = this.fuzzyMatch(query, field);
-              score = Math.max(score, fuzzyScore);
-            }
-          }
-
-          return { user: u, score };
-        })
-        .filter((r) => r.score > 20)
-        .sort((a, b) => b.score - a.score)
-        .slice(0, params.limit);
-
-      const results = scored.map((r) => ({
-        id: r.user.id,
-        name: r.user.name,
-        real_name: r.user.real_name,
-        display_name: r.user.display_name,
-        email: r.user.email,
-        score: r.score,
-      }));
+      const results = rankUsers(users, params.query)
+        .slice(0, params.limit)
+        .map((r) => ({
+          id: r.user.id,
+          name: r.user.name,
+          real_name: r.user.real_name,
+          display_name: r.user.display_name,
+          email: r.user.email,
+          ...(r.user.external && { external: true, team_id: r.user.team_id ?? null }),
+          score: r.score,
+        }));
 
       return toolOk(results);
     } catch (error) {
@@ -74,6 +50,7 @@ export class UserTools {
         real_name: user.real_name,
         display_name: user.display_name,
         email: user.email,
+        ...(user.external && { external: true, team_id: user.team_id ?? null }),
         title: profile.title ?? null,
         status: profile.status_text
           ? `${profile.status_emoji ?? ""} ${profile.status_text}`
@@ -131,32 +108,5 @@ export class UserTools {
     } catch (error) {
       return toolError(error);
     }
-  }
-
-  private fuzzyMatch(query: string, target: string): number {
-    if (target.length === 0) return 0;
-
-    let qi = 0;
-    let matched = 0;
-    let consecutive = 0;
-    let maxConsecutive = 0;
-
-    for (let ti = 0; ti < target.length && qi < query.length; ti++) {
-      if (query[qi] === target[ti]) {
-        matched++;
-        consecutive++;
-        maxConsecutive = Math.max(maxConsecutive, consecutive);
-        qi++;
-      } else {
-        consecutive = 0;
-      }
-    }
-
-    if (matched === 0) return 0;
-
-    const coverage = matched / query.length;
-    const consecutiveBonus = maxConsecutive / query.length;
-
-    return Math.round((coverage * 30 + consecutiveBonus * 20) * (matched >= query.length ? 1 : 0.5));
   }
 }

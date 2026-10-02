@@ -38,6 +38,34 @@ Slack's API only lets a user token create a draft. Reading, editing and deleting
 
 `schedule_message` posts later, up to 120 days ahead. `post_at` is Unix seconds or an ISO 8601 date with a timezone; a date without one is refused, because it would be read in the server's clock zone. `delete_scheduled_message` cancels it with the returned `scheduled_message_id`.
 
+## People from other organizations (Slack Connect)
+
+`users.list` only returns people from the user's own workspace, so someone who talks to the team over Slack Connect never shows up there. The user directory therefore also reads the members of every externally shared channel and group DM the user is in, plus the other side of every open DM, and looks each unknown id up with `users.info`. Those people come back from `search_users` with `external: true` and their `team_id`.
+
+Matching ignores case, accents and punctuation, and looks at the username, real name, display name and email, so `nimbus`, `pat (nimbus)` and `Pat Rivera` all find "Pat Rivera (Nimbus)". A name that does not resolve returns `USER_NOT_FOUND` with the closest people, typos included, and nothing is sent.
+
+`send_dm`, `get_dm_history` and `create_draft` also take a DM id (`D...`) or a link to it, which reaches the person even when they share no channel with the user.
+
+## Slack app scopes
+
+The server runs on a user token (`xoxp-`). The Slack app behind it needs these User Token Scopes:
+
+| scope | used by |
+| --- | --- |
+| `users:read` | the user directory, `get_user_info`, presence |
+| `users:read.email` | finding someone by email, and emails in search results |
+| `channels:read`, `groups:read`, `mpim:read` | channel names, shared channels and their members |
+| `im:read` | finding Slack Connect people through open DMs |
+| `channels:history`, `groups:history`, `im:history`, `mpim:history` | reading messages, threads and `wait_for_reply` |
+| `chat:write` | sending, editing, deleting and scheduling messages |
+| `im:write`, `mpim:write` | opening a DM or a group DM |
+| `channels:write`, `groups:write`, `channels:write.invites` | creating channels, inviting people, topic and purpose |
+| `reactions:write` | `add_reaction`, `remove_reaction` |
+| `files:read`, `files:write` | reading and uploading images, audio and files |
+| `search:read` | `search_messages` |
+
+When a scope is missing the call fails with `MISSING_SCOPE` and the message names the scope Slack asked for. Add it to the app, reinstall it and replace `SLACK_USER_TOKEN` with the new token. Finding people never fails for a missing scope: a source the token cannot read is skipped and the rest still works.
+
 ## Safety
 
 - **The token only goes to Slack.** `analyze_image`, `transcribe_audio` and `download_file` accept a `file_url`, and the token is sent with it only when it is https on `slack.com` or `slack-edge.com`. A redirect off Slack is refused too. Any other address fails with `UNTRUSTED_FILE_URL`.
@@ -54,6 +82,6 @@ Slack's API only lets a user token create a draft. Reading, editing and deleting
 | `ELEVENLABS_API_KEY` | no | audio transcription and text to speech |
 | `ELEVENLABS_DEFAULT_VOICE_ID` | no | default voice for `send_audio` |
 | `SLACK_USERS_CACHE_PATH` | no | where the user directory is cached |
-| `SLACK_USERS_CACHE_TTL_MINUTES` | no | cache lifetime, 240 by default |
+| `SLACK_USERS_CACHE_TTL_MINUTES` | no | cache lifetime, 240 by default; the first load after it expires also looks up Slack Connect people and takes a few seconds |
 | `SLACK_FILE_ALLOWED_DIRS` | no | folders (separated by `:` or `,`) that file tools may read and write; when unset, only credential and system locations are refused |
 | `SLACK_AI_ATTRIBUTION` | no | `false` removes the "Mensagem gerada e enviada por um agente de IA" line from sent messages; on by default |

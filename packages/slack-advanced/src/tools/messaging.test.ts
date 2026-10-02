@@ -59,6 +59,20 @@ describe("parsePostAt", () => {
   });
 });
 
+describe("sendDm", () => {
+  it("posts straight to a DM id, without resolving a person", async () => {
+    const request = vi.fn().mockResolvedValue({ ok: true, channel: "D0DIRECTMS1", ts: "1.0" });
+    const resolveDm = vi.fn().mockResolvedValue({ channelId: "D0DIRECTMS1", userId: null });
+    const slack = { resolveDm, request } as unknown as SlackClient;
+
+    const result = await new MessagingTools(slack).sendDm({ user: "D0DIRECTMS1", text: "oi" });
+
+    expect(result.isError).toBeUndefined();
+    expect(resolveDm).toHaveBeenCalledWith("D0DIRECTMS1");
+    expect(request).toHaveBeenCalledWith("chat.postMessage", expect.objectContaining({ channel: "D0DIRECTMS1" }));
+  });
+});
+
 describe("tool errors", () => {
   const slackThatFails = (error: Error) =>
     ({
