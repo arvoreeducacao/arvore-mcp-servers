@@ -4,7 +4,7 @@ export const SearchUsersParamsSchema = z.object({
   query: z
     .string()
     .min(1, "Search query is required")
-    .describe("Name, email, display name, or partial match to search for"),
+    .describe("Name, display name, real name, username or email, whole or partial, with or without accents. Also finds people from other organizations (Slack Connect) who share a channel or a DM with the user"),
   limit: z
     .number()
     .int()
@@ -36,7 +36,7 @@ export const SendDmParamsSchema = z.object({
   user: z
     .string()
     .min(1, "User identifier is required")
-    .describe("User ID, email, or display name to send DM to"),
+    .describe("Who to DM: user ID (also of a Slack Connect user from another organization), email, name or display name, or an existing DM id (D...) or its link"),
   text: z
     .string()
     .min(1, "Message text is required")
@@ -58,7 +58,7 @@ export const GetDmHistoryParamsSchema = z.object({
   user: z
     .string()
     .min(1, "User identifier is required")
-    .describe("User ID, email, or display name"),
+    .describe("User ID, email, name or display name, or an existing DM id (D...) or its link"),
   limit: z
     .number()
     .int()
@@ -495,7 +495,7 @@ export const CreateDraftParamsSchema = z.object({
   target: z
     .string()
     .min(1, "Target is required")
-    .describe("User (name, email, or ID) or channel (ID or #channel-name) the draft is addressed to"),
+    .describe("User (name, email, user ID, or an existing DM id D...) or channel (ID or #channel-name) the draft is addressed to"),
   target_type: z
     .enum(["user", "channel"])
     .describe("Whether the target is a user (DM) or a channel"),

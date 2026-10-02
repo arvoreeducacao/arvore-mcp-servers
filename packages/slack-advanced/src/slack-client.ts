@@ -3,10 +3,16 @@ import { dirname } from "node:path";
 import { homedir } from "node:os";
 import { SlackAdvancedMCPError } from "./types.js";
 import type { SlackFile } from "./types.js";
+import { CONFIDENT_SCORE, EXACT_SCORE, rankUsers } from "./user-match.js";
 
 const MAX_RETRIES = 3;
 const SLACK_USER_ID = /^[UW][A-Z0-9]{6,}$/;
 const SLACK_CONVERSATION_ID = /^[CDG][A-Z0-9]{6,}$/;
+const SLACK_DM_ID = /^D[A-Z0-9]{6,}$/;
+const SLACK_DM_LINK = /\/archives\/(D[A-Z0-9]{6,})(?:[/?#]|$)/;
+const DISK_CACHE_VERSION = 2;
+const MAX_EXTERNAL_LOOKUPS = 300;
+const EXTERNAL_LOOKUP_CONCURRENCY = 5;
 
 const NON_IDEMPOTENT_METHODS = new Set([
   "chat.postMessage",
@@ -52,9 +58,25 @@ function describeNetworkError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-function startsAWord(field: string, query: string): boolean {
-  if (field.startsWith(query)) return true;
-  return field.split(/[\s._-]+/).some((word, index) => index > 0 && word.startsWith(query));
+export function missingScopeError(method: string, needed?: unknown): SlackAdvancedMCPError {
+  const scope = typeof needed === "string" && needed ? needed : "an extra";
+  return new SlackAdvancedMCPError(
+    `Slack API error: missing_scope. ${method} needs the ${scope} scope, which this token was not granted. Add ${scope} to the User Token Scopes of the Slack app, reinstall the app and update SLACK_USER_TOKEN`,
+    "MISSING_SCOPE"
+  );
+}
+
+async function mapWithConcurrency<T, R>(items: T[], concurrency: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const index = next++;
+      results[index] = await fn(items[index]);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, worker));
+  return results;
 }
 
 function sleep(ms: number): Promise<void> {
@@ -79,9 +101,44 @@ export type SlackClientOptions = {
   channelCacheTtlMinutes?: number;
 };
 
-type CachedUser = { id: string; name: string; real_name: string; display_name: string; email: string; profile: Record<string, unknown> };
+export type CachedUser = {
+  id: string;
+  name: string;
+  real_name: string;
+  display_name: string;
+  email: string;
+  team_id?: string;
+  external?: boolean;
+  profile: Record<string, unknown>;
+};
+
+type SlackConversation = { id: string; user?: string; is_user_deleted?: boolean; is_ext_shared?: boolean };
+
+type SlackMember = {
+  id: string;
+  name: string;
+  team_id?: string;
+  real_name?: string;
+  deleted?: boolean;
+  is_bot?: boolean;
+  profile?: { display_name?: string; real_name?: string; email?: string; [key: string]: unknown };
+};
+
+function toCachedUser(member: SlackMember, external: boolean): CachedUser {
+  return {
+    id: member.id,
+    name: member.name ?? "",
+    real_name: member.real_name || member.profile?.real_name || "",
+    display_name: member.profile?.display_name ?? "",
+    email: member.profile?.email ?? "",
+    team_id: member.team_id,
+    ...(external && { external: true }),
+    profile: member.profile ?? {},
+  };
+}
 
 interface DiskCache {
+  version?: number;
   timestamp: number;
   users: CachedUser[];
 }
@@ -123,6 +180,7 @@ export class SlackClient {
 
       const raw = readFileSync(this.cachePath, "utf-8");
       const data = JSON.parse(raw) as DiskCache;
+      if (data.version !== DISK_CACHE_VERSION) return;
 
       this.usersCache = new Map(data.users.map((u) => [u.id, u]));
       this.usersCacheTimestamp = data.timestamp;
@@ -139,7 +197,7 @@ export class SlackClient {
         mkdirSync(dir, { recursive: true });
       }
 
-      const data: DiskCache = { timestamp: Date.now(), users };
+      const data: DiskCache = { version: DISK_CACHE_VERSION, timestamp: Date.now(), users };
       writeFileSync(this.cachePath, JSON.stringify(data), "utf-8");
       console.error(`Saved ${users.length} users to disk cache`);
     } catch (err) {
@@ -209,6 +267,10 @@ export class SlackClient {
 
       const data = (await res.json()) as Record<string, unknown> & { ok: boolean; error?: string };
 
+      if (!data.ok && data.error === "missing_scope") {
+        throw missingScopeError(method, data.needed);
+      }
+
       if (!data.ok) {
         throw new SlackAdvancedMCPError(
           `Slack API error: ${data.error ?? "unknown"}`,
@@ -232,7 +294,7 @@ export class SlackClient {
       return Array.from(this.usersCache.values());
     }
 
-    const users: CachedUser[] = [];
+    const members: CachedUser[] = [];
     let cursor: string | undefined;
 
     do {
@@ -241,37 +303,102 @@ export class SlackClient {
 
       const res = await this.request<{
         ok: boolean;
-        members: Array<{
-          id: string;
-          name: string;
-          real_name?: string;
-          deleted?: boolean;
-          is_bot?: boolean;
-          profile?: { display_name?: string; email?: string; [key: string]: unknown };
-        }>;
+        members: SlackMember[];
         response_metadata?: { next_cursor?: string };
       }>("users.list", params);
 
       for (const m of res.members) {
         if (m.deleted || m.is_bot) continue;
-        users.push({
-          id: m.id,
-          name: m.name,
-          real_name: m.real_name ?? "",
-          display_name: m.profile?.display_name ?? "",
-          email: m.profile?.email ?? "",
-          profile: m.profile ?? {},
-        });
+        members.push(toCachedUser(m, false));
       }
 
       cursor = res.response_metadata?.next_cursor || undefined;
     } while (cursor);
+
+    const external = await this.discoverExternalUsers(new Set(members.map((m) => m.id)));
+    const users = [...members, ...external];
 
     this.usersCache = new Map(users.map((u) => [u.id, u]));
     this.usersCacheTimestamp = now;
     this.saveDiskCache(users);
 
     return users;
+  }
+
+  private async discoverExternalUsers(known: Set<string>): Promise<CachedUser[]> {
+    const candidates = new Set<string>();
+
+    for (const userId of await this.optionalSource("DM list", () => this.listDmPartners())) {
+      candidates.add(userId);
+    }
+
+    const shared = await this.optionalSource("shared conversations", () => this.listSharedConversations());
+    const memberLists = await mapWithConcurrency(shared, EXTERNAL_LOOKUP_CONCURRENCY, (conversationId) =>
+      this.optionalSource(`members of ${conversationId}`, () => this.listMembers(conversationId))
+    );
+    for (const userId of memberLists.flat()) candidates.add(userId);
+
+    const unknown = [...candidates].filter((id) => !known.has(id) && SLACK_USER_ID.test(id)).slice(0, MAX_EXTERNAL_LOOKUPS);
+    const found = await mapWithConcurrency(unknown, EXTERNAL_LOOKUP_CONCURRENCY, (id) =>
+      this.optionalSource(`users.info ${id}`, async () => {
+        const res = await this.request<{ ok: boolean; user: SlackMember }>("users.info", { user: id });
+        return res.user && !res.user.deleted && !res.user.is_bot ? [toCachedUser(res.user, true)] : [];
+      })
+    );
+
+    if (unknown.length > 0) {
+      console.error(`Found ${found.flat().length} Slack Connect users outside users.list`);
+    }
+    return found.flat();
+  }
+
+  private async optionalSource<T>(label: string, load: () => Promise<T[]>): Promise<T[]> {
+    try {
+      return await load();
+    } catch (error) {
+      console.error(`Skipping ${label} while looking for Slack Connect users: ${error instanceof Error ? error.message : String(error)}`);
+      return [];
+    }
+  }
+
+  private async listMyConversations(types: string): Promise<SlackConversation[]> {
+    const conversations: SlackConversation[] = [];
+    let cursor: string | undefined;
+    do {
+      const res = await this.request<{
+        ok: boolean;
+        channels?: SlackConversation[];
+        response_metadata?: { next_cursor?: string };
+      }>("users.conversations", { types, exclude_archived: true, limit: 1000, cursor });
+      conversations.push(...(res.channels ?? []));
+      cursor = res.response_metadata?.next_cursor || undefined;
+    } while (cursor);
+    return conversations;
+  }
+
+  private async listDmPartners(): Promise<string[]> {
+    const dms = await this.listMyConversations("im");
+    return dms.filter((dm) => dm.user && !dm.is_user_deleted).map((dm) => dm.user as string);
+  }
+
+  private async listSharedConversations(): Promise<string[]> {
+    const conversations = await this.listMyConversations("public_channel,private_channel,mpim");
+    return conversations.filter((c) => c.is_ext_shared).map((c) => c.id);
+  }
+
+  private async listMembers(conversationId: string): Promise<string[]> {
+    const members: string[] = [];
+    let cursor: string | undefined;
+    do {
+      const res = await this.request<{
+        ok: boolean;
+        members?: string[];
+        response_metadata?: { next_cursor?: string };
+      }>("conversations.members", { channel: conversationId, limit: 1000, cursor });
+      members.push(...(res.members ?? []));
+      cursor = res.response_metadata?.next_cursor || undefined;
+    } while (cursor);
+    return members;
   }
 
   async resolveUserId(identifier: string): Promise<string> {
@@ -287,31 +414,44 @@ export class SlackClient {
       return res.user.id;
     }
 
-    const users = await this.getAllUsers();
-    const query = identifier.trim().toLowerCase().replace(/^@/, "");
-    const fields = (u: CachedUser) => [u.name, u.real_name, u.display_name].map((f) => f.toLowerCase());
+    const ranked = rankUsers(await this.getAllUsers(), identifier);
 
-    const exact = users.filter((u) => fields(u).includes(query));
+    const exact = ranked.filter((r) => r.score === EXACT_SCORE).map((r) => r.user);
     if (exact.length === 1) return exact[0].id;
     if (exact.length > 1) throw this.ambiguousUser(identifier, exact);
 
-    const partial = users.filter((u) => fields(u).some((f) => startsAWord(f, query)));
+    const partial = ranked.filter((r) => r.score >= CONFIDENT_SCORE).map((r) => r.user);
     if (partial.length === 1) return partial[0].id;
     if (partial.length > 1) throw this.ambiguousUser(identifier, partial);
 
-    throw new SlackAdvancedMCPError(
-      `Could not resolve user: ${identifier}`,
-      "USER_NOT_FOUND"
-    );
+    const closest = ranked.slice(0, 5).map((r) => this.describeUser(r.user));
+    const hint = closest.length > 0
+      ? ` Nothing was sent. Closest matches, retry with the user ID if one of them is the right person: ${JSON.stringify(closest)}`
+      : " Nothing was sent. People from other organizations (Slack Connect) are found only when they share a channel or a DM with the user; pass their user ID or the DM id (D...) instead";
+    throw new SlackAdvancedMCPError(`Could not resolve user: ${identifier}.${hint}`, "USER_NOT_FOUND");
   }
 
-  private ambiguousUser(identifier: string, candidates: CachedUser[]): SlackAdvancedMCPError {
-    const listed = candidates.slice(0, 10).map((u) => ({
+  async resolveDm(identifier: string): Promise<{ channelId: string; userId: string | null }> {
+    const trimmed = identifier.trim();
+    const dmId = SLACK_DM_ID.test(trimmed) ? trimmed : trimmed.match(SLACK_DM_LINK)?.[1];
+    if (dmId) return { channelId: dmId, userId: null };
+
+    const userId = await this.resolveUserId(trimmed);
+    return { channelId: await this.openDm(userId), userId };
+  }
+
+  private describeUser(u: CachedUser): Record<string, unknown> {
+    return {
       id: u.id,
       real_name: u.real_name,
       display_name: u.display_name,
       email: u.email,
-    }));
+      ...(u.external && { external: true }),
+    };
+  }
+
+  private ambiguousUser(identifier: string, candidates: CachedUser[]): SlackAdvancedMCPError {
+    const listed = candidates.slice(0, 10).map((u) => this.describeUser(u));
     const more = candidates.length > listed.length ? ` (showing ${listed.length} of ${candidates.length})` : "";
     return new SlackAdvancedMCPError(
       `"${identifier}" matches more than one user${more}. Nothing was sent. Retry with the user ID or email of the right person: ${JSON.stringify(listed)}`,
@@ -336,8 +476,9 @@ export class SlackClient {
       cursor: params.cursor,
     });
 
-    this.rememberChannels(res.channels);
-    return { channels: res.channels, nextCursor: res.response_metadata?.next_cursor || undefined };
+    const channels = res.channels ?? [];
+    this.rememberChannels(channels);
+    return { channels, nextCursor: res.response_metadata?.next_cursor || undefined };
   }
 
   private rememberChannels(channels: Array<{ id: string; name?: string }>): void {
@@ -371,8 +512,7 @@ export class SlackClient {
           cursor = page.nextCursor;
         } while (cursor);
       } catch (error) {
-        const isScopeError =
-          error instanceof SlackAdvancedMCPError && error.message.includes("missing_scope");
+        const isScopeError = error instanceof SlackAdvancedMCPError && error.code === "MISSING_SCOPE";
         if (!isScopeError) throw error;
       }
     }
