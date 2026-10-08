@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { MessagingTools, isAiAttributionEnabled, parsePostAt } from "./messaging.js";
 import { SlackAdvancedMCPError } from "../types.js";
+import type { McpTextContent, McpToolResult } from "../types.js";
 import type { SlackClient } from "../slack-client.js";
 import type { AgentPost, AgentVoice } from "../agent-voice.js";
 
@@ -39,7 +40,7 @@ describe("thread replies as the Hive bot", () => {
     const tools = new MessagingTools(slack, true, { replyInThread } as unknown as AgentVoice);
     return { tools, request, replyInThread };
   };
-  const answer = (result: { content: Array<{ text: string }> }) => JSON.parse(result.content[0].text);
+  const answer = (result: McpToolResult) => JSON.parse((result.content[0] as McpTextContent).text);
 
   it("sends the thread reply as the Hive bot and never with the user token", async () => {
     const { tools, request, replyInThread } = setup({ posted: true, channel: "C1", ts: "2.0" });
