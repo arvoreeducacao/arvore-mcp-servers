@@ -74,6 +74,14 @@ When a scope is missing the call fails with `MISSING_SCOPE` and the message name
 - **Errors are errors.** A failed call comes back with `isError: true` and a `code`, so the agent never reads a failure as a sent message.
 - **Retries never duplicate.** Rate limits (429) are retried on every call. Network errors and 5xx are retried only on reads; a write that fails that way is reported as possibly applied instead of being sent again. Every call has a timeout (30 s, 120 s for file transfers).
 
+## Thread replies come from the Hive bot
+
+A reply posted with the user token shows the user's name and photo, so an agent's answer reads as if the person wrote it, even with the attribution line. When the machine's Hive is linked to Slack (`slack-link.json` in `HIVE_HOME`, `~/.hive` by default), `send_channel_message` with a `thread_ts` posts through the Hive's `hive-slack-relay` instead, as the Hive bot, and answers `sent_as: "hive_bot"`.
+
+The relay only lets the bot write in a thread the user is part of, and passes plain text, so formatting is the mrkdwn the converter produced and `metadata` is dropped. When there is no link or the relay refuses, the reply goes out as the user, as before, with `sent_as: "user"` and the reason in `hive_bot_skipped`. When the relay does not answer at all, nothing is sent with the user token, because the bot may already have posted; the call fails with `MAYBE_POSTED`.
+
+A reply sent as the bot cannot be changed with `edit_message` or `delete_message`, which run on the user token.
+
 ## Environment
 
 | variable | required | what for |
@@ -84,4 +92,5 @@ When a scope is missing the call fails with `MISSING_SCOPE` and the message name
 | `SLACK_USERS_CACHE_PATH` | no | where the user directory is cached |
 | `SLACK_USERS_CACHE_TTL_MINUTES` | no | cache lifetime, 240 by default; the first load after it expires also looks up Slack Connect people and takes a few seconds |
 | `SLACK_FILE_ALLOWED_DIRS` | no | folders (separated by `:` or `,`) that file tools may read and write; when unset, only credential and system locations are refused |
+| `HIVE_HOME` | no | where the Hive keeps `slack-link.json`, `~/.hive` by default |
 | `SLACK_AI_ATTRIBUTION` | no | `false` removes the "Mensagem gerada e enviada por um agente de IA" line from sent messages; on by default |

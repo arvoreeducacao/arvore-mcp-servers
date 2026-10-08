@@ -4,6 +4,7 @@ import { SlackClient } from "./slack-client.js";
 import { ElevenLabsSTTClient } from "./elevenlabs-client.js";
 import { UserTools } from "./tools/users.js";
 import { MessagingTools, isAiAttributionEnabled } from "./tools/messaging.js";
+import { AgentVoice, readHiveLink } from "./agent-voice.js";
 import { StyleAnalysisTools } from "./tools/style-analysis.js";
 import { ThreadTools } from "./tools/threads.js";
 import { AudioTools } from "./tools/audio.js";
@@ -79,7 +80,11 @@ export class SlackAdvancedMCPServer {
     }
 
     this.userTools = new UserTools(slack);
-    this.messagingTools = new MessagingTools(slack, isAiAttributionEnabled(process.env.SLACK_AI_ATTRIBUTION));
+    this.messagingTools = new MessagingTools(
+      slack,
+      isAiAttributionEnabled(process.env.SLACK_AI_ATTRIBUTION),
+      new AgentVoice(readHiveLink())
+    );
     this.styleTools = new StyleAnalysisTools(slack);
     this.threadTools = new ThreadTools(slack);
     const files = new FileAccessPolicy(parseAllowedDirs(process.env.SLACK_FILE_ALLOWED_DIRS));
@@ -132,7 +137,7 @@ export class SlackAdvancedMCPServer {
     this.server.registerTool("send_channel_message", {
       title: "Send Channel Message",
       description:
-        "Send a message to a Slack channel. Accepts channel ID or #channel-name, and supports thread replies and optional message metadata. Text is markdown by default: **bold**, [label](url), lists and quotes are converted to Slack mrkdwn, and links with a non-web scheme such as hive:// survive the conversion. Text already written in Slack mrkdwn (*bold*, <url|label>) passes through untouched when format is mrkdwn. The reply echoes sent_text, which is exactly what Slack stored.",
+        "Send a message to a Slack channel. Accepts channel ID or #channel-name, and supports thread replies and optional message metadata. Text is markdown by default: **bold**, [label](url), lists and quotes are converted to Slack mrkdwn, and links with a non-web scheme such as hive:// survive the conversion. Text already written in Slack mrkdwn (*bold*, <url|label>) passes through untouched when format is mrkdwn. The reply echoes sent_text, which is exactly what Slack stored. A thread reply goes out as the Hive bot when this machine's Hive is linked to Slack and the user is part of the thread (sent_as: hive_bot), so it never reads as the user writing; otherwise it goes out as the user (sent_as: user).",
       inputSchema: SendChannelMessageParamsSchema.shape,
     }, async (params) => {
       return this.messagingTools.sendChannelMessage(SendChannelMessageParamsSchema.parse(params));
