@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { MessagingTools, isAiAttributionEnabled, parsePostAt } from "./messaging.js";
 import { SlackAdvancedMCPError } from "../types.js";
 import type { SlackClient } from "../slack-client.js";
+import type { AgentPost, AgentVoice } from "../agent-voice.js";
 
 const sentBlocks = async (attribution?: boolean): Promise<Array<Record<string, unknown>>> => {
   const request = vi.fn().mockResolvedValue({ ok: true, channel: "C1", ts: "1.0" });
@@ -27,6 +28,54 @@ describe("AI attribution", () => {
     const blocks = await sentBlocks(false);
     expect(blocks.some((block) => block.type === "context")).toBe(false);
     expect(blocks[0].type).toBe("rich_text");
+  });
+});
+
+describe("thread replies as the Hive bot", () => {
+  const setup = (post: AgentPost) => {
+    const request = vi.fn().mockResolvedValue({ ok: true, channel: "C1", ts: "3.0" });
+    const slack = { resolveChannelId: vi.fn().mockResolvedValue("C1"), request } as unknown as SlackClient;
+    const replyInThread = vi.fn().mockResolvedValue(post);
+    const tools = new MessagingTools(slack, true, { replyInThread } as unknown as AgentVoice);
+    return { tools, request, replyInThread };
+  };
+  const answer = (result: { content: Array<{ text: string }> }) => JSON.parse(result.content[0].text);
+
+  it("sends the thread reply as the Hive bot and never with the user token", async () => {
+    const { tools, request, replyInThread } = setup({ posted: true, channel: "C1", ts: "2.0" });
+
+    const result = await tools.sendChannelMessage({ channel: "C1", thread_ts: "1.0", text: "oi" });
+
+    expect(replyInThread).toHaveBeenCalledWith("C1", "1.0", "oi");
+    expect(request).not.toHaveBeenCalledWith("chat.postMessage", expect.anything());
+    expect(answer(result)).toMatchObject({ sent_as: "hive_bot", ts: "2.0" });
+  });
+
+  it("falls back to the user, with the attribution line, when the relay refuses", async () => {
+    const { tools, request } = setup({ posted: false, reason: "the Hive relay refused: not_your_thread" });
+
+    const result = await tools.sendChannelMessage({ channel: "C1", thread_ts: "1.0", text: "oi" });
+
+    expect(request).toHaveBeenCalledWith("chat.postMessage", expect.objectContaining({ thread_ts: "1.0" }));
+    expect(answer(result)).toMatchObject({ sent_as: "user", hive_bot_skipped: "the Hive relay refused: not_your_thread" });
+  });
+
+  it("does not send again when the relay may already have posted", async () => {
+    const { tools, request } = setup({ posted: false, maybePosted: true, reason: "the Hive relay did not answer: timed out" });
+
+    const result = await tools.sendChannelMessage({ channel: "C1", thread_ts: "1.0", text: "oi" });
+
+    expect(result.isError).toBe(true);
+    expect(request).not.toHaveBeenCalledWith("chat.postMessage", expect.anything());
+  });
+
+  it("keeps a message outside a thread with the user", async () => {
+    const { tools, replyInThread } = setup({ posted: true, channel: "C1", ts: "2.0" });
+
+    const result = await tools.sendChannelMessage({ channel: "C1", text: "oi" });
+
+    expect(replyInThread).not.toHaveBeenCalled();
+    expect(answer(result)).toMatchObject({ sent_as: "user" });
   });
 });
 
