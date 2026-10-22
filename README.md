@@ -156,6 +156,19 @@ Google Docs integration — create, read and edit documents.
 - Export as pdf / docx / txt / md / html / odt / rtf / epub
 - Runs over stdio or streamable-http
 
+### [@arvoretech/google-tasks-mcp](./packages/google-tasks)
+
+Google Tasks integration — the to-do list of Gmail and Google Calendar, which has no official MCP.
+
+**Features:**
+
+- List, create, rename and delete task lists
+- List open or completed tasks, filtered by due date, completion date or last change
+- Create tasks with notes, due date and subtasks; update, complete, reopen and delete them
+- Reorder, nest and move tasks between lists
+- Per-person Google sign-in for claude.ai connectors
+- Runs over stdio or streamable-http
+
 ### [@arvoretech/google-sheets-mcp](./packages/google-sheets)
 
 Google Sheets integration — read, write, reshape and format spreadsheets.
