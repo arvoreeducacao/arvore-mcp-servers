@@ -1,19 +1,30 @@
-import { existsSync, readdirSync, rmSync, statSync, unlinkSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, unlinkSync, writeFileSync } from "node:fs";
+import { extname, join } from "node:path";
 import {
   Browsers,
+  BufferJSON,
   DisconnectReason,
+  downloadMediaMessage,
   fetchLatestBaileysVersion,
+  isLidUser,
+  isPnUser,
   jidNormalizedUser,
   makeCacheableSignalKeyStore,
   makeWASocket,
+  normalizeMessageContent,
+  toNumber,
   useMultiFileAuthState,
+  WAMessageStubType,
+  type Chat,
+  type Contact,
+  type GroupMetadata,
   type WAMessage,
   type WAMessageContent,
   type WASocket,
 } from "baileys";
 import pino from "pino";
 import { MessageStore, type Direction, type SaveMessageOptions } from "./db.js";
+import { parseContent } from "./message-content.js";
 import { renderQrToAsciiString, renderQrToDataUrl, renderQrToPng, renderQrToTerminal } from "./qr.js";
 import { getAuthDir, getDataRoot, getQrPngPath } from "./paths.js";
 import { stripJidSuffix, toJid } from "./jid.js";
@@ -49,6 +60,24 @@ export type FetchHistoryResult = {
   note: string;
 };
 
+export type DownloadedMedia = {
+  messageId: string;
+  path: string;
+  mimetype: string;
+  mediaType: string;
+  bytes: number;
+  buffer: Buffer;
+};
+
+export type GroupInfo = {
+  jid: string;
+  subject: string;
+  description: string | null;
+  createdAt: string | null;
+  size: number;
+  participants: Array<{ jid: string; name: string | null; admin: string | null }>;
+};
+
 export type WhatsAppClientOptions = {
   root?: string;
   store?: MessageStore;
@@ -63,6 +92,7 @@ export class WhatsAppClient {
   private readonly root: string;
   private readonly label: string;
   private readonly renderTerminalQr: boolean;
+  private readonly groups = new Map<string, GroupMetadata>();
   private sock: WASocket | null = null;
   private state: ConnectionState = "close";
   private phone: string | null = null;
@@ -190,7 +220,8 @@ export class WhatsAppClient {
 
     this.store.saveMessage({
       id,
-      jid,
+      jid: this.canonical(jid) ?? jid,
+      senderJid: this.ownJid(),
       direction: "out",
       body: text,
       mediaType: null,
@@ -199,6 +230,7 @@ export class WhatsAppClient {
       pushName: null,
       quotedMessageId: opts.quotedMessageId ?? null,
       timestamp: Math.floor(Date.now() / 1000),
+      raw: sent ? serialize(sent) : null,
     });
 
     return { id, jid };
@@ -263,7 +295,8 @@ export class WhatsAppClient {
 
     this.store.saveMessage({
       id,
-      jid,
+      jid: this.canonical(jid) ?? jid,
+      senderJid: this.ownJid(),
       direction: "out",
       body: bodyLabel,
       mediaType: args.mediaType,
@@ -272,6 +305,7 @@ export class WhatsAppClient {
       pushName: null,
       quotedMessageId: args.quotedMessageId ?? null,
       timestamp: Math.floor(Date.now() / 1000),
+      raw: sent ? serialize(sent) : null,
     });
 
     return { id, jid };
@@ -306,6 +340,7 @@ export class WhatsAppClient {
       text: newText,
       edit: { remoteJid: jid, id: messageId, fromMe: true },
     });
+    this.store.editMessage(messageId, newText, Math.floor(Date.now() / 1000));
   }
 
   async deleteMessage(jid: string, messageId: string, fromMe = true): Promise<void> {
@@ -313,6 +348,7 @@ export class WhatsAppClient {
     await sock.sendMessage(jid, {
       delete: { remoteJid: jid, id: messageId, fromMe },
     });
+    this.store.markDeleted(messageId, Math.floor(Date.now() / 1000));
   }
 
   async resolveJid(input: string): Promise<{ input: string; jid: string | null; exists: boolean }> {
@@ -330,6 +366,65 @@ export class WhatsAppClient {
     }
 
     return { input, jid: candidate, exists: false };
+  }
+
+  async downloadMedia(messageId: string): Promise<DownloadedMedia> {
+    const message = this.store.findMessage(messageId);
+    if (!message) throw new Error(`Message ${messageId} is not stored.`);
+    if (!message.mediaType) throw new Error(`Message ${messageId} has no media.`);
+
+    const mimetype = message.mediaMimetype ?? "application/octet-stream";
+    if (message.mediaPath && existsSync(message.mediaPath)) {
+      const buffer = readFileSync(message.mediaPath);
+      return { messageId, path: message.mediaPath, mimetype, mediaType: message.mediaType, bytes: buffer.length, buffer };
+    }
+
+    const raw = this.store.findRaw(messageId);
+    if (!raw) {
+      throw new Error(
+        `The media keys of ${messageId} were not kept, so it cannot be downloaded. Only media received after this version can be.`
+      );
+    }
+
+    const waMessage = JSON.parse(raw, BufferJSON.reviver) as WAMessage;
+    const sock = this.sock;
+    const buffer = await downloadMediaMessage(
+      waMessage,
+      "buffer",
+      {},
+      sock ? { logger: logger as never, reuploadRequest: sock.updateMediaMessage } : undefined
+    );
+
+    const dir = join(this.root, "media");
+    mkdirSync(dir, { recursive: true });
+    const path = join(dir, `${messageId.replace(/[^A-Za-z0-9_-]/g, "_")}${mediaExtension(waMessage, mimetype)}`);
+    writeFileSync(path, buffer);
+    this.store.setMediaPath(messageId, path);
+
+    return { messageId, path, mimetype, mediaType: message.mediaType, bytes: buffer.length, buffer };
+  }
+
+  async groupInfo(jid: string): Promise<GroupInfo> {
+    const sock = this.requireSocket();
+    const meta = await sock.groupMetadata(jid);
+    this.rememberGroup(meta);
+
+    return {
+      jid: meta.id,
+      subject: meta.subject,
+      description: meta.desc ?? null,
+      createdAt: meta.creation ? new Date(meta.creation * 1000).toISOString() : null,
+      size: meta.size ?? meta.participants.length,
+      participants: meta.participants.map((participant) => {
+        const participantJid =
+          this.canonical(participant.id, participant.phoneNumber ?? participant.lid ?? null) ?? participant.id;
+        return {
+          jid: participantJid,
+          name: this.store.contactName(participantJid),
+          admin: participant.admin ?? null,
+        };
+      }),
+    };
   }
 
   private requireSocket(): WASocket {
@@ -357,6 +452,70 @@ export class WhatsAppClient {
     return candidate;
   }
 
+  private ownJid(): string | null {
+    return this.phone ? `${this.phone}@s.whatsapp.net` : null;
+  }
+
+  private canonical(jid: string | null | undefined, alt?: string | null): string | null {
+    if (!jid) return null;
+    const primary = jidNormalizedUser(jid);
+    const secondary = alt ? jidNormalizedUser(alt) : null;
+
+    if (isLidUser(primary)) {
+      if (secondary && isPnUser(secondary)) {
+        this.store.saveLidMapping(primary, secondary);
+        return secondary;
+      }
+      return this.store.pnForLid(primary) ?? primary;
+    }
+
+    if (secondary && isLidUser(secondary) && isPnUser(primary)) {
+      this.store.saveLidMapping(secondary, primary);
+    }
+    return primary;
+  }
+
+  private storedMessage(id: string | null | undefined): WAMessageContent | undefined {
+    if (!id) return undefined;
+    const raw = this.store.findRaw(id);
+    if (!raw) return undefined;
+    return (JSON.parse(raw, BufferJSON.reviver) as WAMessage).message ?? undefined;
+  }
+
+  private rememberGroup(meta: GroupMetadata): void {
+    this.groups.set(meta.id, meta);
+    if (meta.subject) this.store.setChatName(meta.id, meta.subject, true);
+  }
+
+  private saveContact(contact: Partial<Contact>): void {
+    if (!contact.id || contact.id.endsWith("@g.us")) return;
+    const id = jidNormalizedUser(contact.id);
+    const lid = contact.lid ? jidNormalizedUser(contact.lid) : isLidUser(id) ? id : null;
+    const pn = contact.phoneNumber ? jidNormalizedUser(contact.phoneNumber) : isPnUser(id) ? id : null;
+
+    if (lid && pn) this.store.saveLidMapping(lid, pn);
+    const jid = pn ?? (lid ? (this.store.pnForLid(lid) ?? lid) : id);
+
+    this.store.upsertContact({
+      jid,
+      name: contact.name ?? null,
+      pushName: contact.notify ?? contact.verifiedName ?? null,
+      phone: isPnUser(jid) ? stripJidSuffix(jid) : null,
+      lid: lid ? stripJidSuffix(lid) : null,
+    });
+  }
+
+  private saveHistoryChat(chat: Chat): void {
+    if (!chat.id || !chat.name) return;
+    const jid = this.canonical(chat.id, chat.pnJid ?? chat.lidJid ?? null);
+    if (!jid) return;
+    if (jid.endsWith("@g.us")) {
+      this.store.setChatName(jid, chat.name, true);
+    } else {
+      this.store.upsertContact({ jid, name: chat.name, phone: isPnUser(jid) ? stripJidSuffix(jid) : null });
+    }
+  }
+
   private async startSocket(): Promise<void> {
     this.state = "connecting";
     this.qr = null;
@@ -372,6 +531,8 @@ export class WhatsAppClient {
       this.rejectConnecting = reject;
     });
 
+    const fullHistory = process.env.WHATSAPP_SYNC_FULL_HISTORY === "true";
+
     const sock = makeWASocket({
       version,
       auth: {
@@ -382,8 +543,12 @@ export class WhatsAppClient {
       logger: logger as never,
       browser: Browsers.macOS("Arvore MCP"),
       generateHighQualityLinkPreview: false,
-      syncFullHistory: process.env.WHATSAPP_SYNC_FULL_HISTORY === "true",
+      syncFullHistory: fullHistory,
+      // Baileys drops FULL history chunks by default even when it asked for them.
+      ...(fullHistory ? { shouldSyncHistoryMessage: () => true } : {}),
       markOnlineOnConnect: false,
+      getMessage: async (key) => this.storedMessage(key.id),
+      cachedGroupMetadata: async (jid) => this.groups.get(jid),
     });
 
     this.sock = sock;
@@ -424,6 +589,13 @@ export class WhatsAppClient {
         process.stderr.write(`\n[whatsapp-mcp] ${this.label} connected${phone ? ` as ${phone}` : ""}\n`);
         this.resolveConnecting?.();
         this.connectingPromise = null;
+
+        sock
+          .groupFetchAllParticipating()
+          .then((groups) => {
+            for (const meta of Object.values(groups)) this.rememberGroup(meta);
+          })
+          .catch((err) => process.stderr.write(`[whatsapp-mcp] group fetch failed: ${err}\n`));
       }
 
       if (connection === "close") {
@@ -476,46 +648,83 @@ export class WhatsAppClient {
       }
     });
 
-    sock.ev.on("contacts.upsert", (contacts) => {
-      for (const contact of contacts) {
-        if (!contact.id) continue;
-        this.store.upsertContact({
-          jid: contact.id,
-          pushName: contact.name || contact.notify || null,
-          phone: contact.id.endsWith("@s.whatsapp.net") ? stripJidSuffix(contact.id) : null,
-          lid: contact.id.endsWith("@lid") ? stripJidSuffix(contact.id) : null,
-        });
-      }
-    });
-
-    sock.ev.on("messaging-history.set", ({ messages, contacts, progress, syncType }) => {
-      let stored = 0;
-      for (const msg of messages) {
+    sock.ev.on("messages.update", (updates) => {
+      for (const { key, update } of updates) {
+        if (!key.id) continue;
         try {
-          if (this.persistIncomingMessage(msg, { historical: true })) stored += 1;
+          const edited = update.message?.editedMessage?.message;
+          if (edited) {
+            const parsed = parseContent(edited);
+            if (parsed) {
+              this.store.editMessage(key.id, parsed.body, toNumber(update.messageTimestamp) || nowSeconds());
+            }
+            continue;
+          }
+          if (update.messageStubType === WAMessageStubType.REVOKE) {
+            this.store.markDeleted(key.id, nowSeconds());
+          }
         } catch (err) {
-          process.stderr.write(`[whatsapp-mcp] persist history message failed: ${err}\n`);
+          process.stderr.write(`[whatsapp-mcp] apply message update failed: ${err}\n`);
         }
       }
-
-      for (const contact of contacts) {
-        if (!contact.id) continue;
-        this.store.upsertContact({
-          jid: contact.id,
-          pushName: contact.name || contact.notify || null,
-          phone: contact.id.endsWith("@s.whatsapp.net") ? stripJidSuffix(contact.id) : null,
-          lid: contact.id.endsWith("@lid") ? stripJidSuffix(contact.id) : null,
-        });
-      }
-
-      this.lastHistorySync = {
-        at: Math.floor(Date.now() / 1000),
-        syncType: syncType == null ? null : String(syncType),
-        progress: progress ?? null,
-        messagesReceived: messages.length,
-        messagesStored: stored,
-      };
     });
+
+    sock.ev.on("contacts.upsert", (contacts) => {
+      for (const contact of contacts) this.saveContact(contact);
+    });
+
+    sock.ev.on("contacts.update", (contacts) => {
+      for (const contact of contacts) this.saveContact(contact);
+    });
+
+    sock.ev.on("lid-mapping.update", ({ lid, pn }) => {
+      this.store.saveLidMapping(jidNormalizedUser(lid), jidNormalizedUser(pn));
+    });
+
+    sock.ev.on("groups.upsert", (groups) => {
+      for (const meta of groups) this.rememberGroup(meta);
+    });
+
+    sock.ev.on("groups.update", (updates) => {
+      for (const update of updates) {
+        if (!update.id) continue;
+        const cached = this.groups.get(update.id);
+        if (cached) this.groups.set(update.id, { ...cached, ...update } as GroupMetadata);
+        if (update.subject) this.store.setChatName(update.id, update.subject, true);
+      }
+    });
+
+    sock.ev.on("group-participants.update", ({ id }) => {
+      this.groups.delete(id);
+    });
+
+    sock.ev.on(
+      "messaging-history.set",
+      ({ messages, contacts, chats, lidPnMappings, progress, syncType }) => {
+        for (const mapping of lidPnMappings ?? []) {
+          this.store.saveLidMapping(jidNormalizedUser(mapping.lid), jidNormalizedUser(mapping.pn));
+        }
+        for (const contact of contacts) this.saveContact(contact);
+        for (const chat of chats) this.saveHistoryChat(chat);
+
+        let stored = 0;
+        for (const msg of messages) {
+          try {
+            if (this.persistIncomingMessage(msg, { historical: true })) stored += 1;
+          } catch (err) {
+            process.stderr.write(`[whatsapp-mcp] persist history message failed: ${err}\n`);
+          }
+        }
+
+        this.lastHistorySync = {
+          at: nowSeconds(),
+          syncType: syncType == null ? null : String(syncType),
+          progress: progress ?? null,
+          messagesReceived: messages.length,
+          messagesStored: stored,
+        };
+      }
+    );
   }
 
   async fetchHistory(jid: string, count: number): Promise<FetchHistoryResult> {
@@ -529,7 +738,7 @@ export class WhatsAppClient {
 
     const requestId = await sock.fetchMessageHistory(
       count,
-      { remoteJid: anchor.jid, id: anchor.id, fromMe: anchor.direction === "out" },
+      { remoteJid: anchor.chat, id: anchor.id, fromMe: anchor.direction === "out" },
       anchor.timestamp
     );
 
@@ -547,47 +756,46 @@ export class WhatsAppClient {
   }
 
   private persistIncomingMessage(msg: WAMessage, opts: SaveMessageOptions = {}): boolean {
-    const jid = msg.key.remoteJid;
-    if (!jid || jid === "status@broadcast") return false;
-    if (jid.endsWith("@newsletter")) return false;
-    if (!msg.message) return false;
+    const remoteJid = msg.key.remoteJid;
+    if (!remoteJid || remoteJid.endsWith("@broadcast") || remoteJid.endsWith("@newsletter")) return false;
 
+    const parsed = parseContent(msg.message);
+    if (!parsed) return false;
+
+    const jid = this.canonical(remoteJid, msg.key.remoteJidAlt) ?? remoteJid;
+    const isGroup = jid.endsWith("@g.us");
     const direction: Direction = msg.key.fromMe ? "out" : "in";
-    const message = msg.message.viewOnceMessage?.message || msg.message.viewOnceMessageV2?.message || msg.message;
+    const senderJid =
+      direction === "out"
+        ? this.ownJid()
+        : isGroup
+          ? this.canonical(msg.key.participant, msg.key.participantAlt)
+          : jid;
 
-    const body = extractBody(message as WAMessageContent);
-    const mediaType = getMediaType(message as WAMessageContent);
-    const mediaMimetype = getMediaMimetype(message as WAMessageContent);
-    const caption = getMediaCaption(message as WAMessageContent);
-
-    const finalBody = body || caption || (mediaType ? `[${mediaType}]` : "");
-    if (!finalBody && !mediaType) return false;
-
-    const contextInfo =
-      (message as { extendedTextMessage?: { contextInfo?: { stanzaId?: string } } }).extendedTextMessage?.contextInfo ||
-      (message as { imageMessage?: { contextInfo?: { stanzaId?: string } } }).imageMessage?.contextInfo ||
-      (message as { audioMessage?: { contextInfo?: { stanzaId?: string } } }).audioMessage?.contextInfo;
-    const quotedMessageId = contextInfo?.stanzaId ?? null;
-
-    this.store.saveMessage({
-      id: msg.key.id || `${direction}-${Date.now()}`,
-      jid,
-      direction,
-      body: finalBody,
-      mediaType: mediaType ?? null,
-      mediaMimetype,
-      mediaPath: null,
-      pushName: msg.pushName ?? null,
-      quotedMessageId,
-      timestamp: Number(msg.messageTimestamp ?? Math.floor(Date.now() / 1000)),
-    }, opts);
-
-    if (msg.pushName) {
-      this.store.upsertContact({
+    this.store.saveMessage(
+      {
+        id: msg.key.id || `${direction}-${Date.now()}`,
         jid,
+        senderJid,
+        direction,
+        body: parsed.body,
+        mediaType: parsed.mediaType,
+        mediaMimetype: parsed.mediaMimetype,
+        mediaPath: null,
+        pushName: direction === "in" ? (msg.pushName ?? null) : null,
+        quotedMessageId: parsed.quotedMessageId,
+        timestamp: toNumber(msg.messageTimestamp) || nowSeconds(),
+        raw: parsed.mediaType || (direction === "out" && !opts.historical) ? serialize(msg) : null,
+      },
+      opts
+    );
+
+    if (direction === "in" && msg.pushName && senderJid) {
+      this.store.upsertContact({
+        jid: senderJid,
         pushName: msg.pushName,
-        phone: jid.endsWith("@s.whatsapp.net") ? stripJidSuffix(jid) : null,
-        lid: jid.endsWith("@lid") ? stripJidSuffix(jid) : null,
+        phone: isPnUser(senderJid) ? stripJidSuffix(senderJid) : null,
+        lid: isLidUser(senderJid) ? stripJidSuffix(senderJid) : null,
       });
     }
 
@@ -595,45 +803,30 @@ export class WhatsAppClient {
   }
 }
 
-function extractBody(message: WAMessageContent | null | undefined): string | null {
-  if (!message) return null;
-  return (
-    (message as { conversation?: string }).conversation ||
-    (message as { extendedTextMessage?: { text?: string } }).extendedTextMessage?.text ||
-    null
-  );
+function serialize(msg: WAMessage): string {
+  return JSON.stringify(msg, BufferJSON.replacer);
 }
 
-function getMediaType(message: WAMessageContent | null | undefined): string | null {
-  if (!message) return null;
-  if ((message as { audioMessage?: unknown }).audioMessage) {
-    return (message as { audioMessage?: { ptt?: boolean } }).audioMessage?.ptt ? "voice_note" : "audio";
-  }
-  if ((message as { imageMessage?: unknown }).imageMessage) return "image";
-  if ((message as { videoMessage?: unknown }).videoMessage) return "video";
-  if ((message as { documentMessage?: unknown }).documentMessage) return "document";
-  if ((message as { stickerMessage?: unknown }).stickerMessage) return "sticker";
-  if ((message as { reactionMessage?: unknown }).reactionMessage) return "reaction";
-  return null;
+function nowSeconds(): number {
+  return Math.floor(Date.now() / 1000);
 }
 
-function getMediaMimetype(message: WAMessageContent | null | undefined): string | null {
-  if (!message) return null;
-  return (
-    (message as { audioMessage?: { mimetype?: string } }).audioMessage?.mimetype ||
-    (message as { imageMessage?: { mimetype?: string } }).imageMessage?.mimetype ||
-    (message as { videoMessage?: { mimetype?: string } }).videoMessage?.mimetype ||
-    (message as { documentMessage?: { mimetype?: string } }).documentMessage?.mimetype ||
-    null
-  );
-}
+const EXTENSIONS: Record<string, string> = {
+  "image/jpeg": ".jpg",
+  "image/png": ".png",
+  "image/webp": ".webp",
+  "image/gif": ".gif",
+  "video/mp4": ".mp4",
+  "video/quicktime": ".mov",
+  "audio/ogg": ".ogg",
+  "audio/mpeg": ".mp3",
+  "audio/mp4": ".m4a",
+  "application/pdf": ".pdf",
+};
 
-function getMediaCaption(message: WAMessageContent | null | undefined): string | null {
-  if (!message) return null;
-  return (
-    (message as { imageMessage?: { caption?: string } }).imageMessage?.caption ||
-    (message as { videoMessage?: { caption?: string } }).videoMessage?.caption ||
-    (message as { documentMessage?: { caption?: string } }).documentMessage?.caption ||
-    null
-  );
+function mediaExtension(msg: WAMessage, mimetype: string): string {
+  const fileName = normalizeMessageContent(msg.message)?.documentMessage?.fileName;
+  const fromName = fileName ? extname(fileName) : "";
+  if (fromName) return fromName;
+  return EXTENSIONS[mimetype.split(";")[0].trim()] ?? "";
 }

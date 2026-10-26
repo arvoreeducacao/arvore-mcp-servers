@@ -86,10 +86,22 @@ export const MarkReadParamsSchema = z.object({
   messageIds: z.array(z.string().min(1)).min(1),
 });
 
+const instant = z
+  .union([z.string().min(1), z.number().int().nonnegative()])
+  .describe(
+    "ISO 8601 date or date-time (e.g. 2026-10-25 or 2026-10-25T14:00:00-03:00; no offset means UTC) or unix seconds"
+  );
+
 export const ListChatsParamsSchema = z.object({
   limit: z.number().int().positive().max(200).optional().default(50),
   offset: z.number().int().nonnegative().optional().default(0),
   onlyUnread: z.boolean().optional().default(false),
+  onlyGroups: z.boolean().optional().default(false),
+  query: z
+    .string()
+    .min(1)
+    .optional()
+    .describe("Filter by chat or group name (accent and case insensitive) or by JID"),
 });
 
 export const GetMessagesParamsSchema = z.object({
@@ -116,8 +128,44 @@ export const FetchHistoryParamsSchema = z.object({
 });
 
 export const SearchMessagesParamsSchema = z.object({
-  query: z.string().min(1),
-  limit: z.number().int().positive().max(200).optional().default(50),
+  query: z
+    .string()
+    .min(1)
+    .optional()
+    .describe("Text to look for in the message body (accent and case insensitive). Omit to list by the other filters"),
+  jid: z.string().min(1).optional().describe("Only messages of this chat (JID from list_chats)"),
+  sender: z
+    .string()
+    .min(1)
+    .optional()
+    .describe("Only messages sent by this person: phone number or JID. In groups this is the participant"),
+  direction: z.enum(["in", "out"]).optional().describe("in = received, out = sent by you"),
+  after: instant.optional().describe("Only messages at or after this instant"),
+  before: instant.optional().describe("Only messages before this instant"),
+  limit: z.number().int().positive().max(200).optional().default(30),
+  offset: z.number().int().nonnegative().optional().default(0),
+  context: z
+    .number()
+    .int()
+    .nonnegative()
+    .max(10)
+    .optional()
+    .default(0)
+    .describe("How many messages of the same chat to include before and after each match"),
+});
+
+export const GetMessageContextParamsSchema = z.object({
+  messageId: z.string().min(1),
+  before: z.number().int().nonnegative().max(50).optional().default(5),
+  after: z.number().int().nonnegative().max(50).optional().default(5),
+});
+
+export const DownloadMediaParamsSchema = z.object({
+  messageId: z.string().min(1).describe("ID of a message whose mediaType is not null"),
+});
+
+export const GetGroupParamsSchema = z.object({
+  jid: z.string().min(1).describe("Group JID, ending in @g.us"),
 });
 
 export const SearchContactsParamsSchema = z.object({
