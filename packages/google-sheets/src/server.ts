@@ -104,10 +104,13 @@ export class GoogleSheetsMCPServer {
 
   private createMcpServer(identity: ResolvedIdentity | null = null): McpServer {
     const tools = this.toolsFor(identity);
-    const server = new McpServer({
-      name: "google-sheets-mcp-server",
-      version: "1.0.0",
-    });
+    const server = new McpServer(
+      {
+        name: "google-sheets-mcp-server",
+        version: "1.0.0",
+      },
+      { maxToolInputElements: 50_000 }
+    );
 
     server.registerTool(
       "list_spreadsheets",
@@ -441,7 +444,7 @@ function matchesToken(candidate: string, expected: string): boolean {
   return timingSafeEqual(Buffer.from(candidate), Buffer.from(expected));
 }
 
-const MAX_BODY_BYTES = 8 * 1024 * 1024;
+const MAX_BODY_BYTES = 4 * 1024 * 1024;
 
 async function readJsonBody(req: IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = [];

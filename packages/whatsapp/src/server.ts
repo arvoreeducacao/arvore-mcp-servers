@@ -139,7 +139,7 @@ export class WhatsAppMcpServer {
         name: "whatsapp-mcp-server",
         version: "0.3.0",
       },
-      { instructions: SERVER_INSTRUCTIONS }
+      { instructions: SERVER_INSTRUCTIONS, maxToolInputElements: 10_000 }
     );
 
     server.registerTool(
