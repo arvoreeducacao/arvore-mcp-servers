@@ -13,7 +13,7 @@ import {
   type WASocket,
 } from "baileys";
 import pino from "pino";
-import { MessageStore, type Direction } from "./db.js";
+import { MessageStore, type Direction, type SaveMessageOptions } from "./db.js";
 import { renderQrToAsciiString, renderQrToDataUrl, renderQrToPng, renderQrToTerminal } from "./qr.js";
 import { getAuthDir, getDataRoot, getQrPngPath } from "./paths.js";
 import { stripJidSuffix, toJid } from "./jid.js";
@@ -31,6 +31,22 @@ export type StatusInfo = {
 
 export type SendOptions = {
   quotedMessageId?: string;
+};
+
+export type HistorySyncInfo = {
+  at: number;
+  syncType: string | null;
+  progress: number | null;
+  messagesReceived: number;
+  messagesStored: number;
+};
+
+export type FetchHistoryResult = {
+  requestId: string;
+  anchorMessageId: string;
+  anchorTimestamp: number;
+  requested: number;
+  note: string;
 };
 
 export type WhatsAppClientOptions = {
@@ -54,6 +70,7 @@ export class WhatsAppClient {
   private qrAscii: string | null = null;
   private qrPngPath: string | null = null;
   private qrDataUrl: string | null = null;
+  private lastHistorySync: HistorySyncInfo | null = null;
   private connectingPromise: Promise<void> | null = null;
   private resolveConnecting: (() => void) | null = null;
   private rejectConnecting: ((err: Error) => void) | null = null;
@@ -365,7 +382,7 @@ export class WhatsAppClient {
       logger: logger as never,
       browser: Browsers.macOS("Arvore MCP"),
       generateHighQualityLinkPreview: false,
-      syncFullHistory: false,
+      syncFullHistory: process.env.WHATSAPP_SYNC_FULL_HISTORY === "true",
       markOnlineOnConnect: false,
     });
 
@@ -470,13 +487,70 @@ export class WhatsAppClient {
         });
       }
     });
+
+    sock.ev.on("messaging-history.set", ({ messages, contacts, progress, syncType }) => {
+      let stored = 0;
+      for (const msg of messages) {
+        try {
+          if (this.persistIncomingMessage(msg, { historical: true })) stored += 1;
+        } catch (err) {
+          process.stderr.write(`[whatsapp-mcp] persist history message failed: ${err}\n`);
+        }
+      }
+
+      for (const contact of contacts) {
+        if (!contact.id) continue;
+        this.store.upsertContact({
+          jid: contact.id,
+          pushName: contact.name || contact.notify || null,
+          phone: contact.id.endsWith("@s.whatsapp.net") ? stripJidSuffix(contact.id) : null,
+          lid: contact.id.endsWith("@lid") ? stripJidSuffix(contact.id) : null,
+        });
+      }
+
+      this.lastHistorySync = {
+        at: Math.floor(Date.now() / 1000),
+        syncType: syncType == null ? null : String(syncType),
+        progress: progress ?? null,
+        messagesReceived: messages.length,
+        messagesStored: stored,
+      };
+    });
   }
 
-  private persistIncomingMessage(msg: WAMessage): void {
+  async fetchHistory(jid: string, count: number): Promise<FetchHistoryResult> {
+    const sock = this.requireSocket();
+    const anchor = this.store.oldestMessage(jid);
+    if (!anchor) {
+      throw new Error(
+        `No stored message for ${jid} to anchor the request. WhatsApp only serves history older than a message you already have — send or receive one in this chat first.`
+      );
+    }
+
+    const requestId = await sock.fetchMessageHistory(
+      count,
+      { remoteJid: anchor.jid, id: anchor.id, fromMe: anchor.direction === "out" },
+      anchor.timestamp
+    );
+
+    return {
+      requestId,
+      anchorMessageId: anchor.id,
+      anchorTimestamp: anchor.timestamp,
+      requested: count,
+      note: "WhatsApp answers asynchronously. Wait a few seconds and call get_messages again; history_status reports what arrived.",
+    };
+  }
+
+  historyStatus(): HistorySyncInfo | null {
+    return this.lastHistorySync;
+  }
+
+  private persistIncomingMessage(msg: WAMessage, opts: SaveMessageOptions = {}): boolean {
     const jid = msg.key.remoteJid;
-    if (!jid || jid === "status@broadcast") return;
-    if (jid.endsWith("@newsletter")) return;
-    if (!msg.message) return;
+    if (!jid || jid === "status@broadcast") return false;
+    if (jid.endsWith("@newsletter")) return false;
+    if (!msg.message) return false;
 
     const direction: Direction = msg.key.fromMe ? "out" : "in";
     const message = msg.message.viewOnceMessage?.message || msg.message.viewOnceMessageV2?.message || msg.message;
@@ -487,7 +561,7 @@ export class WhatsAppClient {
     const caption = getMediaCaption(message as WAMessageContent);
 
     const finalBody = body || caption || (mediaType ? `[${mediaType}]` : "");
-    if (!finalBody && !mediaType) return;
+    if (!finalBody && !mediaType) return false;
 
     const contextInfo =
       (message as { extendedTextMessage?: { contextInfo?: { stanzaId?: string } } }).extendedTextMessage?.contextInfo ||
@@ -506,7 +580,7 @@ export class WhatsAppClient {
       pushName: msg.pushName ?? null,
       quotedMessageId,
       timestamp: Number(msg.messageTimestamp ?? Math.floor(Date.now() / 1000)),
-    });
+    }, opts);
 
     if (msg.pushName) {
       this.store.upsertContact({
@@ -516,6 +590,8 @@ export class WhatsAppClient {
         lid: jid.endsWith("@lid") ? stripJidSuffix(jid) : null,
       });
     }
+
+    return true;
   }
 }
 

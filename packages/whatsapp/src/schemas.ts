@@ -103,6 +103,18 @@ export const GetMessagesParamsSchema = z.object({
     .describe("Only return messages older than this unix timestamp"),
 });
 
+export const FetchHistoryParamsSchema = z.object({
+  jid: z.string().min(1).describe("JID of the chat to pull older messages for"),
+  count: z
+    .number()
+    .int()
+    .positive()
+    .max(500)
+    .optional()
+    .default(50)
+    .describe("How many messages older than the oldest stored one to request"),
+});
+
 export const SearchMessagesParamsSchema = z.object({
   query: z.string().min(1),
   limit: z.number().int().positive().max(200).optional().default(50),

@@ -32,6 +32,10 @@ export type StoredContact = {
   lid: string | null;
 };
 
+export type SaveMessageOptions = {
+  historical?: boolean;
+};
+
 const SCHEMA = `
   CREATE TABLE IF NOT EXISTS messages (
     id TEXT PRIMARY KEY,
@@ -83,7 +87,7 @@ export class MessageStore {
     this.db.exec(SCHEMA);
   }
 
-  saveMessage(msg: StoredMessage): void {
+  saveMessage(msg: StoredMessage, opts: SaveMessageOptions = {}): void {
     this.db
       .prepare(
         `INSERT OR REPLACE INTO messages
@@ -92,7 +96,15 @@ export class MessageStore {
       )
       .run(msg);
 
-    this.upsertChat(msg);
+    this.upsertChat(msg, opts.historical === true);
+  }
+
+  oldestMessage(jid: string): StoredMessage | null {
+    const row = this.db
+      .prepare("SELECT * FROM messages WHERE jid = ? ORDER BY timestamp ASC, id ASC LIMIT 1")
+      .get(jid) as Record<string, unknown> | undefined;
+    if (!row) return null;
+    return rowToMessage(row);
   }
 
   findMessage(id: string): StoredMessage | null {
@@ -190,16 +202,28 @@ export class MessageStore {
     }
   }
 
-  private upsertChat(msg: StoredMessage): void {
+  private upsertChat(msg: StoredMessage, historical: boolean): void {
     this.db
       .prepare(
         `INSERT INTO chats (jid, push_name, last_message_body, last_message_direction, last_message_at, unread_count)
          VALUES (@jid, @pushName, @body, @direction, @timestamp, @unread)
          ON CONFLICT(jid) DO UPDATE SET
-           push_name = COALESCE(excluded.push_name, chats.push_name),
-           last_message_body = excluded.last_message_body,
-           last_message_direction = excluded.last_message_direction,
-           last_message_at = excluded.last_message_at,
+           push_name = CASE
+             WHEN excluded.last_message_at >= COALESCE(chats.last_message_at, 0)
+               THEN COALESCE(excluded.push_name, chats.push_name)
+             ELSE chats.push_name
+           END,
+           last_message_body = CASE
+             WHEN excluded.last_message_at >= COALESCE(chats.last_message_at, 0)
+               THEN excluded.last_message_body
+             ELSE chats.last_message_body
+           END,
+           last_message_direction = CASE
+             WHEN excluded.last_message_at >= COALESCE(chats.last_message_at, 0)
+               THEN excluded.last_message_direction
+             ELSE chats.last_message_direction
+           END,
+           last_message_at = MAX(excluded.last_message_at, COALESCE(chats.last_message_at, 0)),
            unread_count = chats.unread_count + excluded.unread_count`
       )
       .run({
@@ -208,7 +232,7 @@ export class MessageStore {
         body: truncate(msg.body, 200),
         direction: msg.direction,
         timestamp: msg.timestamp,
-        unread: msg.direction === "in" ? 1 : 0,
+        unread: !historical && msg.direction === "in" ? 1 : 0,
       });
   }
 }

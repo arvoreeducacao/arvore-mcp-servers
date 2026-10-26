@@ -18,6 +18,7 @@ import {
   QrCodeParamsSchema,
   ResolveJidParamsSchema,
   SearchContactsParamsSchema,
+  FetchHistoryParamsSchema,
   SearchMessagesParamsSchema,
   SendMediaParamsSchema,
   SendMediaParamsShape,
@@ -349,6 +350,30 @@ export class WhatsAppMcpServer {
           messages: store.listMessages(args.jid, args.limit, args.beforeTimestamp),
         });
       }
+    );
+
+    server.registerTool(
+      "fetch_history",
+      {
+        title: "Fetch History",
+        description:
+          "Ask WhatsApp for messages older than the oldest one already stored for a chat. Requires at least one stored message in that chat to anchor the request. Answers asynchronously: wait a few seconds, then call get_messages.",
+        inputSchema: FetchHistoryParamsSchema.shape,
+      },
+      async (params) => {
+        const args = FetchHistoryParamsSchema.parse(params);
+        return jsonResponse(await client.fetchHistory(args.jid, args.count));
+      }
+    );
+
+    server.registerTool(
+      "history_status",
+      {
+        title: "History Status",
+        description: "Report the last history sync chunk received from WhatsApp.",
+        inputSchema: {},
+      },
+      async () => jsonResponse({ lastHistorySync: client.historyStatus() })
     );
 
     server.registerTool(
