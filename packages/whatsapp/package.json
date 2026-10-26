@@ -38,7 +38,7 @@
     "directory": "packages/whatsapp"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "~1.22.0",
+    "@modelcontextprotocol/sdk": "~1.32.1",
     "baileys": "^7.0.0-rc.9",
     "better-sqlite3": "^12.9.0",
     "pino": "^10.3.1",

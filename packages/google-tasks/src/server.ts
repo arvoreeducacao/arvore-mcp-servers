@@ -95,10 +95,13 @@ export class GoogleTasksMCPServer {
 
   private createMcpServer(identity: ResolvedIdentity | null = null): McpServer {
     const tools = this.toolsFor(identity);
-    const server = new McpServer({
-      name: "google-tasks-mcp-server",
-      version: "1.0.0",
-    });
+    const server = new McpServer(
+      {
+        name: "google-tasks-mcp-server",
+        version: "1.0.0",
+      },
+      { maxToolInputElements: 10_000 }
+    );
 
     server.registerTool(
       "list_task_lists",
@@ -373,7 +376,7 @@ function matchesToken(candidate: string, expected: string): boolean {
   return timingSafeEqual(Buffer.from(candidate), Buffer.from(expected));
 }
 
-const MAX_BODY_BYTES = 8 * 1024 * 1024;
+const MAX_BODY_BYTES = 1024 * 1024;
 
 async function readJsonBody(req: IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = [];

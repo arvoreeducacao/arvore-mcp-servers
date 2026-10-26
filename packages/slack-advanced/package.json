@@ -42,7 +42,7 @@
   },
   "dependencies": {
     "@elevenlabs/elevenlabs-js": "^2.43.0",
-    "@modelcontextprotocol/sdk": "~1.22.0",
+    "@modelcontextprotocol/sdk": "~1.32.1",
     "remark-gfm": "^4.0.0",
     "remark-parse": "^11.0.0",
     "slackify-markdown": "^5.0.0",

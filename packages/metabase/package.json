@@ -36,7 +36,7 @@
     "directory": "packages/metabase"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "~1.22.0",
+    "@modelcontextprotocol/sdk": "~1.32.1",
     "zod": "^3.22.4"
   }
 }
