@@ -311,7 +311,7 @@ export class WhatsAppMcpServer {
           (args.filePath
             ? guessMimetype(args.filePath, args.mediaType)
             : guessMimetypeForType(args.mediaType));
-        let media = buffer;
+        let media: Buffer = buffer;
         let ptt = args.ptt;
         let waveform: Uint8Array | undefined;
         let note: string | undefined;
