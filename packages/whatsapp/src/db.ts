@@ -54,6 +54,13 @@ export type StoredContact = {
   lid: string | null;
 };
 
+export type GroupActivity = {
+  jid: string;
+  name: string | null;
+  messagesFromThem: number;
+  lastFromThemAt: string;
+};
+
 export type MessageFilters = {
   query?: string;
   jid?: string;
@@ -425,12 +432,52 @@ export class MessageStore {
       .all(folded, folded, `%${query}%`, digits, `%${digits}%`, `%${digits}%`, limit) as Array<
       Record<string, unknown>
     >;
+    return rows.map(rowToContact);
+  }
+
+  findContact(jids: string[]): StoredContact | null {
+    if (!jids.length) return null;
+    const marks = jids.map(() => "?").join(", ");
+    const ids = jids.map((jid) => jid.split("@")[0]);
+    const row = this.db
+      .prepare(
+        `SELECT jid, name, push_name, phone, lid FROM contacts
+         WHERE jid IN (${marks}) OR phone IN (${marks}) OR lid IN (${marks})
+         ORDER BY (name IS NOT NULL) DESC, updated_at DESC
+         LIMIT 1`
+      )
+      .get(...jids, ...ids, ...ids) as Record<string, unknown> | undefined;
+    return row ? rowToContact(row) : null;
+  }
+
+  lastInteraction(jids: string[]): MessageView | null {
+    if (!jids.length) return null;
+    const marks = jids.map(() => "?").join(", ");
+    const row = this.db
+      .prepare(
+        `${MESSAGE_SELECT} WHERE m.jid IN (${marks}) OR m.sender_jid IN (${marks})
+         ORDER BY m.timestamp DESC LIMIT 1`
+      )
+      .get(...jids, ...jids) as Record<string, unknown> | undefined;
+    return row ? rowToMessage(row) : null;
+  }
+
+  groupActivity(jids: string[]): GroupActivity[] {
+    if (!jids.length) return [];
+    const marks = jids.map(() => "?").join(", ");
+    const rows = this.db
+      .prepare(
+        `SELECT m.jid, c.name, COUNT(*) AS total, MAX(m.timestamp) AS last_at
+         FROM messages m LEFT JOIN chats c ON c.jid = m.jid
+         WHERE m.sender_jid IN (${marks}) AND m.jid LIKE '%@g.us'
+         GROUP BY m.jid ORDER BY last_at DESC`
+      )
+      .all(...jids) as Array<Record<string, unknown>>;
     return rows.map((row) => ({
       jid: String(row.jid),
       name: (row.name as string | null) ?? null,
-      pushName: (row.push_name as string | null) ?? null,
-      phone: (row.phone as string | null) ?? null,
-      lid: (row.lid as string | null) ?? null,
+      messagesFromThem: Number(row.total),
+      lastFromThemAt: toIso(Number(row.last_at)),
     }));
   }
 
@@ -560,6 +607,16 @@ function rowToMessage(row: Record<string, unknown>): MessageView {
     at: toIso(timestamp),
     editedAt: row.edited_at ? toIso(Number(row.edited_at)) : null,
     deleted: row.deleted_at != null,
+  };
+}
+
+function rowToContact(row: Record<string, unknown>): StoredContact {
+  return {
+    jid: String(row.jid),
+    name: (row.name as string | null) ?? null,
+    pushName: (row.push_name as string | null) ?? null,
+    phone: (row.phone as string | null) ?? null,
+    lid: (row.lid as string | null) ?? null,
   };
 }
 

@@ -62,7 +62,9 @@ export const SendMediaParamsShape = {
   ptt: z
     .boolean()
     .optional()
-    .describe("For audio: send as push-to-talk voice note (default true)"),
+    .describe(
+      "For audio: send as a voice note (default true). Any format is re-encoded to Opus with ffmpeg so every phone plays it"
+    ),
   quotedMessageId: z.string().optional(),
 };
 
@@ -171,6 +173,13 @@ export const GetGroupParamsSchema = z.object({
 export const SearchContactsParamsSchema = z.object({
   query: z.string().min(1),
   limit: z.number().int().positive().max(100).optional().default(20),
+});
+
+export const GetContactParamsSchema = z.object({
+  contact: z
+    .string()
+    .min(1)
+    .describe("Phone number, JID, or a name that matches exactly one contact"),
 });
 
 export const ResolveJidParamsSchema = z.object({

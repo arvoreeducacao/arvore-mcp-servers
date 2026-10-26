@@ -250,6 +250,7 @@ export class WhatsAppClient {
     mediaType: "image" | "audio" | "document" | "video";
     caption?: string;
     ptt?: boolean;
+    waveform?: Uint8Array;
     filename?: string;
     quotedMessageId?: string;
   }): Promise<{ id: string; jid: string }> {
@@ -264,6 +265,7 @@ export class WhatsAppClient {
         audio: args.buffer,
         mimetype: args.mimetype,
         ptt: args.ptt ?? true,
+        ...(args.waveform ? { waveform: args.waveform } : {}),
       };
       bodyLabel = "[audio]";
     } else if (args.mediaType === "image") {
@@ -432,6 +434,18 @@ export class WhatsAppClient {
         };
       }),
     };
+  }
+
+  groupsWith(jids: string[]): Array<{ jid: string; subject: string }> {
+    const wanted = new Set(jids);
+    const matches = (id: string | undefined) => !!id && wanted.has(jidNormalizedUser(id));
+    return [...this.groups.values()]
+      .filter((meta) =>
+        meta.participants.some(
+          (participant) => matches(participant.id) || matches(participant.phoneNumber) || matches(participant.lid)
+        )
+      )
+      .map((meta) => ({ jid: meta.id, subject: meta.subject }));
   }
 
   private requireSocket(): WASocket {

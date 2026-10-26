@@ -123,6 +123,23 @@ describe("MessageStore", () => {
     expect(store.searchContacts("98765-4321", 5)[0].jid).toBe(ANA);
   });
 
+  it("sums up one person across the direct chat and the groups", () => {
+    const BRUNO = "5511900000000@s.whatsapp.net";
+    const OTHER_GROUP = "120363000000000001@g.us";
+    store.upsertContact({ jid: ANA, name: "Ana", phone: "5511987654321", lid: "123456789" });
+    store.setChatName(GROUP, "Pais do 5º ano", true);
+    store.saveMessage(message({ id: "dm", timestamp: 100 }));
+    store.saveMessage(message({ id: "g1", jid: GROUP, timestamp: 200 }));
+    store.saveMessage(message({ id: "g2", jid: GROUP, timestamp: 300 }));
+    store.saveMessage(message({ id: "o1", jid: OTHER_GROUP, senderJid: BRUNO, timestamp: 400 }));
+
+    expect(store.findContact(["123456789@lid"])?.jid).toBe(ANA);
+    expect(store.lastInteraction([ANA])?.id).toBe("g2");
+    expect(store.groupActivity([ANA])).toEqual([
+      { jid: GROUP, name: "Pais do 5º ano", messagesFromThem: 2, lastFromThemAt: new Date(300_000).toISOString() },
+    ]);
+  });
+
   it("upgrades a database created by the previous version", () => {
     store.close();
     rmSync(join(root, "messages.db"));

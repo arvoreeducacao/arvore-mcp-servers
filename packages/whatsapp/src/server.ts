@@ -20,6 +20,7 @@ import {
   SearchContactsParamsSchema,
   FetchHistoryParamsSchema,
   DownloadMediaParamsSchema,
+  GetContactParamsSchema,
   GetGroupParamsSchema,
   GetMessageContextParamsSchema,
   SearchMessagesParamsSchema,
@@ -32,7 +33,9 @@ import {
 import { GoogleSignInConfig, OAuthProvider, ResolvedIdentity } from "./oauth-provider.js";
 import { SessionManager } from "./sessions.js";
 import { seal, unseal } from "./sealed.js";
-import { sessionSlug } from "./paths.js";
+import { getDataRoot, sessionSlug } from "./paths.js";
+import { isOggOpus, toVoiceNote } from "./audio.js";
+import { daemonSocketPath, listenAsDaemon, type DaemonInfo } from "./daemon.js";
 import { expandBrMobileVariants, normalizePhone, toJid } from "./jid.js";
 import { WhatsAppClient } from "./whatsapp-client.js";
 
@@ -85,6 +88,7 @@ export class WhatsAppMcpServer {
   private readonly oauth: OAuthProvider | null;
   private readonly publicUrl: string;
   private httpServer: HttpServer | null = null;
+  private daemon: { info: DaemonInfo; close: () => void } | null = null;
   private transports = new Map<string, { transport: StreamableHTTPServerTransport; sessionKey: string }>();
 
   constructor(options: WhatsAppMcpServerOptions) {
@@ -302,22 +306,38 @@ export class WhatsAppMcpServer {
         const buffer = args.filePath
           ? readFileSync(args.filePath)
           : Buffer.from(args.base64 ?? "", "base64");
-        const mimetype =
+        let mimetype =
           args.mimetype ||
           (args.filePath
             ? guessMimetype(args.filePath, args.mediaType)
             : guessMimetypeForType(args.mediaType));
+        let media = buffer;
+        let ptt = args.ptt;
+        let waveform: Uint8Array | undefined;
+        let note: string | undefined;
+
+        if (args.mediaType === "audio" && args.ptt !== false) {
+          const voice = await toVoiceNote(buffer);
+          if (voice) {
+            ({ buffer: media, mimetype, waveform } = voice);
+          } else if (!isOggOpus(buffer)) {
+            ptt = false;
+            note = "ffmpeg is not installed, so the audio went as a regular audio file instead of a voice note.";
+          }
+        }
+
         const result = await client.sendMedia({
           to: args.to,
-          buffer,
+          buffer: media,
           mimetype,
           mediaType: args.mediaType,
           caption: args.caption,
-          ptt: args.ptt,
+          ptt,
+          waveform,
           filename: args.filename,
           quotedMessageId: args.quotedMessageId,
         });
-        return jsonResponse(result);
+        return jsonResponse(note ? { ...result, note } : result);
       }
     );
 
@@ -525,6 +545,68 @@ export class WhatsAppMcpServer {
     );
 
     server.registerTool(
+      "get_contact",
+      {
+        title: "Get Contact",
+        description:
+          "Everything about one person: the saved contact, your direct chat, the groups you share and how active they are in each, and the last message exchanged anywhere.",
+        inputSchema: GetContactParamsSchema.shape,
+        annotations: READ_ONLY,
+      },
+      async (params) => {
+        const args = GetContactParamsSchema.parse(params);
+        let candidates = /\d/.test(args.contact) ? senderCandidates(args.contact) : [];
+        if (!candidates.length) {
+          const found = store.searchContacts(args.contact, 5);
+          if (found.length !== 1) {
+            return jsonResponse({
+              contact: null,
+              message: found.length
+                ? "More than one contact matches. Call get_contact again with the JID of the right one."
+                : "No contact matches that name.",
+              candidates: found,
+            });
+          }
+          candidates = [found[0].jid];
+        }
+
+        const contact = store.findContact(candidates);
+        const jids = [
+          ...new Set([
+            ...candidates,
+            ...(contact ? [contact.jid] : []),
+            ...(contact?.lid ? [`${contact.lid}@lid`] : []),
+          ]),
+        ];
+        const directJid = jids.find((jid) => store.findChat(jid)) ?? null;
+        const activity = store.groupActivity(jids);
+        const membershipKnown = client.isConnected();
+        const membership = membershipKnown ? client.groupsWith(jids) : [];
+        const silentGroups = membership.filter((group) => !activity.some((active) => active.jid === group.jid));
+        const groups = [
+          ...activity.map((group) => ({
+            ...group,
+            member: membershipKnown ? membership.some((joined) => joined.jid === group.jid) : null,
+          })),
+          ...silentGroups.map((group) => ({
+            jid: group.jid,
+            name: group.subject,
+            messagesFromThem: 0,
+            lastFromThemAt: null,
+            member: true,
+          })),
+        ];
+
+        return jsonResponse({
+          contact,
+          directChat: directJid ? store.findChat(directJid) : null,
+          lastInteraction: store.lastInteraction(jids),
+          groups,
+        });
+      }
+    );
+
+    server.registerTool(
       "resolve_jid",
       {
         title: "Resolve Phone to JID",
@@ -584,6 +666,9 @@ export class WhatsAppMcpServer {
         this.options.transport === "http" && status.state !== "open"
           ? this.qrLink(sessionKey)
           : null,
+      daemon: this.daemon
+        ? { pid: this.daemon.info.pid, since: this.daemon.info.startedAt, socket: daemonSocketPath() }
+        : null,
     };
   }
 
@@ -593,10 +678,33 @@ export class WhatsAppMcpServer {
       return;
     }
 
-    const server = this.createMcpServer(SERVICE_SESSION_KEY);
-    const transport = new StdioServerTransport();
-    await server.connect(transport);
-    process.stderr.write("[whatsapp-mcp] server started on stdio\n");
+    await this.startDaemon();
+  }
+
+  private async startDaemon(): Promise<void> {
+    const client = this.localClient!;
+    this.daemon = await listenAsDaemon(getDataRoot(), (socket) => {
+      const server = this.createMcpServer(SERVICE_SESSION_KEY);
+      socket.once("close", () => void server.close().catch(() => undefined));
+      server.connect(new StdioServerTransport(socket, socket)).catch((error) => {
+        process.stderr.write(`[whatsapp-mcp] session failed: ${error}\n`);
+        socket.destroy();
+      });
+    });
+
+    if (!this.daemon) {
+      process.stderr.write("[whatsapp-mcp] another daemon already owns this data dir\n");
+      process.exit(0);
+    }
+
+    process.stderr.write(
+      `[whatsapp-mcp] daemon ${process.pid} listening on ${daemonSocketPath()}\n`
+    );
+    if (client.hasAuthState()) {
+      client.connect().catch((error) => {
+        process.stderr.write(`[whatsapp-mcp] auto-connect failed: ${error}\n`);
+      });
+    }
   }
 
   private async startHttp(): Promise<void> {
@@ -786,6 +894,7 @@ export class WhatsAppMcpServer {
         await transport.close().catch(() => undefined);
       }
       await this.localClient?.disconnect().catch(() => undefined);
+      this.daemon?.close();
       await this.sessions.closeAll();
       this.httpServer?.close();
       process.exit(0);

@@ -5,12 +5,14 @@ WhatsApp MCP server using [Baileys](https://github.com/WhiskeySockets/Baileys). 
 ## What it does
 
 - Pairs a phone via QR code (one device, single user, multi-device protocol). The QR comes back as an image inside the chat.
+- Holds the WhatsApp connection in one background process per machine. Every agent session talks to it, so sessions never kick each other off, and messages keep being stored after the last session closes.
 - Stores the recent history WhatsApp sends on pairing, then every new message, in a local SQLite database.
 - Reads every kind of message: text, disappearing and view-once messages, media captions, documents, locations, contacts, polls, edits and deletions.
 - Knows groups by name and who said what inside them, and merges a person's `@lid` chat into their phone-number chat.
 - Searches with filters (text without accents, chat, sender, direction, date) and shows the conversation around each match.
 - Downloads received media; images come back inline so the agent can look at them.
-- Sends text, images, audio (PTT or normal), video and documents; reacts, edits, deletes and marks as read.
+- Sends text, images, audio, video and documents; reacts, edits, deletes and marks as read. Any audio file goes out as a real voice note (Opus with waveform) when ffmpeg is installed.
+- Sums up a person: the direct chat, the groups you share, how much they talk in each, and the last message exchanged.
 
 Auth state lives at `~/.arvore-mcp/whatsapp/auth/` (override with `WHATSAPP_MCP_DATA_DIR`). The SQLite DB and pairing QR PNG live in the same folder.
 
@@ -40,11 +42,12 @@ The agent can also call `qr_code` to retrieve the pairing QR in `ascii`, `png` (
 | `download_media` | Download the media of a message. Images and stickers come back inline. |
 | `get_group` | A group's name, description and participants. |
 | `search_contacts` | Contact lookup by saved name, push name, phone, JID, or LID. |
+| `get_contact` | One person at a glance: contact, direct chat, shared groups with their activity in each, and the last message exchanged. |
 | `resolve_jid` | Validate a phone number against WhatsApp and return its canonical JID. |
 | `fetch_history` | Ask the phone for messages older than the oldest stored one in a chat. |
 | `history_status` | What the last history chunk from WhatsApp brought. |
 | `send_text` | Send a text message. Supports replies via `quotedMessageId`. Brazilian numbers are normalized automatically. |
-| `send_media` | Send image, audio, video, or document via `filePath` (absolute path on disk) or `base64`. Audio defaults to push-to-talk. |
+| `send_media` | Send image, audio, video, or document via `filePath` (absolute path on disk) or `base64`. Audio goes as a voice note, re-encoded to Opus with ffmpeg. |
 | `send_reaction` | React to a message with an emoji. Pass an empty string to remove a previous reaction. |
 | `mark_read` | Mark messages as read on WhatsApp (the sender sees the blue ticks) and reset the local unread counter. |
 | `edit_message` | Edit one of your own messages. |
@@ -61,6 +64,14 @@ Tools that take a `to` argument accept any of:
 - A LID (received from group/channel context): `123456789@lid`
 
 Brazilian mobile numbers are validated against WhatsApp via `onWhatsApp` to handle the optional 9th digit transparently.
+
+## How it runs
+
+On stdio, the process your agent starts is a thin pipe. The first session spawns a background daemon that owns the WhatsApp socket and the SQLite database; later sessions connect to the same daemon over a unix socket (`<data dir>/daemon.sock`, mode 600). The daemon reconnects to WhatsApp on its own whenever auth state exists and keeps running after the sessions close, until you stop it or the machine restarts.
+
+- Logs go to `<data dir>/daemon.log`; `<data dir>/daemon.json` holds its pid.
+- When the code changes (new package version or a local edit), the next session that starts replaces the daemon. Open sessions reconnect without noticing.
+- `npx @arvoretech/whatsapp-mcp stop` stops it. The next session starts it again.
 
 ## Configuration
 
@@ -135,13 +146,14 @@ pnpm --filter @arvoretech/whatsapp-mcp dev
 
 ## Notes & gotchas
 
-- **One account per session.** On stdio the server drives a single WhatsApp account; in multi-user mode each signed-in person gets their own isolated session.
+- **One account per data dir.** On stdio the daemon drives a single WhatsApp account; in multi-user mode each signed-in person gets their own isolated session.
 - **Auth dir is per-machine.** Don't ship `~/.arvore-mcp/whatsapp/` — it contains your WhatsApp identity keys.
 - **Phone must stay online** occasionally for the multi-device session to stay healthy.
 - **Brazilian 9-digit gotcha:** Baileys sometimes returns a JID without the 9 even when you sent with it. The server uses `onWhatsApp` to resolve to the canonical JID before sending and before storing.
 - **Send to a group** with its JID (`...@g.us`) from `list_chats`.
 - **Media is downloaded on demand**, to `<data dir>/media`. Media received before 0.3.0 cannot be downloaded: its keys were not kept.
-- **The server only listens while it runs.** WhatsApp delivers what arrived meanwhile when it reconnects, but a session left off for weeks gets unlinked by the phone.
+- **Voice notes need ffmpeg** (`brew install ffmpeg`). Without it, audio that is not already Opus goes as a regular audio file.
+- **The daemon only listens while it runs.** After a reboot it starts again with the first agent session, and WhatsApp delivers what arrived meanwhile. A device left off for weeks gets unlinked by the phone.
 - **Logout side effect:** `logout` clears local auth state and ends the socket. To fully revoke access, also unlink the device from WhatsApp on your phone.
 
 ## Related
