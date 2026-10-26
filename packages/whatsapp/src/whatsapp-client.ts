@@ -12,6 +12,7 @@ import {
   makeCacheableSignalKeyStore,
   makeWASocket,
   normalizeMessageContent,
+  proto,
   toNumber,
   useMultiFileAuthState,
   WAMessageStubType,
@@ -23,7 +24,7 @@ import {
   type WASocket,
 } from "baileys";
 import pino from "pino";
-import { MessageStore, type Direction, type SaveMessageOptions } from "./db.js";
+import { MessageStore, type Direction } from "./db.js";
 import { parseContent } from "./message-content.js";
 import { renderQrToAsciiString, renderQrToDataUrl, renderQrToPng, renderQrToTerminal } from "./qr.js";
 import { getAuthDir, getDataRoot, getQrPngPath } from "./paths.js";
@@ -45,11 +46,17 @@ export type SendOptions = {
 };
 
 export type HistorySyncInfo = {
-  at: number;
-  syncType: string | null;
-  progress: number | null;
+  chunks: number;
   messagesReceived: number;
   messagesStored: number;
+  lastChunkAt: string;
+  lastSyncType: string | null;
+  lastProgress: number | null;
+  phases: Record<string, "complete" | "paused">;
+};
+
+type PersistOptions = {
+  historical?: boolean;
 };
 
 export type FetchHistoryResult = {
@@ -100,7 +107,7 @@ export class WhatsAppClient {
   private qrAscii: string | null = null;
   private qrPngPath: string | null = null;
   private qrDataUrl: string | null = null;
-  private lastHistorySync: HistorySyncInfo | null = null;
+  private historySync: HistorySyncInfo | null = null;
   private connectingPromise: Promise<void> | null = null;
   private resolveConnecting: (() => void) | null = null;
   private rejectConnecting: ((err: Error) => void) | null = null;
@@ -506,13 +513,25 @@ export class WhatsAppClient {
   }
 
   private saveHistoryChat(chat: Chat): void {
-    if (!chat.id || !chat.name) return;
+    if (!chat.id) return;
     const jid = this.canonical(chat.id, chat.pnJid ?? chat.lidJid ?? null);
     if (!jid) return;
+    if (typeof chat.unreadCount === "number") this.store.setUnread(jid, chat.unreadCount);
+    if (!chat.name) return;
     if (jid.endsWith("@g.us")) {
       this.store.setChatName(jid, chat.name, true);
     } else {
       this.store.upsertContact({ jid, name: chat.name, phone: isPnUser(jid) ? stripJidSuffix(jid) : null });
+    }
+  }
+
+  private applyUnread(chats: Array<Partial<Chat>>, absolute: boolean): void {
+    for (const chat of chats) {
+      if (!chat.id || typeof chat.unreadCount !== "number") continue;
+      const jid = this.canonical(chat.id) ?? chat.id;
+      if (absolute || chat.unreadCount === 0) this.store.setUnread(jid, chat.unreadCount);
+      else if (chat.unreadCount > 0) this.store.addUnread(jid, chat.unreadCount);
+      else this.store.markChatUnread(jid);
     }
   }
 
@@ -526,10 +545,13 @@ export class WhatsAppClient {
     const { state, saveCreds } = await useMultiFileAuthState(getAuthDir(this.root));
     const { version } = await fetchLatestBaileysVersion();
 
-    this.connectingPromise = new Promise<void>((resolve, reject) => {
-      this.resolveConnecting = resolve;
-      this.rejectConnecting = reject;
-    });
+    if (!this.connectingPromise) {
+      this.connectingPromise = new Promise<void>((resolve, reject) => {
+        this.resolveConnecting = resolve;
+        this.rejectConnecting = reject;
+      });
+      this.connectingPromise.catch(() => undefined);
+    }
 
     const fullHistory = process.env.WHATSAPP_SYNC_FULL_HISTORY === "true";
 
@@ -669,6 +691,10 @@ export class WhatsAppClient {
       }
     });
 
+    sock.ev.on("chats.upsert", (chats) => this.applyUnread(chats, true));
+    // Baileys sends unreadCount on chats.update as a delta: +n new messages, 0 read elsewhere, -1 marked unread.
+    sock.ev.on("chats.update", (chats) => this.applyUnread(chats, false));
+
     sock.ev.on("contacts.upsert", (contacts) => {
       for (const contact of contacts) this.saveContact(contact);
     });
@@ -716,15 +742,23 @@ export class WhatsAppClient {
           }
         }
 
-        this.lastHistorySync = {
-          at: nowSeconds(),
-          syncType: syncType == null ? null : String(syncType),
-          progress: progress ?? null,
-          messagesReceived: messages.length,
-          messagesStored: stored,
+        const previous = this.historySync;
+        this.historySync = {
+          chunks: (previous?.chunks ?? 0) + 1,
+          messagesReceived: (previous?.messagesReceived ?? 0) + messages.length,
+          messagesStored: (previous?.messagesStored ?? 0) + stored,
+          lastChunkAt: new Date().toISOString(),
+          lastSyncType: syncType == null ? null : proto.HistorySync.HistorySyncType[syncType] ?? String(syncType),
+          lastProgress: progress ?? null,
+          phases: previous?.phases ?? {},
         };
       }
     );
+
+    sock.ev.on("messaging-history.status", ({ syncType, status }) => {
+      if (!this.historySync) return;
+      this.historySync.phases[proto.HistorySync.HistorySyncType[syncType] ?? String(syncType)] = status;
+    });
   }
 
   async fetchHistory(jid: string, count: number): Promise<FetchHistoryResult> {
@@ -752,10 +786,10 @@ export class WhatsAppClient {
   }
 
   historyStatus(): HistorySyncInfo | null {
-    return this.lastHistorySync;
+    return this.historySync;
   }
 
-  private persistIncomingMessage(msg: WAMessage, opts: SaveMessageOptions = {}): boolean {
+  private persistIncomingMessage(msg: WAMessage, opts: PersistOptions = {}): boolean {
     const remoteJid = msg.key.remoteJid;
     if (!remoteJid || remoteJid.endsWith("@broadcast") || remoteJid.endsWith("@newsletter")) return false;
 
@@ -786,8 +820,7 @@ export class WhatsAppClient {
         quotedMessageId: parsed.quotedMessageId,
         timestamp: toNumber(msg.messageTimestamp) || nowSeconds(),
         raw: parsed.mediaType || (direction === "out" && !opts.historical) ? serialize(msg) : null,
-      },
-      opts
+      }
     );
 
     if (direction === "in" && msg.pushName && senderJid) {

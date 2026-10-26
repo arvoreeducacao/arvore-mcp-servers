@@ -40,15 +40,18 @@ describe("MessageStore", () => {
     rmSync(root, { recursive: true, force: true });
   });
 
-  it("counts an unread message once even when WhatsApp delivers it twice", () => {
+  it("leaves the unread counter to WhatsApp instead of counting stored messages", () => {
     store.saveMessage(message({}));
-    store.saveMessage(message({}));
-    expect(store.listChats({ limit: 10, offset: 0 })[0].unreadCount).toBe(1);
-  });
-
-  it("does not count history as unread", () => {
-    store.saveMessage(message({}), { historical: true });
+    store.saveMessage(message({ id: "m2" }));
     expect(store.listChats({ limit: 10, offset: 0 })[0].unreadCount).toBe(0);
+
+    store.setUnread(ANA, 4);
+    store.addUnread(ANA, 1);
+    expect(store.findChat(ANA)?.unreadCount).toBe(5);
+
+    store.setUnread(ANA, 0);
+    store.markChatUnread(ANA);
+    expect(store.findChat(ANA)?.unreadCount).toBe(1);
   });
 
   it("names a group by its subject, not by whoever spoke last", () => {
@@ -98,8 +101,9 @@ describe("MessageStore", () => {
   });
 
   it("merges a LID chat into the phone chat once the mapping is learned", () => {
-    store.saveMessage(message({ id: "old", jid: ANA, timestamp: 100 }), { historical: true });
+    store.saveMessage(message({ id: "old", jid: ANA, timestamp: 100 }));
     store.saveMessage(message({ id: "new", jid: ANA_LID, senderJid: ANA_LID, timestamp: 200 }));
+    store.addUnread(ANA_LID, 1);
     store.upsertContact({ jid: ANA_LID, pushName: "Ana" });
 
     store.saveLidMapping(ANA_LID, ANA);

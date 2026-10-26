@@ -54,10 +54,6 @@ export type StoredContact = {
   lid: string | null;
 };
 
-export type SaveMessageOptions = {
-  historical?: boolean;
-};
-
 export type MessageFilters = {
   query?: string;
   jid?: string;
@@ -183,7 +179,7 @@ export class MessageStore {
     }
   }
 
-  saveMessage(msg: StoredMessage, opts: SaveMessageOptions = {}): void {
+  saveMessage(msg: StoredMessage): void {
     const row = { ...msg, raw: msg.raw ?? null };
     const inserted = this.db
       .prepare(
@@ -207,7 +203,7 @@ export class MessageStore {
       return;
     }
 
-    this.upsertChat(msg, opts.historical === true);
+    this.upsertChat(msg);
   }
 
   oldestMessage(jid: string): MessageView | null {
@@ -348,7 +344,34 @@ export class MessageStore {
   }
 
   markChatRead(jid: string): void {
-    this.db.prepare("UPDATE chats SET unread_count = 0 WHERE jid = ?").run(jid);
+    this.setUnread(jid, 0);
+  }
+
+  setUnread(jid: string, count: number): void {
+    this.db
+      .prepare(
+        `INSERT INTO chats (jid, is_group, unread_count) VALUES (?, ?, ?)
+         ON CONFLICT(jid) DO UPDATE SET unread_count = excluded.unread_count`
+      )
+      .run(jid, jid.endsWith("@g.us") ? 1 : 0, Math.max(0, count));
+  }
+
+  addUnread(jid: string, delta: number): void {
+    this.db
+      .prepare(
+        `INSERT INTO chats (jid, is_group, unread_count) VALUES (?, ?, ?)
+         ON CONFLICT(jid) DO UPDATE SET unread_count = chats.unread_count + excluded.unread_count`
+      )
+      .run(jid, jid.endsWith("@g.us") ? 1 : 0, delta);
+  }
+
+  markChatUnread(jid: string): void {
+    this.db
+      .prepare(
+        `INSERT INTO chats (jid, is_group, unread_count) VALUES (?, ?, 1)
+         ON CONFLICT(jid) DO UPDATE SET unread_count = MAX(chats.unread_count, 1)`
+      )
+      .run(jid, jid.endsWith("@g.us") ? 1 : 0);
   }
 
   setChatName(jid: string, name: string, isGroup: boolean): void {
@@ -480,12 +503,12 @@ export class MessageStore {
     }
   }
 
-  private upsertChat(msg: StoredMessage, historical: boolean): void {
+  private upsertChat(msg: StoredMessage): void {
     const isGroup = msg.jid.endsWith("@g.us");
     this.db
       .prepare(
         `INSERT INTO chats (jid, push_name, is_group, last_message_body, last_message_direction, last_message_at, unread_count)
-         VALUES (@jid, @pushName, @isGroup, @body, @direction, @timestamp, @unread)
+         VALUES (@jid, @pushName, @isGroup, @body, @direction, @timestamp, 0)
          ON CONFLICT(jid) DO UPDATE SET
            push_name = CASE
              WHEN excluded.last_message_at >= COALESCE(chats.last_message_at, 0)
@@ -502,8 +525,7 @@ export class MessageStore {
                THEN excluded.last_message_direction
              ELSE chats.last_message_direction
            END,
-           last_message_at = MAX(excluded.last_message_at, COALESCE(chats.last_message_at, 0)),
-           unread_count = chats.unread_count + excluded.unread_count`
+           last_message_at = MAX(excluded.last_message_at, COALESCE(chats.last_message_at, 0))`
       )
       .run({
         jid: msg.jid,
@@ -512,7 +534,6 @@ export class MessageStore {
         body: truncate(msg.body, 200),
         direction: msg.direction,
         timestamp: msg.timestamp,
-        unread: !historical && msg.direction === "in" ? 1 : 0,
       });
   }
 }

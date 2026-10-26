@@ -405,11 +405,11 @@ export class WhatsAppMcpServer {
       "history_status",
       {
         title: "History Status",
-        description: "Report the last history sync chunk received from WhatsApp.",
+        description: "Report how much history WhatsApp has sent since this connection started, and which sync phases are complete.",
         inputSchema: {},
         annotations: READ_ONLY,
       },
-      async () => jsonResponse({ lastHistorySync: client.historyStatus() })
+      async () => jsonResponse({ historySync: client.historyStatus() })
     );
 
     server.registerTool(
