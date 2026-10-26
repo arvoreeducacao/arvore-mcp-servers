@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { findFfmpeg, isOggOpus, toVoiceNote, waveformFromPcm } from "./audio.js";
 
 function pcm(samples: number[]): Buffer {
@@ -25,12 +25,15 @@ describe("waveformFromPcm", () => {
 });
 
 describe.skipIf(!findFfmpeg())("toVoiceNote", () => {
-  const ffmpeg = findFfmpeg()!;
-  const mp3 = execFileSync(ffmpeg, [
-    "-hide_banner", "-loglevel", "error",
-    "-f", "lavfi", "-i", "sine=frequency=440:duration=1",
-    "-f", "mp3", "pipe:1",
-  ]);
+  let mp3: Buffer;
+
+  beforeAll(() => {
+    mp3 = execFileSync(findFfmpeg()!, [
+      "-hide_banner", "-loglevel", "error",
+      "-f", "lavfi", "-i", "sine=frequency=440:duration=1",
+      "-f", "mp3", "pipe:1",
+    ]);
+  });
 
   it("turns any audio into an Opus voice note with a waveform", async () => {
     expect(isOggOpus(mp3)).toBe(false);
