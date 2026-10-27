@@ -8,7 +8,7 @@ RUN npm install --no-audit --no-fund
 COPY src ./src
 RUN npm run build
 
-FROM node:22-slim
+FROM node:22-slim AS final
 
 ENV NODE_ENV=production \
     MCP_TRANSPORT=http \
