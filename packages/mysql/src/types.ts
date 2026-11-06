@@ -8,6 +8,9 @@ export const MySQLConfigSchema = z.object({
   database: z.string(),
   ssl: z.boolean().optional().default(false),
   connectionTimeout: z.number().optional().default(30000),
+  auth: z.enum(["password", "iam"]).optional().default("password"),
+  awsRegion: z.string().optional().default("us-east-1"),
+  awsProfile: z.string().optional(),
 });
 
 export type MySQLConfig = z.output<typeof MySQLConfigSchema>;

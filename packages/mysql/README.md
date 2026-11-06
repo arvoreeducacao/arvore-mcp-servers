@@ -40,6 +40,19 @@ export MYSQL_SSL=false
 export MYSQL_CONNECTION_TIMEOUT=30000
 ```
 
+### Signing in with an RDS IAM token
+
+On Amazon RDS or Aurora with IAM database authentication turned on, the server can sign in without a password. Each query opens a new connection with a new 15-minute token, signed with the AWS credentials of the given profile (an SSO profile works).
+
+```bash
+export MYSQL_AUTH=iam
+export MYSQL_USER=db_user_created_with_AWSAuthenticationPlugin
+export MYSQL_AWS_PROFILE=my-sso-profile
+export MYSQL_AWS_REGION=us-east-1
+```
+
+With `MYSQL_AUTH=iam`, `MYSQL_PASSWORD` and `MYSQL_SSL` are ignored: the connection always uses the RDS certificate bundle. If the AWS session has expired, the query fails with `Failed to connect to MySQL: ...`; sign in again (for example `aws sso login --profile my-sso-profile`).
+
 ## Usage
 
 ```bash

@@ -1,12 +1,19 @@
+import { Buffer } from "node:buffer";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { MySQLConnection } from "./database.js";
 import { MySQLMCPError } from "./types.js";
 import mysql from "mysql2/promise";
+import { Signer } from "@aws-sdk/rds-signer";
 
 vi.mock("mysql2/promise", () => ({
   default: {
     createConnection: vi.fn(),
   },
+}));
+
+const getAuthToken = vi.fn();
+vi.mock("@aws-sdk/rds-signer", () => ({
+  Signer: vi.fn().mockImplementation(() => ({ getAuthToken })),
 }));
 
 describe("MySQLConnection", () => {
@@ -294,5 +301,72 @@ describe("MySQLConnection", () => {
     it("should be a no-op", async () => {
       await expect(connection.disconnect()).resolves.toBeUndefined();
     });
+  });
+});
+
+describe("MySQLConnection with IAM auth", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getAuthToken.mockResolvedValue("token-de-teste");
+    (mysql.createConnection as ReturnType<typeof vi.fn>).mockResolvedValue({
+      execute: vi.fn().mockResolvedValue([[{ test: 1 }]]),
+      end: vi.fn(),
+    });
+  });
+
+  const iamConfig = {
+    host: "cluster.rds.amazonaws.com",
+    port: 3306,
+    user: "pessoa",
+    password: "",
+    database: "arvore",
+    auth: "iam" as const,
+    awsRegion: "us-east-1",
+    awsProfile: "perfil-sso",
+  };
+
+  it("signs a token with the configured host, user, region and profile", async () => {
+    await new MySQLConnection(iamConfig).connect();
+
+    expect(Signer).toHaveBeenCalledWith({
+      hostname: "cluster.rds.amazonaws.com",
+      port: 3306,
+      username: "pessoa",
+      region: "us-east-1",
+      profile: "perfil-sso",
+    });
+  });
+
+  it("connects with the token over the RDS certificate and the clear password plugin", async () => {
+    await new MySQLConnection(iamConfig).connect();
+
+    const options = (mysql.createConnection as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(options.password).toBe("token-de-teste");
+    expect(options.ssl).toBe("Amazon RDS");
+    expect(options.authPlugins.mysql_clear_password()()).toEqual(Buffer.from("token-de-teste\0"));
+  });
+
+  it("signs a new token for every query", async () => {
+    const connection = new MySQLConnection(iamConfig);
+    await connection.executeQuery("SELECT 1");
+    await connection.executeQuery("SELECT 2");
+
+    expect(getAuthToken).toHaveBeenCalledTimes(2);
+  });
+
+  it("reports a failed signature as a connection error", async () => {
+    getAuthToken.mockRejectedValue(new Error("the SSO session has expired"));
+
+    await expect(new MySQLConnection(iamConfig).connect()).rejects.toThrow(
+      "Failed to connect to MySQL: the SSO session has expired"
+    );
+  });
+
+  it("keeps the password flow when auth is not iam", async () => {
+    await new MySQLConnection({ ...iamConfig, auth: "password", password: "senha" }).connect();
+
+    expect(Signer).not.toHaveBeenCalled();
+    const options = (mysql.createConnection as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(options.password).toBe("senha");
   });
 });

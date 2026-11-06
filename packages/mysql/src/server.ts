@@ -41,6 +41,9 @@ export class MySQLMCPServer {
         process.env.MYSQL_CONNECTION_TIMEOUT || "30000",
         10
       ),
+      auth: process.env.MYSQL_AUTH === "iam" ? "iam" : "password",
+      awsRegion: process.env.MYSQL_AWS_REGION || process.env.AWS_REGION || "us-east-1",
+      awsProfile: process.env.MYSQL_AWS_PROFILE || undefined,
     });
 
     return new MySQLMCPServer(config);

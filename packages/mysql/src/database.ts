@@ -1,3 +1,5 @@
+import { Buffer } from "node:buffer";
+import { Signer } from "@aws-sdk/rds-signer";
 import mysql from "mysql2/promise";
 import {
   MySQLConfig,
@@ -28,7 +30,14 @@ export class MySQLConnection {
         connectTimeout: this.config.connectionTimeout,
       };
 
-      if (this.config.ssl) {
+      if (this.config.auth === "iam") {
+        const token = await this.iamToken();
+        connectionOptions.password = token;
+        connectionOptions.ssl = "Amazon RDS";
+        connectionOptions.authPlugins = {
+          mysql_clear_password: () => () => Buffer.from(`${token}\0`),
+        };
+      } else if (this.config.ssl) {
         connectionOptions.ssl = {};
       }
 
@@ -41,6 +50,16 @@ export class MySQLConnection {
         "CONNECTION_ERROR"
       );
     }
+  }
+
+  private iamToken(): Promise<string> {
+    return new Signer({
+      hostname: this.config.host,
+      port: this.config.port,
+      username: this.config.user,
+      region: this.config.awsRegion,
+      profile: this.config.awsProfile,
+    }).getAuthToken();
   }
 
   async connect(): Promise<void> {
