@@ -5,7 +5,6 @@ import { extractMessageText, resolveFormat, toSlackText } from "../formatting.js
 import type { MessageFormat } from "../formatting.js";
 import { markdownToRichText, mrkdwnToRichText } from "../rich-text.js";
 import type {
-  MessageAuthor,
   SendDmParams,
   GetDmHistoryParams,
   ListChannelMessagesParams,
@@ -53,21 +52,19 @@ export class MessagingTools {
   private compose(
     text: string,
     format?: MessageFormat,
-    contentType?: string,
-    author?: MessageAuthor
+    contentType?: string
   ): { mrkdwn: string; blocks: Array<Record<string, unknown>> } {
     const resolved = resolveFormat(format, contentType);
     const mrkdwn = toSlackText(text, resolved);
-    return { mrkdwn, blocks: this.buildBlocks(text, mrkdwn, resolved, author) };
+    return { mrkdwn, blocks: this.buildBlocks(text, mrkdwn, resolved) };
   }
 
   private buildBlocks(
     text: string,
     mrkdwn: string,
-    format: MessageFormat,
-    author?: MessageAuthor
+    format: MessageFormat
   ): Array<Record<string, unknown>> {
-    const header = this.attribution && author !== "user"
+    const header = this.attribution
       ? [{ type: "context", elements: [{ type: "mrkdwn", text: this.ATTRIBUTION_TEXT }] }]
       : [];
 
@@ -83,7 +80,7 @@ export class MessagingTools {
     try {
       const { channelId, userId } = await this.slack.resolveDm(params.user);
 
-      const { mrkdwn, blocks } = this.compose(params.text, params.format, undefined, params.author);
+      const { mrkdwn, blocks } = this.compose(params.text, params.format);
       const msgParams: Record<string, unknown> = {
         channel: channelId,
         text: mrkdwn,
@@ -232,7 +229,7 @@ export class MessagingTools {
     try {
       const channelId = await this.slack.resolveChannelId(params.channel);
 
-      const { mrkdwn, blocks } = this.compose(params.text, params.format, params.content_type, params.author);
+      const { mrkdwn, blocks } = this.compose(params.text, params.format, params.content_type);
 
       let agentRefusal: string | undefined;
       if (params.thread_ts && this.agentVoice && params.author !== "user") {
@@ -286,7 +283,7 @@ export class MessagingTools {
 
   async editMessage(params: EditMessageParams): Promise<McpToolResult> {
     try {
-      const { mrkdwn, blocks } = this.compose(params.text, params.format, undefined, params.author);
+      const { mrkdwn, blocks } = this.compose(params.text, params.format);
 
       const channelId = await this.slack.resolveChannelId(params.channel);
       const res = await this.slack.request<{
@@ -482,7 +479,7 @@ export class MessagingTools {
       let messageTs: string | null = null;
 
       if (params.message) {
-        const { mrkdwn, blocks } = this.compose(params.message, params.format, undefined, params.author);
+        const { mrkdwn, blocks } = this.compose(params.message, params.format);
         const res = await this.slack.request<{ ok: boolean; ts: string }>("chat.postMessage", {
           channel: channelId,
           text: mrkdwn,
@@ -571,7 +568,7 @@ export class MessagingTools {
       }
 
       const channelId = await this.slack.resolveChannelId(params.channel);
-      const { mrkdwn, blocks } = this.compose(params.text, params.format, undefined, params.author);
+      const { mrkdwn, blocks } = this.compose(params.text, params.format);
 
       const res = await this.slack.request<{
         ok: boolean;

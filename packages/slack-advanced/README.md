@@ -80,9 +80,7 @@ A reply posted with the user token shows the user's name and photo, so an agent'
 
 The relay only lets the bot write in a thread the user is part of, and passes plain text, so formatting is the mrkdwn the converter produced and `metadata` is dropped. When there is no link or the relay refuses, the reply goes out as the user, as before, with `sent_as: "user"` and the reason in `hive_bot_skipped`. When the relay does not answer at all, nothing is sent with the user token, because the bot may already have posted; the call fails with `MAYBE_POSTED`.
 
-## Text the user approved goes out as the user
-
-`send_dm`, `send_channel_message`, `edit_message`, `create_group_dm` and `schedule_message` take `author`. The default, `agent`, is text the agent wrote on its own: it carries the attribution line and a thread reply goes through the Hive bot. `author: "user"` is for text the user read word for word and asked to send in their own name: it goes out with the user token, with no attribution line and never through the Hive bot, in or out of a thread. An `edit_message` with `author: "user"` also removes the attribution line from a message already sent.
+`author: "user"` is for text the user read and asked to send: the thread reply goes out with the user token, under their name and photo, never through the Hive bot. The attribution line stays. The default, `agent`, keeps the Hive bot.
 
 Group mentions (`<!subteam^S…>`) and `<!here>`, `<!channel>`, `<!everyone>` become usergroup and broadcast elements, so they notify instead of showing as raw text.
 

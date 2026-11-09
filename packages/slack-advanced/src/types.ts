@@ -32,11 +32,6 @@ export const MessageMetadataSchema = z.object({
     .describe("Structured key-value payload for the event. Other apps can read this metadata to trigger automations"),
 });
 
-export const MessageAuthorSchema = z
-  .enum(["agent", "user"])
-  .optional()
-  .describe("Who the message speaks for. agent (default) is text the agent wrote on its own: it carries the AI attribution line, and a thread reply goes out as the Hive bot when this machine's Hive is linked to Slack. user is text the user read word for word and asked to send in their own name: it goes out as them, with no attribution line and never through the Hive bot. Pick user only after showing the user this exact text and getting their go-ahead");
-
 export const SendDmParamsSchema = z.object({
   user: z
     .string()
@@ -57,7 +52,6 @@ export const SendDmParamsSchema = z.object({
   metadata: MessageMetadataSchema
     .optional()
     .describe("Structured metadata to attach to the message. Used for app-to-app communication via Slack message metadata"),
-  author: MessageAuthorSchema,
 });
 
 export const GetDmHistoryParamsSchema = z.object({
@@ -232,7 +226,10 @@ export const SendChannelMessageParamsSchema = z.object({
   metadata: MessageMetadataSchema
     .optional()
     .describe("Structured metadata to attach to the message. Used for app-to-app communication via Slack message metadata"),
-  author: MessageAuthorSchema,
+  author: z
+    .enum(["agent", "user"])
+    .optional()
+    .describe("Whose name and photo a thread reply carries. agent (default) is a reply the agent wrote on its own: it goes out as the Hive bot when this machine's Hive is linked to Slack. user is text the user read and asked to send: it always goes out under the user's own name and photo, never through the Hive bot. The AI attribution line stays either way. Pick user only after showing the user this exact text and getting their go-ahead"),
 });
 
 export const SendAudioParamsSchema = z.object({
@@ -374,7 +371,6 @@ export const EditMessageParamsSchema = z.object({
     .enum(["markdown", "mrkdwn"])
     .optional()
     .describe("How to read the text. markdown (default) converts **bold**, [label](url) and lists to Slack mrkdwn, keeping non-web links such as hive:// intact. mrkdwn sends the text untouched, for callers that already wrote *bold* and <url|label> by hand"),
-  author: MessageAuthorSchema,
 });
 
 export const DeleteMessageParamsSchema = z.object({
@@ -462,7 +458,6 @@ export const CreateGroupDmParamsSchema = z.object({
     .enum(["markdown", "mrkdwn"])
     .optional()
     .describe("How to read the text. markdown (default) converts **bold**, [label](url) and lists to Slack mrkdwn, keeping non-web links such as hive:// intact. mrkdwn sends the text untouched, for callers that already wrote *bold* and <url|label> by hand"),
-  author: MessageAuthorSchema,
 });
 
 export const WaitForReplyParamsSchema = z.object({
@@ -599,7 +594,6 @@ export const ScheduleMessageParamsSchema = z.object({
     .enum(["markdown", "mrkdwn"])
     .optional()
     .describe("How to read the text. markdown (default) converts **bold**, [label](url) and lists to Slack mrkdwn. mrkdwn sends the text untouched"),
-  author: MessageAuthorSchema,
 });
 
 export const DeleteScheduledMessageParamsSchema = z.object({
@@ -624,7 +618,6 @@ export type CreateChannelParams = z.infer<typeof CreateChannelParamsSchema>;
 export type CreateGroupDmParams = z.infer<typeof CreateGroupDmParamsSchema>;
 export type WaitForReplyParams = z.infer<typeof WaitForReplyParamsSchema>;
 export type MessageMetadata = z.infer<typeof MessageMetadataSchema>;
-export type MessageAuthor = z.infer<typeof MessageAuthorSchema>;
 export type SendDmParams = z.infer<typeof SendDmParamsSchema>;
 export type GetDmHistoryParams = z.infer<typeof GetDmHistoryParamsSchema>;
 export type ListChannelMessagesParams = z.infer<typeof ListChannelMessagesParamsSchema>;
