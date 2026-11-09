@@ -80,6 +80,61 @@ describe("thread replies as the Hive bot", () => {
   });
 });
 
+describe("messages the user approved", () => {
+  const setup = () => {
+    const request = vi.fn().mockResolvedValue({ ok: true, channel: "C1", ts: "3.0" });
+    const slack = {
+      resolveChannelId: vi.fn().mockResolvedValue("C1"),
+      resolveDm: vi.fn().mockResolvedValue({ channelId: "D1", userId: "U1" }),
+      request,
+    } as unknown as SlackClient;
+    const replyInThread = vi.fn().mockResolvedValue({ posted: true, channel: "C1", ts: "2.0" });
+    const tools = new MessagingTools(slack, true, { replyInThread } as unknown as AgentVoice);
+    return { tools, request, replyInThread };
+  };
+  const blocksOf = (request: ReturnType<typeof vi.fn>, method: string) => {
+    const [, params] = request.mock.calls.find(([called]) => called === method)!;
+    return JSON.parse((params as { blocks: string }).blocks) as Array<Record<string, unknown>>;
+  };
+  const answer = (result: McpToolResult) => JSON.parse((result.content[0] as McpTextContent).text);
+
+  it("sends a thread reply as the user, without the Hive bot and without the attribution line", async () => {
+    const { tools, request, replyInThread } = setup();
+
+    const result = await tools.sendChannelMessage({ channel: "C1", thread_ts: "1.0", text: "oi", author: "user" });
+
+    expect(replyInThread).not.toHaveBeenCalled();
+    expect(request).toHaveBeenCalledWith("chat.postMessage", expect.objectContaining({ thread_ts: "1.0" }));
+    expect(blocksOf(request, "chat.postMessage").some((block) => block.type === "context")).toBe(false);
+    expect(answer(result)).toMatchObject({ sent_as: "user" });
+    expect(answer(result).hive_bot_skipped).toBeUndefined();
+  });
+
+  it("leaves the attribution line out of a DM", async () => {
+    const { tools, request } = setup();
+
+    await tools.sendDm({ user: "D1", text: "oi", author: "user" });
+
+    expect(blocksOf(request, "chat.postMessage").some((block) => block.type === "context")).toBe(false);
+  });
+
+  it("removes the attribution line when editing", async () => {
+    const { tools, request } = setup();
+
+    await tools.editMessage({ channel: "C1", ts: "1.0", text: "oi", author: "user" });
+
+    expect(blocksOf(request, "chat.update").some((block) => block.type === "context")).toBe(false);
+  });
+
+  it("keeps the attribution line on text the agent wrote on its own", async () => {
+    const { tools, request } = setup();
+
+    await tools.sendChannelMessage({ channel: "C1", text: "oi", author: "agent" });
+
+    expect(blocksOf(request, "chat.postMessage")[0].type).toBe("context");
+  });
+});
+
 describe("isAiAttributionEnabled", () => {
   it("stays on when the variable is unset or truthy", () => {
     expect(isAiAttributionEnabled(undefined)).toBe(true);

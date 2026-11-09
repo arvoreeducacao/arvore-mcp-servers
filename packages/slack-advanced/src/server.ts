@@ -128,7 +128,7 @@ export class SlackAdvancedMCPServer {
     this.server.registerTool("send_dm", {
       title: "Send DM",
       description:
-        "Send a direct message to a user. Resolves user by name, email, or ID automatically, and also takes an existing DM id (D...) or its link, which is the sure way to reach someone from another organization over Slack Connect; a name that matches more than one person returns an AMBIGUOUS_USER error with the candidates instead of guessing. Opens DM channel if needed. Messages are sent as the authenticated user, and support optional message metadata. Text is markdown by default and can be sent as raw Slack mrkdwn with format. The reply echoes sent_text, which is exactly what Slack stored.",
+        "Send a direct message to a user. Resolves user by name, email, or ID automatically, and also takes an existing DM id (D...) or its link, which is the sure way to reach someone from another organization over Slack Connect; a name that matches more than one person returns an AMBIGUOUS_USER error with the candidates instead of guessing. Opens DM channel if needed. Messages are sent as the authenticated user, and support optional message metadata. By default the message carries the AI attribution line; author: user drops it for text the user approved word for word. Text is markdown by default and can be sent as raw Slack mrkdwn with format. The reply echoes sent_text, which is exactly what Slack stored.",
       inputSchema: SendDmParamsSchema.shape,
     }, async (params) => {
       return this.messagingTools.sendDm(SendDmParamsSchema.parse(params));
@@ -137,7 +137,7 @@ export class SlackAdvancedMCPServer {
     this.server.registerTool("send_channel_message", {
       title: "Send Channel Message",
       description:
-        "Send a message to a Slack channel. Accepts channel ID or #channel-name, and supports thread replies and optional message metadata. Text is markdown by default: **bold**, [label](url), lists and quotes are converted to Slack mrkdwn, and links with a non-web scheme such as hive:// survive the conversion. Text already written in Slack mrkdwn (*bold*, <url|label>) passes through untouched when format is mrkdwn. The reply echoes sent_text, which is exactly what Slack stored. A thread reply goes out as the Hive bot when this machine's Hive is linked to Slack and the user is part of the thread (sent_as: hive_bot), so it never reads as the user writing; otherwise it goes out as the user (sent_as: user).",
+        "Send a message to a Slack channel. Accepts channel ID or #channel-name, and supports thread replies and optional message metadata. Text is markdown by default: **bold**, [label](url), lists and quotes are converted to Slack mrkdwn, and links with a non-web scheme such as hive:// survive the conversion. Text already written in Slack mrkdwn (*bold*, <url|label>) passes through untouched when format is mrkdwn. The reply echoes sent_text, which is exactly what Slack stored. A thread reply goes out as the Hive bot when this machine's Hive is linked to Slack and the user is part of the thread (sent_as: hive_bot), so it never reads as the user writing; otherwise it goes out as the user (sent_as: user). With author: user, for text the user read word for word and asked to send in their own name, the message always goes out as the user, with no attribution line, in or out of a thread.",
       inputSchema: SendChannelMessageParamsSchema.shape,
     }, async (params) => {
       return this.messagingTools.sendChannelMessage(SendChannelMessageParamsSchema.parse(params));
@@ -245,7 +245,7 @@ export class SlackAdvancedMCPServer {
     this.server.registerTool("edit_message", {
       title: "Edit Message",
       description:
-        "Edit a message that was previously sent by the authenticated user. Requires the channel (ID or #channel-name) and message timestamp (ts). Only your own messages can be edited.",
+        "Edit a message that was previously sent by the authenticated user. Requires the channel (ID or #channel-name) and message timestamp (ts). Only your own messages can be edited. author: user also removes the AI attribution line from the edited message.",
       inputSchema: EditMessageParamsSchema.shape,
     }, async (params) => {
       return this.messagingTools.editMessage(EditMessageParamsSchema.parse(params));

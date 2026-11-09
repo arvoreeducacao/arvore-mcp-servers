@@ -6,7 +6,7 @@ type Style = { bold?: true; italic?: true; strike?: true; code?: true };
 type RichTextElement = Record<string, unknown>;
 type MdastNode = { type: string; value?: string; url?: string; depth?: number; ordered?: boolean; children?: MdastNode[] };
 
-const TOKEN = /<@([UW][A-Z0-9]+)>|<#([CG][A-Z0-9]+)(?:\|[^>]*)?>|:([a-z0-9_+-]+):/gi;
+const TOKEN = /<@([UW][A-Z0-9]+)>|<#([CG][A-Z0-9]+)(?:\|[^>]*)?>|:([a-z0-9_+-]+):|<!subteam\^([A-Z0-9]+)(?:\|[^>]*)?>|<!(here|channel|everyone)(?:\|[^>]*)?>/gi;
 const MRKDWN_PROTECTED = /```[\s\S]*?```|`[^`\n]*`|<[^<>\n]+>/g;
 const MRKDWN_LINK_CHUNK = /^<([a-z][a-z0-9+.-]*:[^|>\s]+)(?:\|([^>]*))?>$/i;
 const MRKDWN_BOLD = /(^|[^*\w])\*([^*\n]+)\*(?!\w)/g;
@@ -51,10 +51,11 @@ export function markdownToRichText(markdown: string): RichTextElement[] {
   for (const node of tree.children ?? []) {
     switch (node.type) {
       case "paragraph":
-      case "heading": {
+      case "heading":
+      case "html": {
         if (pending.length > 0) pending.push({ type: "text", text: "\n\n" });
         const style = node.type === "heading" ? { bold: true as const } : {};
-        pending.push(...inline(node.children ?? [], style));
+        pending.push(...inline(node.type === "html" ? [node] : node.children ?? [], style));
         break;
       }
       case "blockquote": {
@@ -165,10 +166,12 @@ function tokenize(value: string, style: Style): RichTextElement[] {
     const start = match.index ?? 0;
     if (start > cursor) elements.push(text(value.slice(cursor, start), style));
 
-    const [, userId, channelId, emoji] = match;
+    const [, userId, channelId, emoji, usergroupId, broadcast] = match;
     if (userId) elements.push({ type: "user", user_id: userId });
     else if (channelId) elements.push({ type: "channel", channel_id: channelId });
     else if (emoji) elements.push({ type: "emoji", name: emoji });
+    else if (usergroupId) elements.push({ type: "usergroup", usergroup_id: usergroupId });
+    else if (broadcast) elements.push({ type: "broadcast", range: broadcast.toLowerCase() });
 
     cursor = start + match[0].length;
   }
