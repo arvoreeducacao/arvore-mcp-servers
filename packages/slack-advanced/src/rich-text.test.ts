@@ -89,19 +89,19 @@ describe("markdownToRichText", () => {
   });
 
   it("turns a group mention and @here into elements that notify", () => {
-    const [section] = elements("cc <!subteam^S0AJQ7N5B3P> e <!here>");
+    const [section] = elements("cc <!subteam^S01EXAMPLE> e <!here>");
     expect(section.elements).toEqual([
       { type: "text", text: "cc " },
-      { type: "usergroup", usergroup_id: "S0AJQ7N5B3P" },
+      { type: "usergroup", usergroup_id: "S01EXAMPLE" },
       { type: "text", text: " e " },
       { type: "broadcast", range: "here" },
     ]);
   });
 
   it("keeps a line that starts with a group mention", () => {
-    const [section] = elements("<!subteam^S0AJQ7N5B3P|@tec> olhem isso");
+    const [section] = elements("<!subteam^S01EXAMPLE|@team> olhem isso");
     expect(section.elements).toEqual([
-      { type: "usergroup", usergroup_id: "S0AJQ7N5B3P" },
+      { type: "usergroup", usergroup_id: "S01EXAMPLE" },
       { type: "text", text: " olhem isso" },
     ]);
   });
