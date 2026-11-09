@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 import { SlackClient } from "../slack-client.js";
-import type { AgentVoice } from "../agent-voice.js";
 import { extractMessageText, resolveFormat, toSlackText } from "../formatting.js";
 import type { MessageFormat } from "../formatting.js";
 import { markdownToRichText, mrkdwnToRichText } from "../rich-text.js";
@@ -45,8 +44,7 @@ export class MessagingTools {
 
   constructor(
     private readonly slack: SlackClient,
-    private readonly attribution: boolean = true,
-    private readonly agentVoice?: AgentVoice
+    private readonly attribution: boolean = true
   ) {}
 
   private compose(
@@ -231,20 +229,6 @@ export class MessagingTools {
 
       const { mrkdwn, blocks } = this.compose(params.text, params.format, params.content_type);
 
-      let agentRefusal: string | undefined;
-      if (params.thread_ts && this.agentVoice && params.author !== "user") {
-        const agent = await this.agentVoice.replyInThread(channelId, params.thread_ts, mrkdwn);
-        if (agent.posted) {
-          return toolOk({ sent: true, sent_as: "hive_bot", channel: agent.channel, ts: agent.ts, sent_text: mrkdwn });
-        }
-        if (agent.maybePosted) {
-          return toolError(`${agent.reason}. The reply may have been posted as the Hive bot; read the thread before sending again`, {
-            code: "MAYBE_POSTED",
-          });
-        }
-        agentRefusal = agent.reason;
-      }
-
       const msgParams: Record<string, unknown> = {
         channel: channelId,
         text: mrkdwn,
@@ -270,8 +254,6 @@ export class MessagingTools {
 
       return toolOk({
         sent: true,
-        sent_as: "user",
-        ...(agentRefusal && { hive_bot_skipped: agentRefusal }),
         channel: res.channel,
         ts: res.ts,
         sent_text: mrkdwn,

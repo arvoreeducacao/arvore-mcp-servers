@@ -226,10 +226,6 @@ export const SendChannelMessageParamsSchema = z.object({
   metadata: MessageMetadataSchema
     .optional()
     .describe("Structured metadata to attach to the message. Used for app-to-app communication via Slack message metadata"),
-  author: z
-    .enum(["agent", "user"])
-    .optional()
-    .describe("Whose name and photo a thread reply carries. agent (default) is a reply the agent wrote on its own: it goes out as the Hive bot when this machine's Hive is linked to Slack. user is text the user read and asked to send: it always goes out under the user's own name and photo, never through the Hive bot. The AI attribution line stays either way. Pick user only after showing the user this exact text and getting their go-ahead"),
 });
 
 export const SendAudioParamsSchema = z.object({
