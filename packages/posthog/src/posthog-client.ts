@@ -2,17 +2,32 @@ export interface PostHogConfig {
   baseUrl: string;
   apiKey: string;
   projectId?: string;
+  extraHeaders?: Record<string, string>;
+}
+
+export function accessHeadersFromEnv(
+  env: Record<string, string | undefined>
+): Record<string, string> {
+  const clientId = env.CF_ACCESS_CLIENT_ID?.trim();
+  const clientSecret = env.CF_ACCESS_CLIENT_SECRET?.trim();
+  if (!clientId || !clientSecret) return {};
+  return {
+    "CF-Access-Client-Id": clientId,
+    "CF-Access-Client-Secret": clientSecret,
+  };
 }
 
 export class PostHogClient {
   private baseUrl: string;
   private apiKey: string;
   private projectId: string;
+  private extraHeaders: Record<string, string>;
 
   constructor(config: PostHogConfig) {
     this.baseUrl = config.baseUrl.replace(/\/$/, "");
     this.apiKey = config.apiKey;
     this.projectId = config.projectId || "1";
+    this.extraHeaders = config.extraHeaders ?? {};
   }
 
   private async request<T>(
@@ -22,6 +37,7 @@ export class PostHogClient {
   ): Promise<T> {
     const url = `${this.baseUrl}${path}`;
     const headers: Record<string, string> = {
+      ...this.extraHeaders,
       Authorization: `Bearer ${this.apiKey}`,
       "Content-Type": "application/json",
     };

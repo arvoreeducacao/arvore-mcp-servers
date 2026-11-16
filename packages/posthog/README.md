@@ -32,6 +32,15 @@ export POSTHOG_API_KEY=phx_your_personal_api_key
 export POSTHOG_PROJECT_ID=1                           # optional, defaults to 1
 ```
 
+### Behind Cloudflare Access
+
+If the PostHog API sits behind a Cloudflare Access application that accepts a service token, set both variables below. Every API request then carries the `CF-Access-Client-Id` and `CF-Access-Client-Secret` headers. With either one missing, no extra header is sent.
+
+```bash
+export CF_ACCESS_CLIENT_ID=your_service_token_client_id
+export CF_ACCESS_CLIENT_SECRET=your_service_token_client_secret
+```
+
 ### Getting your API Key
 
 1. Go to PostHog → Settings → Personal API Keys
