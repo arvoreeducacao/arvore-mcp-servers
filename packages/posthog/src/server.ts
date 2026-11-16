@@ -1,7 +1,11 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { PostHogClient, PostHogConfig } from "./posthog-client.js";
+import {
+  accessHeadersFromEnv,
+  PostHogClient,
+  PostHogConfig,
+} from "./posthog-client.js";
 
 function result(data: unknown) {
   return {
@@ -45,7 +49,12 @@ export class PostHogMCPServer {
       process.exit(1);
     }
 
-    return new PostHogMCPServer({ baseUrl, apiKey, projectId });
+    return new PostHogMCPServer({
+      baseUrl,
+      apiKey,
+      projectId,
+      extraHeaders: accessHeadersFromEnv(process.env),
+    });
   }
 
   private setupTools(): void {
