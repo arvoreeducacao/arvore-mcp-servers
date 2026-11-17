@@ -1,3 +1,5 @@
+import { Signer } from "@aws-sdk/rds-signer";
+import awsSslProfiles from "aws-ssl-profiles";
 import pg from "pg";
 import {
   PostgreSQLConfig,
@@ -26,10 +28,13 @@ export class PostgreSQLConnection {
         host: this.config.host,
         port: this.config.port,
         user: this.config.user,
-        password: this.config.password,
+        password:
+          this.config.auth === "iam"
+            ? await this.iamToken()
+            : this.config.password,
         database: this.config.database,
         connectionTimeoutMillis: this.config.connectionTimeout,
-        ssl: this.config.ssl ? { rejectUnauthorized: false } : false,
+        ssl: this.sslOptions(),
       });
 
       await client.connect();
@@ -42,6 +47,23 @@ export class PostgreSQLConnection {
         "CONNECTION_ERROR"
       );
     }
+  }
+
+  private iamToken(): Promise<string> {
+    return new Signer({
+      hostname: this.config.host,
+      port: this.config.port,
+      username: this.config.user,
+      region: this.config.awsRegion,
+      profile: this.config.awsProfile,
+    }).getAuthToken();
+  }
+
+  private sslOptions(): pg.ClientConfig["ssl"] {
+    if (this.config.auth === "iam") {
+      return { ca: awsSslProfiles.ca, rejectUnauthorized: true };
+    }
+    return this.config.ssl ? { rejectUnauthorized: false } : false;
   }
 
   async connect(): Promise<void> {

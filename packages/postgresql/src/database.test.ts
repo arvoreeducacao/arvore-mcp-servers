@@ -2,11 +2,18 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { PostgreSQLConnection } from "./database.js";
 import { PostgreSQLMCPError } from "./types.js";
 import pg from "pg";
+import { Signer } from "@aws-sdk/rds-signer";
+import awsSslProfiles from "aws-ssl-profiles";
 
 vi.mock("pg", () => ({
   default: {
     Client: vi.fn(),
   },
+}));
+
+const getAuthToken = vi.fn();
+vi.mock("@aws-sdk/rds-signer", () => ({
+  Signer: vi.fn().mockImplementation(() => ({ getAuthToken })),
 }));
 
 describe("PostgreSQLConnection", () => {
@@ -306,5 +313,98 @@ describe("PostgreSQLConnection", () => {
     it("should be a no-op", async () => {
       await expect(connection.disconnect()).resolves.toBeUndefined();
     });
+  });
+});
+
+describe("PostgreSQLConnection with IAM auth", () => {
+  let mockClient: {
+    connect: ReturnType<typeof vi.fn>;
+    query: ReturnType<typeof vi.fn>;
+    end: ReturnType<typeof vi.fn>;
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getAuthToken.mockResolvedValue("test-token");
+    mockClient = {
+      connect: vi.fn().mockResolvedValue(undefined),
+      query: vi.fn().mockResolvedValue({ rows: [{ test: 1 }] }),
+      end: vi.fn().mockResolvedValue(undefined),
+    };
+    (pg.Client as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+      () => mockClient
+    );
+  });
+
+  const iamConfig = {
+    host: "cluster.rds.amazonaws.com",
+    port: 5432,
+    user: "person",
+    password: "",
+    database: "app",
+    auth: "iam" as const,
+    awsRegion: "us-east-1",
+    awsProfile: "sso-profile",
+  };
+
+  const clientOptions = () =>
+    (pg.Client as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0];
+
+  it("signs a token with the configured host, port, user, region and profile", async () => {
+    await new PostgreSQLConnection(iamConfig).connect();
+
+    expect(Signer).toHaveBeenCalledWith({
+      hostname: "cluster.rds.amazonaws.com",
+      port: 5432,
+      username: "person",
+      region: "us-east-1",
+      profile: "sso-profile",
+    });
+  });
+
+  it("connects with the token as password and verifies the RDS certificate", async () => {
+    await new PostgreSQLConnection(iamConfig).connect();
+
+    expect(clientOptions().password).toBe("test-token");
+    expect(clientOptions().ssl).toEqual({
+      ca: awsSslProfiles.ca,
+      rejectUnauthorized: true,
+    });
+  });
+
+  it("verifies the RDS certificate even when POSTGRESQL_SSL is off", async () => {
+    await new PostgreSQLConnection({ ...iamConfig, ssl: false }).connect();
+
+    expect(clientOptions().ssl).toMatchObject({ rejectUnauthorized: true });
+  });
+
+  it("signs a new token for every query", async () => {
+    const connection = new PostgreSQLConnection(iamConfig);
+    await connection.executeQuery("SELECT 1");
+    await connection.executeQuery("SELECT 2");
+
+    expect(getAuthToken).toHaveBeenCalledTimes(2);
+  });
+
+  it("reports a failed signature as a connection error", async () => {
+    getAuthToken.mockRejectedValue(new Error("the SSO session has expired"));
+
+    await expect(new PostgreSQLConnection(iamConfig).connect()).rejects.toThrow(
+      "Failed to connect to PostgreSQL: the SSO session has expired"
+    );
+    expect(pg.Client).not.toHaveBeenCalled();
+  });
+
+  it("keeps the password flow when auth is not iam", async () => {
+    await new PostgreSQLConnection({
+      ...iamConfig,
+      auth: "password",
+      password: "secret",
+      ssl: true,
+    }).connect();
+
+    expect(Signer).not.toHaveBeenCalled();
+    expect(clientOptions().password).toBe("secret");
+    expect(clientOptions().ssl).toEqual({ rejectUnauthorized: false });
   });
 });

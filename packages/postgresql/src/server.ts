@@ -42,6 +42,12 @@ export class PostgreSQLMCPServer {
         process.env.POSTGRESQL_CONNECTION_TIMEOUT || "30000",
         10
       ),
+      auth: process.env.POSTGRESQL_AUTH === "iam" ? "iam" : "password",
+      awsRegion:
+        process.env.POSTGRESQL_AWS_REGION ||
+        process.env.AWS_REGION ||
+        "us-east-1",
+      awsProfile: process.env.POSTGRESQL_AWS_PROFILE || undefined,
     });
 
     return new PostgreSQLMCPServer(config);

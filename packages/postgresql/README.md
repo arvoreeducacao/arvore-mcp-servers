@@ -41,6 +41,19 @@ export POSTGRESQL_SSL=false
 export POSTGRESQL_CONNECTION_TIMEOUT=30000
 ```
 
+### Signing in with an RDS IAM token
+
+On Amazon RDS or Aurora PostgreSQL with IAM database authentication turned on, the server can sign in without a password. Each query opens a new connection with a new 15-minute token, signed with the AWS credentials of the given profile (an SSO profile works).
+
+```bash
+export POSTGRESQL_AUTH=iam
+export POSTGRESQL_USER=db_user_granted_rds_iam
+export POSTGRESQL_AWS_PROFILE=my-sso-profile
+export POSTGRESQL_AWS_REGION=us-east-1
+```
+
+The database user needs the `rds_iam` role (`GRANT rds_iam TO db_user_granted_rds_iam;`). With `POSTGRESQL_AUTH=iam`, `POSTGRESQL_PASSWORD` and `POSTGRESQL_SSL` are ignored: the connection always uses TLS and checks the server certificate against the Amazon RDS certificate bundle, so `POSTGRESQL_HOST` must be the RDS endpoint itself, not a CNAME. If the AWS session has expired, the query fails with `Failed to connect to PostgreSQL: ...`; sign in again (for example `aws sso login --profile my-sso-profile`).
+
 ## Usage
 
 ```bash
