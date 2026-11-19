@@ -5,7 +5,7 @@ A Model Context Protocol (MCP) server for PostHog that provides access to analyt
 ## Features
 
 - **Analytics**: Run HogQL queries and structured queries (Trends, Funnels, Retention, Lifecycle, Paths, Stickiness)
-- **Feature Flags**: Create, update, list, and delete feature flags with rollout control
+- **Feature Flags**: Create, update, list, and delete feature flags with rollout control and targeting by person properties
 - **Experiments**: List and inspect A/B test experiments with variants and metrics
 - **Dashboards & Insights**: Create, list, and inspect dashboards and saved insights
 - **Events & Properties**: Explore event definitions and property definitions
@@ -66,8 +66,8 @@ node dist/index.js
 |------|-------------|
 | `list_feature_flags` | List all feature flags with search and pagination |
 | `get_feature_flag` | Get details of a specific flag by ID |
-| `create_feature_flag` | Create a new flag with optional rollout percentage |
-| `update_feature_flag` | Update flag key, name, or active state |
+| `create_feature_flag` | Create a new flag with a rollout percentage or full release conditions (`filters`) |
+| `update_feature_flag` | Update flag key, name, active state, or release conditions (`filters`, replaces all groups) |
 | `delete_feature_flag` | Delete a feature flag by ID |
 
 ### Experiments
