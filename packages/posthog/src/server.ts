@@ -7,6 +7,58 @@ import {
   PostHogConfig,
 } from "./posthog-client.js";
 
+const flagPropertyValueSchema = z.union([
+  z.string(),
+  z.number(),
+  z.boolean(),
+  z.array(z.union([z.string(), z.number(), z.boolean()])),
+]);
+
+const flagFiltersSchema = z
+  .object({
+    groups: z
+      .array(
+        z
+          .object({
+            properties: z
+              .array(
+                z
+                  .object({
+                    key: z.string().describe("Property name, e.g. email or user_id"),
+                    value: flagPropertyValueSchema
+                      .optional()
+                      .describe("Value or list of values to match"),
+                    operator: z
+                      .string()
+                      .optional()
+                      .describe("exact (default), is_not, icontains, regex, gt, lt, is_set..."),
+                    type: z
+                      .string()
+                      .optional()
+                      .describe("person (default), cohort or group"),
+                  })
+                  .passthrough()
+              )
+              .optional()
+              .describe("All properties must match for the group to match"),
+            rollout_percentage: z
+              .number()
+              .min(0)
+              .max(100)
+              .nullable()
+              .optional()
+              .describe("Share of matching users who get the flag (0-100)"),
+            variant: z.string().nullable().optional(),
+          })
+          .passthrough()
+      )
+      .describe("Release conditions. A user gets the flag when any group matches"),
+  })
+  .passthrough();
+
+const FILTERS_REPLACE_WARNING =
+  "Replaces all release conditions of the flag. Read the flag with get_feature_flag first and send every group you want to keep.";
+
 function result(data: unknown) {
   return {
     content: [
@@ -127,7 +179,10 @@ export class PostHogMCPServer {
             .min(0)
             .max(100)
             .optional()
-            .describe("Percentage of users to roll out to (0-100)"),
+            .describe("Percentage of users to roll out to (0-100). Ignored when filters is sent"),
+          filters: flagFiltersSchema
+            .optional()
+            .describe("Release conditions, e.g. a group matching a list of emails"),
         },
       },
       async (params) => {
@@ -135,7 +190,9 @@ export class PostHogMCPServer {
           const data: Record<string, unknown> = { key: params.key };
           if (params.name) data.name = params.name;
           if (params.active !== undefined) data.active = params.active;
-          if (params.rollout_percentage !== undefined) {
+          if (params.filters) {
+            data.filters = params.filters;
+          } else if (params.rollout_percentage !== undefined) {
             data.filters = {
               groups: [
                 {
@@ -156,12 +213,16 @@ export class PostHogMCPServer {
       "update_feature_flag",
       {
         title: "Update Feature Flag",
-        description: "Update an existing feature flag",
+        description:
+          "Update an existing feature flag: key, name, on/off state and release conditions (who gets the flag)",
         inputSchema: {
           id: z.number().describe("Feature flag ID"),
           key: z.string().optional().describe("New key"),
           name: z.string().optional().describe("New name"),
           active: z.boolean().optional().describe("Enable or disable the flag"),
+          filters: flagFiltersSchema
+            .optional()
+            .describe(`New release conditions. ${FILTERS_REPLACE_WARNING}`),
         },
       },
       async (params) => {
